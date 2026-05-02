@@ -74,7 +74,7 @@ const TRANSLATION_PROVIDERS = [
 function header() {
   if (!process.env.LIVECHAT_SETUP_NO_CLEAR) console.clear();
   console.log(color('cyan', '╔════════════════════════════════════════════════════╗'));
-  console.log(color('cyan', '║') + color('bright', '        LiveChat Pro — Guided installer          ') + color('cyan', '║'));
+  console.log(color('cyan', '║') + color('bright', '        LiveChat Pro — Guided installer             ') + color('cyan', '║'));
   console.log(color('cyan', '╚════════════════════════════════════════════════════╝'));
   console.log('');
 }
@@ -445,8 +445,38 @@ function sudoArgs(command, args) {
   return { command: 'sudo', args: [command].concat(args) };
 }
 
+function shellQuote(value) {
+  return `'${String(value).replace(/'/g, `'\\''`)}'`;
+}
+
+function localLogPath() {
+  return process.env.LIVECHAT_LOCAL_LOG_PATH || path.join(ROOT, 'data', 'livechat-pro.local.log');
+}
+
 function localStartCommand() {
-  return `${sudoCommand('npm install')} && ${sudoCommand('node server.js')}`;
+  const logPath = localLogPath();
+  return `${sudoCommand('npm install')} && (${sudoCommand('nohup node server.js')} > ${shellQuote(logPath)} 2>&1 & echo $!)`;
+}
+
+async function startLocalServerInBackground() {
+  const logPath = localLogPath();
+  fs.mkdirSync(path.dirname(logPath), { recursive: true });
+  if (!(await ensureSudoAccess())) return null;
+
+  const command = `${sudoCommand('nohup node server.js')} > ${shellQuote(logPath)} 2>&1 & echo $!`;
+  const result = await captureShell(command);
+  if (result.code !== 0 || !result.stdout) {
+    console.log(color('red', 'Local server could not be started in the background.'));
+    if (result.stderr) console.log(color('yellow', result.stderr));
+    console.log(color('yellow', `Log file: ${logPath}`));
+    return null;
+  }
+
+  const pid = result.stdout.split(/\r?\n/).filter(Boolean).pop();
+  console.log(color('green', `✓ Local server started in the background. PID: ${pid}`));
+  console.log(color('blue', `Local server log: ${logPath}`));
+  console.log(color('yellow', `Stop it with: sudo kill ${pid}`));
+  return { pid, logPath };
 }
 
 function hasSystemd() {
@@ -893,7 +923,7 @@ async function chooseRunMode(recommendedMode = 'local') {
   console.log('\n' + color('blue', 'Startup mode'));
   const localMarker = recommendedMode === 'local' ? '  ← recommended' : '';
   const dockerMarker = recommendedMode === 'docker' ? '  ← recommended' : '';
-  console.log(`   [1] Local with sudo npm install && sudo node server.js${localMarker}`);
+  console.log(`   [1] Local in background with npm install + nohup${localMarker}`);
   console.log(`   [2] Docker with sudo docker compose up -d${dockerMarker}`);
   console.log('   [3] Only generate .env, do not start now');
   const choice = await ask(color('yellow', `   Choose an option [${recommendedMode === 'docker' ? '2' : '1'}]: `));
@@ -918,7 +948,7 @@ async function main() {
   console.log('  Create your bot by talking to @BotFather and copy the token.');
   console.log('  Token example: 123456789:ABCdefGhiJKlmNOpqrSTUvwxYZ');
   console.log('  To get your numeric ID you can message @userinfobot or @RawDataBot.');
-  console.log('  ID example: 7051275102\n');
+  console.log('  ID example: 9031274104\n');
 
   const telegramToken = await askSecret(
     '1. Telegram bot token',
@@ -1090,9 +1120,9 @@ async function main() {
       }
     }
     if (await chooseYesNo('Start now in local mode?', false)) {
-      console.log(color('blue', `Running ${finalCommand}. Press Ctrl+C to stop.`));
-      const nodeCommand = sudoArgs('node', ['server.js']);
-      await runCommand(nodeCommand.command, nodeCommand.args);
+      console.log(color('blue', 'Starting local mode in the background...'));
+      const started = await startLocalServerInBackground();
+      if (!started) return;
     }
   } else {
     finalCommand = recommendedRunMode === 'docker' ? sudoCommand('docker compose up -d') : localStartCommand();
