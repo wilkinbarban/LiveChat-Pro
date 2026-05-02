@@ -162,7 +162,10 @@ app.use(helmet({
   originAgentCluster: false,
 }));
 app.use(['/widget.js', '/config-public'], publicWidgetHeaders);
-app.use(cors(corsOptions));
+app.use((req, res, next) => {
+  if (req.path === '/widget.js' || req.path === '/config-public') return next();
+  return cors(corsOptions)(req, res, next);
+});
 app.use(express.json({ limit: '16kb' }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
