@@ -1,0 +1,87 @@
+# ============================================================
+# LiveChat Pro — docker-compose.yml
+# Uso: docker compose up -d
+# Requiere un fichero .env en el mismo directorio.
+# ============================================================
+
+services:
+  livechat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: livechat-pro
+    restart: unless-stopped
+
+    # Las variables se leen del fichero .env — NUNCA hardcodear tokens aquí
+    env_file: .env
+
+    # NODE_ENV se fuerza a producción independientemente del .env
+    environment:
+      - NODE_ENV=production
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - REDIS_KEY_PREFIX=${REDIS_KEY_PREFIX:-lcp}
+
+    ports:
+      # HOST_PORT público -> PORT interno del contenedor.
+      # En VPS usa HOST_PORT=8080 y mantiene PORT=3000 dentro del contenedor.
+      - "${HOST_PORT:-3000}:${PORT:-3000}"
+
+    volumes:
+      # Volumen con nombre para la base de datos SQLite.
+      # Los datos persisten entre reinicios y actualizaciones de imagen.
+      - livechat_data:/app/data
+
+    depends_on:
+      redis:
+        condition: service_started
+
+    healthcheck:
+      test:
+        - "CMD"
+        - "node"
+        - "-e"
+        - |
+          const h = require('http');
+          h.get('http://localhost:' + (process.env.PORT || 3000) + '/health', r => {
+            process.exit(r.statusCode === 200 ? 0 : 1);
+          }).on('error', () => process.exit(1));
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+
+    # Límites de recursos razonables para un VPS pequeño
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+    # Logging estructurado con rotación para no llenar el disco
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  redis:
+    image: redis:7-alpine
+    container_name: livechat-redis
+    restart: unless-stopped
+
+    command: ["redis-server", "--appendonly", "yes"]
+
+    volumes:
+      - redis_data:/data
+
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+volumes:
+  livechat_data:
+    driver: local
+  redis_data:
+    driver: local

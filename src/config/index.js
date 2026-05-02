@@ -1,0 +1,142 @@
+'use strict';
+
+const fs = require('fs');
+const path = require('path');
+require('dotenv').config();
+
+const ROOT_DIR = path.join(__dirname, '..', '..');
+const LEGACY_CONFIG_PATH = path.join(ROOT_DIR, 'config.json');
+
+const ADMIN_LANGUAGE_OPTIONS = new Set(['es', 'en', 'pt', 'fr', 'de', 'it']);
+const UI_LANGUAGE_OPTIONS = new Set(['es', 'en', 'pt', 'fr', 'de']);
+const COOKIE_SAME_SITE_OPTIONS = new Set(['lax', 'strict', 'none']);
+
+function readLegacyConfig(logger = console) {
+  if ((process.env.TELEGRAM_TOKEN && process.env.TELEGRAM_ADMIN_ID) || !fs.existsSync(LEGACY_CONFIG_PATH)) {
+    return null;
+  }
+
+  try {
+    const legacyConfig = JSON.parse(fs.readFileSync(LEGACY_CONFIG_PATH, 'utf8'));
+    logger.warn?.('Usando config.json legado. Migra a .env con: node setup.js');
+    return legacyConfig;
+  } catch (error) {
+    logger.warn?.({ err: error }, 'No se pudo leer config.json');
+    return null;
+  }
+}
+
+function parseInteger(value, fallback) {
+  const parsed = parseInt(value, 10);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function parseCsv(value, fallback = []) {
+  const parsed = String(value || '')
+    .split(',')
+    .map(item => item.trim())
+    .filter(Boolean);
+  return parsed.length ? parsed : fallback;
+}
+
+function normalizeAdminLanguage(lang) {
+  const baseLang = typeof lang === 'string' ? lang.toLowerCase().split('-')[0] : '';
+  return ADMIN_LANGUAGE_OPTIONS.has(baseLang) ? baseLang : 'es';
+}
+
+function normalizeUiLanguage(lang) {
+  const baseLang = typeof lang === 'string' ? lang.toLowerCase().split('-')[0] : '';
+  return UI_LANGUAGE_OPTIONS.has(baseLang) ? baseLang : 'es';
+}
+
+function languageFromHeader(header = '') {
+  const candidates = String(header)
+    .split(',')
+    .map(part => part.trim().split(';')[0])
+    .filter(Boolean);
+  return normalizeUiLanguage(candidates[0] || 'es');
+}
+
+function createConfig({ logger = console } = {}) {
+  const legacyConfig = readLegacyConfig(logger);
+  const rawCookieSameSite = String(process.env.COOKIE_SAME_SITE || 'lax').toLowerCase();
+  const allowedOrigins = (process.env.ALLOWED_ORIGINS || '*')
+    .split(',')
+    .map(origin => origin.trim())
+    .filter(Boolean);
+
+  const telegramToken = process.env.TELEGRAM_TOKEN || legacyConfig?.telegram?.token;
+  const telegramAdminId = parseInteger(process.env.TELEGRAM_ADMIN_ID || legacyConfig?.telegram?.adminId, NaN);
+  const adminLanguage = normalizeAdminLanguage(process.env.ADMIN_LANGUAGE || legacyConfig?.admin?.language || 'es');
+
+  return {
+    rootDir: ROOT_DIR,
+    legacyConfig,
+    telegram: {
+      token: telegramToken,
+      adminId: telegramAdminId,
+      launchTimeoutMs: parseInteger(process.env.TELEGRAM_LAUNCH_TIMEOUT_MS || '15000', 15000),
+    },
+    server: {
+      port: parseInteger(process.env.PORT || legacyConfig?.server?.port || '8080', 8080),
+      trustProxyHops: parseInteger(process.env.TRUST_PROXY_HOPS || '1', 1),
+      corsOptions: {
+        origin: allowedOrigins.includes('*') ? true : allowedOrigins,
+        methods: ['GET', 'POST'],
+      },
+    },
+    widget: {
+      buttonStyle: process.env.WIDGET_BUTTON_STYLE || legacyConfig?.widget?.buttonStyle || 'floating',
+      primaryColor: process.env.WIDGET_PRIMARY_COLOR || legacyConfig?.widget?.primaryColor || '#4F46E5',
+      welcomeMessage: process.env.WIDGET_WELCOME_MESSAGE || legacyConfig?.widget?.welcomeMessage || '',
+      apiKey: process.env.WIDGET_API_KEY || '',
+    },
+    admin: {
+      password: process.env.ADMIN_PANEL_PASSWORD || '',
+      sessionTtlMs: parseInteger(process.env.ADMIN_SESSION_TTL_HOURS || '12', 12) * 60 * 60 * 1000,
+      cookieName: 'lcp_admin',
+      csrfCookieName: 'lcp_csrf',
+      cookieSameSite: COOKIE_SAME_SITE_OPTIONS.has(rawCookieSameSite) ? rawCookieSameSite : 'lax',
+      language: adminLanguage,
+    },
+    redis: {
+      url: process.env.REDIS_URL || '',
+      keyPrefix: process.env.REDIS_KEY_PREFIX || 'lcp',
+    },
+    rateLimit: {
+      windowMinutes: parseInteger(process.env.RATE_LIMIT_WINDOW_MINUTES || '15', 15),
+      publicMax: parseInteger(process.env.RATE_LIMIT_PUBLIC_MAX || '300', 300),
+      adminMax: parseInteger(process.env.RATE_LIMIT_ADMIN_MAX || '2000', 2000),
+      loginMax: parseInteger(process.env.RATE_LIMIT_LOGIN_MAX || '20', 20),
+      uploadWindowMinutes: parseInteger(process.env.RATE_LIMIT_UPLOAD_WINDOW_MINUTES || '1', 1),
+      uploadMax: parseInteger(process.env.RATE_LIMIT_UPLOAD_MAX || '10', 10),
+    },
+    uploads: {
+      dir: process.env.UPLOAD_DIR || path.join('data', 'uploads'),
+      maxMb: parseInteger(process.env.MAX_UPLOAD_MB || '5', 5),
+      allowedImageTypes: parseCsv(process.env.ALLOWED_IMAGE_TYPES, ['image/jpeg', 'image/png', 'image/webp', 'image/gif']),
+    },
+    features: {
+      translation: (process.env.FEATURE_TRANSLATION || String(legacyConfig?.features?.translation ?? true)) !== 'false',
+      sentiment: (process.env.FEATURE_SENTIMENT || String(legacyConfig?.features?.sentimentAnalysis ?? true)) !== 'false',
+      ghostTyping: (process.env.FEATURE_GHOST_TYPING || String(legacyConfig?.features?.ghostTyping ?? true)) !== 'false',
+      geoLocation: (process.env.FEATURE_GEOLOCATION || String(legacyConfig?.features?.geoLocation ?? true)) !== 'false',
+    },
+  };
+}
+
+function validateConfig(config) {
+  const errors = [];
+  if (!config.telegram.token) errors.push('TELEGRAM_TOKEN es requerido');
+  if (!Number.isFinite(config.telegram.adminId)) errors.push('TELEGRAM_ADMIN_ID debe ser numérico');
+  if (!Number.isFinite(config.server.port) || config.server.port <= 0) errors.push('PORT debe ser numérico y mayor que 0');
+  return errors;
+}
+
+module.exports = {
+  createConfig,
+  validateConfig,
+  normalizeAdminLanguage,
+  normalizeUiLanguage,
+  languageFromHeader,
+};

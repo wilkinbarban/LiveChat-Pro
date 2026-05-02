@@ -1,0 +1,34 @@
+# Dependencias
+node_modules/
+.local/
+node-local
+npm-local
+
+# Credenciales — NUNCA subir a git
+.env
+.env.test
+.env.local
+
+# Base de datos SQLite
+data/
+
+# Config con tokens (legado — migrado a .env)
+config.json
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor y asistentes locales
+.vscode/
+.codex
+
+# Docker overrides locales
+docker-compose.override.yml
+
+# Ficheros .env alternativos y reportes generados
+PHASE2_REVIEW_REPORT.md

@@ -1,0 +1,45 @@
+# Dependencias del host — se instalan dentro del contenedor
+node_modules/
+.local/
+node-local
+npm-local
+
+# Credenciales — NUNCA hornear en la imagen
+.env
+
+# Base de datos local — se monta como volumen Docker
+data/
+*.db
+
+# Artefactos de desarrollo y pruebas
+tests/
+*.test.js
+nodemon.json
+.DS_Store
+Thumbs.db
+
+# Control de versiones
+.git/
+.gitignore
+.github/
+
+# Config legada
+config.json
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-error.log*
+
+# Documentación de arquitectura (no necesaria en el contenedor)
+livechat-architecture.html
+README.md
+PHASE2_REVIEW_REPORT.md
+docker-compose.yml
+nginx/
+
+# Ficheros .env alternativos
+.env.test
+.env.local
+.env.example

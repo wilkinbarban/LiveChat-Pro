@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LiveChat Pro — Arquitectura</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#080b14;--surface:#0e1422;--surface2:#141928;
+  --border:#1e2740;--accent:#6366f1;--accent2:#8b5cf6;
+  --green:#22d3a5;--orange:#f59e0b;--red:#ef4444;--blue:#38bdf8;
+  --text:#e2e8f0;--muted:#64748b;
+}
+body{background:var(--bg);color:var(--text);font-family:'Space Grotesk',sans-serif;min-height:100vh;overflow-x:hidden}
+.noise{position:fixed;inset:0;opacity:.03;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");pointer-events:none;z-index:0}
+.container{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:40px 24px}
+
+/* Header */
+.header{text-align:center;margin-bottom:60px}
+.tag{display:inline-block;background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);color:#818cf8;border-radius:100px;padding:4px 16px;font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;margin-bottom:20px}
+h1{font-size:clamp(1.8rem,4vw,3rem);font-weight:700;background:linear-gradient(135deg,#e2e8f0 0%,#818cf8 60%,#c4b5fd 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:12px}
+.subtitle{color:var(--muted);font-size:.95rem;font-weight:300}
+
+/* Flow diagram */
+.flow{display:grid;grid-template-columns:1fr auto 1fr;gap:0;margin-bottom:48px;align-items:center}
+.node{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px;text-align:center}
+.node.user{border-color:rgba(34,211,165,.3);background:rgba(34,211,165,.04)}
+.node.server{border-color:rgba(99,102,241,.4);background:rgba(99,102,241,.07);transform:scale(1.05);box-shadow:0 0 40px rgba(99,102,241,.15)}
+.node.telegram{border-color:rgba(56,189,248,.3);background:rgba(56,189,248,.04)}
+.node-icon{font-size:2.5rem;margin-bottom:10px}
+.node-title{font-size:.85rem;font-weight:600;color:var(--text);margin-bottom:4px}
+.node-sub{font-size:.72rem;color:var(--muted);font-family:'JetBrains Mono',monospace}
+.arrow{display:flex;flex-direction:column;align-items:center;gap:8px;padding:0 12px}
+.arr-line{width:2px;flex:1;min-height:60px;background:linear-gradient(to bottom,transparent,var(--border),transparent)}
+.arr-label{font-size:.65rem;color:var(--muted);text-align:center;white-space:nowrap;background:var(--bg);padding:2px 6px;border-radius:4px;border:1px solid var(--border)}
+.arr-icon{font-size:1.1rem}
+
+/* Feature grid */
+.section-title{font-size:.7rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:16px}
+.features{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;margin-bottom:48px}
+.feat{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;transition:.2s}
+.feat:hover{border-color:rgba(99,102,241,.3);transform:translateY(-2px)}
+.feat-head{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.feat-icon{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0}
+.feat-icon.indigo{background:rgba(99,102,241,.15)}
+.feat-icon.green{background:rgba(34,211,165,.12)}
+.feat-icon.orange{background:rgba(245,158,11,.12)}
+.feat-icon.red{background:rgba(239,68,68,.12)}
+.feat-icon.blue{background:rgba(56,189,248,.12)}
+.feat-icon.purple{background:rgba(139,92,246,.12)}
+.feat-name{font-size:.85rem;font-weight:600;color:var(--text)}
+.feat-desc{font-size:.75rem;color:var(--muted);line-height:1.5}
+
+/* Commands */
+.commands{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-bottom:48px}
+.cmd{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;display:flex;gap:12px;align-items:flex-start}
+.cmd-name{font-family:'JetBrains Mono',monospace;font-size:.8rem;color:#818cf8;font-weight:500;margin-bottom:4px}
+.cmd-desc{font-size:.72rem;color:var(--muted)}
+
+/* Files */
+.files{background:var(--surface2);border:1px solid var(--border);border-radius:16px;padding:24px;margin-bottom:48px;font-family:'JetBrains Mono',monospace}
+.file-tree{font-size:.8rem;line-height:2}
+.file-tree .dir{color:#818cf8;font-weight:500}
+.file-tree .file{color:var(--text)}
+.file-tree .desc{color:var(--muted);font-size:.7rem}
+
+/* Flow steps */
+.flow-steps{display:flex;flex-direction:column;gap:12px;margin-bottom:48px}
+.step{display:flex;gap:16px;align-items:flex-start;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 18px}
+.step-n{width:28px;height:28px;border-radius:50%;background:rgba(99,102,241,.2);border:1px solid rgba(99,102,241,.4);color:#818cf8;font-size:.75rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.step-content{}
+.step-title{font-size:.83rem;font-weight:600;color:var(--text);margin-bottom:2px}
+.step-desc{font-size:.73rem;color:var(--muted)}
+
+/* Install */
+.install{background:linear-gradient(135deg,rgba(99,102,241,.08),rgba(139,92,246,.05));border:1px solid rgba(99,102,241,.2);border-radius:16px;padding:24px;margin-bottom:48px}
+.install h3{font-size:.95rem;font-weight:600;margin-bottom:16px;color:#c4b5fd}
+.code{background:#050709;border:1px solid #1a1f30;border-radius:10px;padding:14px 18px;font-family:'JetBrains Mono',monospace;font-size:.78rem;line-height:1.9;overflow-x:auto}
+.code .comment{color:#3d4a6a}
+.code .cmd-text{color:#22d3a5}
+.code .flag{color:#f59e0b}
+
+@media(max-width:680px){.flow{grid-template-columns:1fr;grid-template-rows:auto auto auto}.arrow{flex-direction:row;padding:8px 0}.arr-line{height:2px;flex:1;min-height:0;width:auto}}
+</style>
+</head>
+<body>
+<div class="noise"></div>
+<div class="container">
+
+  <div class="header">
+    <div class="tag">Arquitectura del sistema</div>
+    <h1>LiveChat Pro</h1>
+    <p class="subtitle">Chat en vivo auto-hospedado · Node.js + Socket.io + Telegram</p>
+  </div>
+
+  <!-- Flow -->
+  <div class="section-title">Flujo de comunicación</div>
+  <div class="flow">
+    <div class="node user">
+      <div class="node-icon">🌐</div>
+      <div class="node-title">Usuario Web</div>
+      <div class="node-sub">widget.js embebido</div>
+    </div>
+    <div class="arrow">
+      <div class="arr-icon">⬆</div>
+      <div class="arr-label">Socket.io WS</div>
+      <div class="arr-label">traducción auto</div>
+      <div class="arr-icon">⬇</div>
+    </div>
+    <div class="node server">
+      <div class="node-icon">⚙️</div>
+      <div class="node-title">server.js</div>
+      <div class="node-sub">Express + Socket.io<br>Estado + Sesiones</div>
+    </div>
+    <div class="arrow">
+      <div class="arr-icon">⬆</div>
+      <div class="arr-label">Telegraf API</div>
+      <div class="arr-label">respuestas admin</div>
+      <div class="arr-icon">⬇</div>
+    </div>
+    <div class="node telegram">
+      <div class="node-icon">💬</div>
+      <div class="node-title">Admin Telegram</div>
+      <div class="node-sub">Bot + comandos</div>
+    </div>
+  </div>
+
+  <!-- Features -->
+  <div class="section-title">Funcionalidades implementadas</div>
+  <div class="features">
+    <div class="feat">
+      <div class="feat-head"><div class="feat-icon indigo">🔗</div><div class="feat-name">Sesión persistente</div></div>
+      <div class="feat-desc">sessionId guardado en cookie + localStorage. El historial se recupera al recargar la página.</div>
+    </div>
+    <div class="feat">
+      <div class="feat-head"><div class="feat-icon blue">🌍</div><div class="feat-name">Traducción automática</div></div>
+      <div class="feat-desc">Mensajes del usuario → español para el admin. Respuestas del admin → idioma original del usuario.</div>
+    </div>
+    <div class="feat">
+      <div class="feat-head"><div class="feat-icon purple">✍️</div><div class="feat-name">Ghost Typing</div></div>
+      <div class="feat-desc">El admin ve en Telegram lo que el usuario está escribiendo en tiempo real, antes de que presione Enviar.</div>
+    </div>
+    <div class="feat">
+      <div class="feat-head"><div class="feat-icon green">📍</div><div class="feat-name">Geolocalización</div></div>
+      <div class="feat-desc">Al conectar, se envía ficha técnica: ciudad, país, ISP, User-Agent y página actual via ip-api.com.</div>
+    </div>
+    <div class="feat">
+      <div class="feat-head"><div class="feat-icon orange">🔬</div><div class="feat-name">Análisis de sentimiento</div></div>
+      <div class="feat-desc">Librería sentiment detecta mensajes ofensivos y clientes molestos. Etiquetas automáticas en Telegram.</div>
+    </div>
+    <div class="feat">
+      <div class="feat-head"><div class="feat-icon red">🛡️</div><div class="feat-name">Mapeo multihilo</div></div>
+      <div class="feat-desc">sessionId ↔ socketId mapeados. Las respuestas del admin llegan solo al usuario correcto. Sin mezclas.</div>
+    </div>
+    <div class="feat">
+      <div class="feat-head"><div class="feat-icon indigo">👋</div><div class="feat-name">Flujo de bienvenida</div></div>
+      <div class="feat-desc">El bot pregunta el nombre del usuario. Una vez recibido, actualiza el header del chat y el panel en Telegram.</div>
+    </div>
+    <div class="feat">
+      <div class="feat-head"><div class="feat-icon blue">🎨</div><div class="feat-name">Widget configurable</div></div>
+      <div class="feat-desc">Color, estilo de botón (flotante/persistente/oculto) y mensaje de bienvenida configurables via CLI setup.</div>
+    </div>
+  </div>
+
+  <!-- Bot commands -->
+  <div class="section-title">Comandos del bot de Telegram</div>
+  <div class="commands">
+    <div class="cmd">
+      <div>
+        <div class="cmd-name">/usuarios</div>
+        <div class="cmd-desc">Lista todos los usuarios activos con nombre, ID y ubicación.</div>
+      </div>
+    </div>
+    <div class="cmd">
+      <div>
+        <div class="cmd-name">/ban [id]</div>
+        <div class="cmd-desc">Bloquea un usuario por sessionId. Desconecta su socket inmediatamente.</div>
+      </div>
+    </div>
+    <div class="cmd">
+      <div>
+        <div class="cmd-name">/info [id]</div>
+        <div class="cmd-desc">IP, geolocalización, ISP, User-Agent, página actual y prioridad.</div>
+      </div>
+    </div>
+    <div class="cmd">
+      <div>
+        <div class="cmd-name">/clean</div>
+        <div class="cmd-desc">Elimina sesiones inactivas hace más de 1 hora de la memoria.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Message flow steps -->
+  <div class="section-title">Flujo de un mensaje entrante</div>
+  <div class="flow-steps">
+    <div class="step"><div class="step-n">1</div><div class="step-content"><div class="step-title">Usuario escribe → socket.emit('message')</div><div class="step-desc">El widget captura el texto y lo emite al servidor via WebSocket.</div></div></div>
+    <div class="step"><div class="step-n">2</div><div class="step-content"><div class="step-title">Detección de idioma</div><div class="step-desc">Google Translate API (endpoint libre) detecta el idioma del mensaje automáticamente.</div></div></div>
+    <div class="step"><div class="step-n">3</div><div class="step-content"><div class="step-title">Traducción al español</div><div class="step-desc">Si el idioma no es español, se traduce para que el administrador reciba todo en su idioma.</div></div></div>
+    <div class="step"><div class="step-n">4</div><div class="step-content"><div class="step-title">Análisis de sentimiento</div><div class="step-desc">Se evalúan palabras ofensivas y puntuación negativa. Se añaden etiquetas [OFENSIVO] o [PRIORIDAD ALTA].</div></div></div>
+    <div class="step"><div class="step-n">5</div><div class="step-content"><div class="step-title">Envío a Telegram</div><div class="step-desc">El mensaje llega al admin con nombre, sessionId, contexto y etiquetas de alerta si aplica.</div></div></div>
+    <div class="step"><div class="step-n">6</div><div class="step-content"><div class="step-title">Admin responde en Telegram</div><div class="step-desc">El servidor detecta la respuesta, traduce de vuelta al idioma original del usuario y la enruta via socket al cliente correcto.</div></div></div>
+  </div>
+
+  <!-- Files -->
+  <div class="section-title">Estructura de archivos</div>
+  <div class="files">
+    <div class="file-tree">
+      <div class="dir">📁 livechat/</div>
+      <div>&nbsp;&nbsp;├── <span class="file">server.js</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="desc">← Servidor principal, Socket.io, Telegram bot, state</span></div>
+      <div>&nbsp;&nbsp;├── <span class="file">widget.js</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="desc">← Script embebible para cualquier web HTML</span></div>
+      <div>&nbsp;&nbsp;├── <span class="file">setup.js</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="desc">← Asistente CLI interactivo de instalación</span></div>
+      <div>&nbsp;&nbsp;├── <span class="file">config.json</span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="desc">← Generado por setup.js, token, colores, etc.</span></div>
+      <div>&nbsp;&nbsp;├── <span class="file">package.json</span>&nbsp;&nbsp;&nbsp;<span class="desc">← Dependencias npm</span></div>
+      <div>&nbsp;&nbsp;└── <span class="dir">public/</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── <span class="file">index.html</span>&nbsp;&nbsp;<span class="desc">← Demo/landing para probar el widget</span></div>
+    </div>
+  </div>
+
+  <!-- Install -->
+  <div class="install">
+    <h3>🚀 Instalación y puesta en marcha</h3>
+    <div class="code">
+      <div class="comment"># 1. Instalar dependencias</div>
+      <div class="cmd-text">npm install</div>
+      <br>
+      <div class="comment"># 2. Ejecutar asistente de configuración</div>
+      <div class="cmd-text">node setup.js</div>
+      <div class="comment">  → Token del Bot, Admin ID, color, estilo de botón</div>
+      <br>
+      <div class="comment"># 3. Iniciar servidor</div>
+      <div class="cmd-text">node server.js</div>
+      <br>
+      <div class="comment"># 4. Integrar en cualquier web</div>
+      <div>&lt;script <span class="flag">src</span>="https://tu-servidor/widget.js"</div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="flag">data-server</span>="https://tu-servidor"&gt;&lt;/script&gt;</div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

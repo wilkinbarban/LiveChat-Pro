@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <title>LiveChat Pro Admin</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap');
+    :root { --bg:#edf2f7; --surface:#fff; --soft:#f7fafc; --line:#d8e0ea; --ink:#152033; --muted:#66758a; --accent:#2563eb; --ok:#0f9f6e; --warn:#b45309; --danger:#b91c1c; --shadow:0 14px 38px rgba(21,32,51,.09); }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100vh; color:var(--ink); background:var(--bg); font-family:Inter,system-ui,sans-serif; }
+    button,input,textarea { font:inherit; }
+    button { min-height:40px; padding:0 13px; border:1px solid transparent; border-radius:8px; cursor:pointer; font-weight:700; background:var(--soft); color:var(--ink); }
+    button:disabled { opacity:.5; cursor:not-allowed; }
+    input,textarea { width:100%; border:1px solid var(--line); border-radius:8px; background:#fff; color:var(--ink); outline:none; padding:12px 14px; }
+    input:focus,textarea:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(37,99,235,.12); }
+    textarea { min-height:108px; resize:vertical; }
+    h1,h2,h3,p { margin:0; }
+    .hidden { display:none!important; } .mono { font-family:"IBM Plex Mono",monospace; } .muted { color:var(--muted); }
+    .btn-primary { background:var(--accent); color:#fff; } .btn-danger { background:var(--danger); color:#fff; } .btn-warn { background:#fff7ed; color:var(--warn); border-color:#fed7aa; } .btn-soft { border-color:var(--line); background:#fff; }
+    .login-shell { min-height:100vh; display:grid; place-items:center; padding:24px; }
+    .login-card { width:min(460px,100%); background:var(--surface); border:1px solid var(--line); border-radius:8px; box-shadow:var(--shadow); padding:26px; display:grid; gap:16px; }
+    .brand-mark { display:inline-flex; width:fit-content; min-height:34px; align-items:center; padding:0 11px; border:1px solid #bfdbfe; border-radius:8px; background:#eff6ff; color:var(--accent); font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; }
+    .notice { min-height:44px; padding:12px 14px; border-radius:8px; background:#eff6ff; color:var(--accent); line-height:1.45; }
+    .app { min-height:100vh; display:grid; grid-template-columns:390px minmax(0,1fr); }
+    .sidebar { min-height:100vh; border-right:1px solid var(--line); background:var(--surface); padding:20px; display:grid; grid-template-rows:auto auto auto minmax(0,1fr); gap:16px; }
+    .topbar,.panel,.thread,.composer,.empty { background:var(--surface); border:1px solid var(--line); border-radius:8px; box-shadow:var(--shadow); }
+    .topbar { display:flex; justify-content:space-between; gap:14px; padding:18px; } .topbar h1 { font-size:25px; line-height:1; margin-top:8px; } .topbar p { margin-top:6px; color:var(--muted); }
+    .top-actions,.row,.actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .top-actions { align-items:flex-start; justify-content:flex-end; }
+    .top-actions a { display:inline-flex; align-items:center; min-height:40px; padding:0 13px; border:1px solid var(--line); border-radius:8px; color:var(--ink); text-decoration:none; font-weight:700; background:#fff; }
+    .filters { display:grid; grid-template-columns:1fr auto auto; gap:8px; }
+    .metrics { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+    .metric,.info { border:1px solid var(--line); border-radius:8px; padding:12px; background:var(--soft); min-width:0; }
+    .metric span,.info span { display:block; color:var(--muted); font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px; }
+    .metric strong { font-size:24px; } .info strong { display:block; overflow-wrap:anywhere; font-size:13px; }
+    .session-list { overflow:auto; display:grid; align-content:start; gap:10px; padding-right:3px; }
+    .session-card { border:1px solid var(--line); border-radius:8px; background:var(--soft); padding:14px; cursor:pointer; display:grid; gap:9px; }
+    .session-card.active { border-color:var(--accent); background:#eff6ff; }
+    .session-head { display:flex; justify-content:space-between; gap:8px; align-items:flex-start; }
+    .session-name { font-weight:800; }
+    .snippet { color:var(--muted); font-size:13px; line-height:1.4; min-height:36px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+    .badge { display:inline-flex; align-items:center; min-height:24px; padding:0 8px; border-radius:8px; background:#e8eef6; color:var(--ink); font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; }
+    .badge.ok { background:#dcfce7; color:#047857; } .badge.warn { background:#ffedd5; color:var(--warn); } .badge.danger { background:#fee2e2; color:var(--danger); } .badge.accent { background:#dbeafe; color:var(--accent); }
+    .main { min-width:0; padding:20px; display:grid; grid-template-rows:auto minmax(0,1fr) auto; gap:16px; }
+    .detail { padding:18px; display:grid; gap:14px; }
+    .detail-head { display:flex; justify-content:space-between; gap:14px; align-items:flex-start; }
+    .detail-head h2 { font-size:24px; }
+    .detail-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; }
+    .thread { min-height:0; display:grid; grid-template-rows:auto minmax(0,1fr); overflow:hidden; }
+    .thread-title { padding:14px 18px; border-bottom:1px solid var(--line); background:var(--soft); display:flex; justify-content:space-between; gap:10px; }
+    .messages { overflow:auto; padding:18px; display:flex; flex-direction:column; gap:12px; }
+    .message { max-width:min(760px,78%); border:1px solid var(--line); border-radius:8px; padding:12px 14px; background:#fff; }
+    .message.admin,.message.bot { align-self:flex-end; background:#eff6ff; } .message.user { align-self:flex-start; }
+    .message small { display:block; margin-bottom:7px; color:var(--muted); font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; }
+    .message .text { white-space:pre-wrap; line-height:1.5; overflow-wrap:anywhere; } .message .stamp { margin-top:8px; color:var(--muted); font-size:12px; }
+    .attachments { display:grid; gap:8px; margin-top:10px; }
+    .attachment { width:min(280px,100%); border:1px solid var(--line); border-radius:8px; overflow:hidden; background:#fff; }
+    .attachment img { display:block; width:100%; max-height:220px; object-fit:cover; background:#e8eef6; }
+    .attachment-name { padding:8px 10px; color:var(--muted); font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .attachment-actions { display:flex; gap:6px; padding:8px; border-top:1px solid var(--line); background:var(--soft); }
+    .attachment-actions a,.attachment-actions button { min-height:32px; padding:0 9px; border-radius:8px; font-size:12px; text-decoration:none; display:inline-flex; align-items:center; justify-content:center; font-weight:800; }
+    .attachment-actions a { border:1px solid var(--line); color:var(--ink); background:#fff; }
+    .attachment-actions button { border:1px solid #fecaca; background:#fee2e2; color:var(--danger); }
+    .attachment-deleted { margin-top:8px; color:var(--muted); font-size:12px; font-style:italic; }
+    .composer { padding:16px; display:grid; gap:10px; }
+    .composer-head { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; }
+    .composer-actions { display:flex; gap:8px; align-items:center; justify-content:flex-end; flex-wrap:wrap; }
+    .empty { display:grid; place-items:center; text-align:center; padding:32px; color:var(--muted); }
+    .loading { position:fixed; right:18px; bottom:18px; background:#111827; color:#fff; border-radius:8px; padding:10px 13px; box-shadow:var(--shadow); font-size:13px; z-index:20; }
+    @media (max-width:1100px) { .app { grid-template-columns:1fr; } .sidebar { min-height:auto; } .main { min-height:780px; } .detail-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+    @media (max-width:680px) { .sidebar,.main { padding:12px; } .topbar,.detail-head,.filters { grid-template-columns:1fr; display:grid; } .metrics,.detail-grid { grid-template-columns:1fr; } .message { max-width:100%; } }
+  </style>
+</head>
+<body>
+  <div id="loginView" class="login-shell hidden">
+    <form id="loginForm" class="login-card">
+      <div class="brand-mark">LiveChat Pro Admin</div>
+      <div><h2 data-i18n="loginTitle">Acceso administrador</h2><p class="muted" data-i18n="loginLead">Panel privado para gestionar chats, usuarios y estado general del sistema.</p></div>
+      <input id="passwordInput" type="password" autocomplete="current-password" placeholder="Contraseña del panel" data-i18n-placeholder="password" required>
+      <div id="loginNotice" class="notice" data-i18n="loginNotice">Inicia sesión para cargar el panel.</div>
+      <button class="btn-primary" type="submit" data-i18n="enter">Entrar</button>
+    </form>
+  </div>
+
+  <div id="appView" class="app hidden">
+    <aside class="sidebar">
+      <section class="topbar">
+        <div><div class="brand-mark" data-i18n="singleAdmin">Admin único</div><h1 data-i18n="chats">Chats</h1><p data-i18n="directManage">Gestión directa de conversaciones.</p></div>
+        <div class="top-actions"><a href="/">Demo</a><a href="/health">Health</a><button id="logoutBtn" class="btn-soft" type="button" data-i18n="logout">Salir</button></div>
+      </section>
+      <section class="filters">
+        <input id="searchInput" type="search" placeholder="Buscar nombre, ID, IP, país, página" data-i18n-placeholder="search">
+        <button id="onlyLiveBtn" class="btn-soft" type="button" data-i18n="online">Online</button>
+        <button id="refreshBtn" class="btn-soft" type="button" data-i18n="refresh">Recargar</button>
+      </section>
+      <section class="metrics">
+        <article class="metric"><span data-i18n="users">Usuarios</span><strong id="mUsers">0</strong></article>
+        <article class="metric"><span data-i18n="connected">Conectados</span><strong id="mOnline">0</strong></article>
+        <article class="metric"><span data-i18n="offline">Desconectados</span><strong id="mOffline">0</strong></article>
+        <article class="metric"><span data-i18n="unread">Sin leer</span><strong id="mUnread">0</strong></article>
+        <article class="metric"><span data-i18n="messages">Mensajes</span><strong id="mMessages">0</strong></article>
+        <article class="metric"><span data-i18n="blocked">Bloqueados</span><strong id="mBanned">0</strong></article>
+      </section>
+      <section id="sessionList" class="session-list"></section>
+    </aside>
+
+    <main class="main">
+      <section id="emptyState" class="empty"><div><h2 data-i18n="selectChat">Selecciona un chat</h2><p data-i18n="detailHere">El detalle aparecerá aquí.</p></div></section>
+      <section id="detailPanel" class="panel detail hidden">
+        <div class="detail-head"><div><h2 id="detailName">Sin selección</h2><p id="detailMeta" class="muted"></p></div><div id="detailBadges" class="row"></div></div>
+        <div class="detail-grid">
+          <article class="info"><span>Session ID</span><strong id="infoSession" class="mono"></strong></article>
+          <article class="info"><span>IP</span><strong id="infoIp" class="mono"></strong></article>
+          <article class="info"><span data-i18n="geo">Geolocalización</span><strong id="infoGeo"></strong></article>
+          <article class="info"><span>ISP</span><strong id="infoIsp"></strong></article>
+          <article class="info"><span data-i18n="page">Página actual</span><strong id="infoPage"></strong></article>
+          <article class="info"><span data-i18n="language">Idioma</span><strong id="infoLang"></strong></article>
+          <article class="info"><span data-i18n="created">Creado</span><strong id="infoCreated"></strong></article>
+          <article class="info"><span data-i18n="lastActive">Última actividad</span><strong id="infoActive"></strong></article>
+          <article class="info" style="grid-column:1/-1"><span>User agent</span><strong id="infoAgent"></strong></article>
+        </div>
+        <div class="actions">
+          <button id="clearBtn" class="btn-warn" type="button" data-i18n="clear">Limpiar chat</button>
+          <button id="blockBtn" class="btn-warn" type="button" data-i18n="block">Bloquear</button>
+          <button id="banBtn" class="btn-danger" type="button" data-i18n="ban">Banear</button>
+          <button id="deleteBtn" class="btn-danger" type="button" data-i18n="delete">Eliminar</button>
+        </div>
+      </section>
+      <section id="threadPanel" class="thread hidden"><div class="thread-title"><strong data-i18n="history">Historial</strong><span id="threadCount" class="muted"></span></div><div id="messageList" class="messages"></div></section>
+      <section id="composerPanel" class="composer hidden">
+        <div class="composer-head"><div><h3 data-i18n="reply">Responder</h3><p id="replyStatus" class="muted">Listo.</p></div><div class="composer-actions"><button id="attachBtn" class="btn-soft" type="button" data-i18n="attach">Adjuntar</button><button id="sendBtn" class="btn-primary" type="button" data-i18n="send">Enviar</button></div></div>
+        <textarea id="replyInput" placeholder="Escribe tu respuesta" data-i18n-placeholder="writeReply"></textarea>
+        <input id="fileInput" class="hidden" type="file" accept="image/jpeg,image/png,image/webp,image/gif">
+      </section>
+    </main>
+  </div>
+  <div id="loadingBadge" class="loading hidden">Sincronizando...</div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    (() => {
+      'use strict';
+      const dictionaries = {
+        es: { loginTitle:'Acceso administrador', loginLead:'Panel privado para gestionar chats, usuarios y estado general del sistema.', password:'Contraseña del panel', loginNotice:'Inicia sesión para cargar el panel.', enter:'Entrar', singleAdmin:'Admin único', chats:'Chats', directManage:'Gestión directa de conversaciones.', logout:'Salir', search:'Buscar nombre, ID, IP, país, página', online:'Online', all:'Todos', refresh:'Recargar', users:'Usuarios', connected:'Conectados', offline:'Desconectados', unread:'Sin leer', messages:'Mensajes', blocked:'Bloqueados', selectChat:'Selecciona un chat', detailHere:'El detalle aparecerá aquí.', geo:'Geolocalización', page:'Página actual', language:'Idioma', created:'Creado', lastActive:'Última actividad', clear:'Limpiar chat', block:'Bloquear', ban:'Banear', delete:'Eliminar', history:'Historial', reply:'Responder', ready:'Listo.', send:'Enviar', writeReply:'Escribe tu respuesta', syncing:'Sincronizando...', noCsrf:'No se encontró token CSRF. Recarga la página.', network:'Error de red', unnamed:'Sin nombre', unknown:'Desconocido', noIp:'sin ip', noSelection:'Sin selección', noMessages:'No hay mensajes todavía.', msgCount:n=>`${n} mensajes`, unreadCount:n=>`${n} sin leer`, read:'Leído', priority:'Prioridad', loading:'Cargando...', loadingChats:'Cargando chats...', loadingChat:'Cargando chat...', loggedIn:'Sesión iniciada.', loginRequired:'Inicia sesión para cargar el panel.', loginInvalid:'Sesión expirada o no iniciada.', connectedReply:'Cliente conectado. Puedes responder.', offlineReply:'Cliente offline. La respuesta quedará pendiente.', bannedUser:'Usuario bloqueado.', savedPending:'Respuesta guardada. Se entregará cuando el usuario vuelva.', sent:'Respuesta enviada.', emptyReply:'Escribe una respuesta.', clearConfirm:'¿Limpiar el historial de este chat?', blockConfirm:'¿Bloquear este usuario?', banConfirm:'¿Banear este usuario y desconectarlo?', deleteConfirm:'¿Eliminar este usuario y todo su historial?', clearing:'Limpiando chat...', blocking:'Bloqueando usuario...', banning:'Baneando usuario...', deleting:'Eliminando usuario...' },
+        en: { loginTitle:'Admin access', loginLead:'Private panel to manage chats, users and general system status.', password:'Panel password', loginNotice:'Sign in to load the panel.', enter:'Enter', singleAdmin:'Single admin', chats:'Chats', directManage:'Direct conversation management.', logout:'Logout', search:'Search name, ID, IP, country, page', online:'Online', all:'All', refresh:'Refresh', users:'Users', connected:'Connected', offline:'Offline', unread:'Unread', messages:'Messages', blocked:'Blocked', selectChat:'Select a chat', detailHere:'Details will appear here.', geo:'Geolocation', page:'Current page', language:'Language', created:'Created', lastActive:'Last activity', clear:'Clear chat', block:'Block', ban:'Ban', delete:'Delete', history:'History', reply:'Reply', ready:'Ready.', send:'Send', writeReply:'Write your reply', syncing:'Syncing...', noCsrf:'CSRF token was not found. Reload the page.', network:'Network error', unnamed:'No name', unknown:'Unknown', noIp:'no ip', noSelection:'No selection', noMessages:'No messages yet.', msgCount:n=>`${n} messages`, unreadCount:n=>`${n} unread`, read:'Read', priority:'Priority', loading:'Loading...', loadingChats:'Loading chats...', loadingChat:'Loading chat...', loggedIn:'Signed in.', loginRequired:'Sign in to load the panel.', loginInvalid:'Session expired or not started.', connectedReply:'Client connected. You can reply.', offlineReply:'Client offline. The reply will stay pending.', bannedUser:'User blocked.', savedPending:'Reply saved. It will be delivered when the user returns.', sent:'Reply sent.', emptyReply:'Write a reply.', clearConfirm:'Clear this chat history?', blockConfirm:'Block this user?', banConfirm:'Ban this user and disconnect them?', deleteConfirm:'Delete this user and all history?', clearing:'Clearing chat...', blocking:'Blocking user...', banning:'Banning user...', deleting:'Deleting user...' },
+        pt: { loginTitle:'Acesso admin', loginLead:'Painel privado para gerenciar chats, usuários e estado geral do sistema.', password:'Senha do painel', loginNotice:'Entre para carregar o painel.', enter:'Entrar', singleAdmin:'Admin único', chats:'Chats', directManage:'Gestão direta de conversas.', logout:'Sair', search:'Buscar nome, ID, IP, país, página', online:'Online', all:'Todos', refresh:'Recarregar', users:'Usuários', connected:'Conectados', offline:'Offline', unread:'Não lidas', messages:'Mensagens', blocked:'Bloqueados', selectChat:'Selecione um chat', detailHere:'Os detalhes aparecerão aqui.', geo:'Geolocalização', page:'Página atual', language:'Idioma', created:'Criado', lastActive:'Última atividade', clear:'Limpar chat', block:'Bloquear', ban:'Banir', delete:'Excluir', history:'Histórico', reply:'Responder', ready:'Pronto.', send:'Enviar', writeReply:'Escreva sua resposta', syncing:'Sincronizando...', noCsrf:'Token CSRF não encontrado. Recarregue a página.', network:'Erro de rede', unnamed:'Sem nome', unknown:'Desconhecido', noIp:'sem ip', noSelection:'Sem seleção', noMessages:'Ainda não há mensagens.', msgCount:n=>`${n} mensagens`, unreadCount:n=>`${n} não lidas`, read:'Lido', priority:'Prioridade', loading:'Carregando...', loadingChats:'Carregando chats...', loadingChat:'Carregando chat...', loggedIn:'Sessão iniciada.', loginRequired:'Entre para carregar o painel.', loginInvalid:'Sessão expirada ou não iniciada.', connectedReply:'Cliente conectado. Você pode responder.', offlineReply:'Cliente offline. A resposta ficará pendente.', bannedUser:'Usuário bloqueado.', savedPending:'Resposta salva. Será entregue quando o usuário voltar.', sent:'Resposta enviada.', emptyReply:'Escreva uma resposta.', clearConfirm:'Limpar o histórico deste chat?', blockConfirm:'Bloquear este usuário?', banConfirm:'Banir este usuário e desconectá-lo?', deleteConfirm:'Excluir este usuário e todo o histórico?', clearing:'Limpando chat...', blocking:'Bloqueando usuário...', banning:'Banindo usuário...', deleting:'Excluindo usuário...' },
+        fr: { loginTitle:'Accès admin', loginLead:'Panneau privé pour gérer les chats, les utilisateurs et l’état général du système.', password:'Mot de passe du panneau', loginNotice:'Connectez-vous pour charger le panneau.', enter:'Entrer', singleAdmin:'Admin unique', chats:'Chats', directManage:'Gestion directe des conversations.', logout:'Sortir', search:'Rechercher nom, ID, IP, pays, page', online:'Online', all:'Tous', refresh:'Actualiser', users:'Utilisateurs', connected:'Connectés', offline:'Hors ligne', unread:'Non lus', messages:'Messages', blocked:'Bloqués', selectChat:'Sélectionnez un chat', detailHere:'Le détail apparaîtra ici.', geo:'Géolocalisation', page:'Page actuelle', language:'Langue', created:'Créé', lastActive:'Dernière activité', clear:'Vider le chat', block:'Bloquer', ban:'Bannir', delete:'Supprimer', history:'Historique', reply:'Répondre', ready:'Prêt.', send:'Envoyer', writeReply:'Écrivez votre réponse', syncing:'Synchronisation...', noCsrf:'Token CSRF introuvable. Rechargez la page.', network:'Erreur réseau', unnamed:'Sans nom', unknown:'Inconnu', noIp:'sans ip', noSelection:'Aucune sélection', noMessages:'Aucun message pour le moment.', msgCount:n=>`${n} messages`, unreadCount:n=>`${n} non lus`, read:'Lu', priority:'Priorité', loading:'Chargement...', loadingChats:'Chargement des chats...', loadingChat:'Chargement du chat...', loggedIn:'Session ouverte.', loginRequired:'Connectez-vous pour charger le panneau.', loginInvalid:'Session expirée ou non ouverte.', connectedReply:'Client connecté. Vous pouvez répondre.', offlineReply:'Client hors ligne. La réponse restera en attente.', bannedUser:'Utilisateur bloqué.', savedPending:'Réponse enregistrée. Elle sera livrée au retour de l’utilisateur.', sent:'Réponse envoyée.', emptyReply:'Écrivez une réponse.', clearConfirm:'Vider l’historique de ce chat ?', blockConfirm:'Bloquer cet utilisateur ?', banConfirm:'Bannir cet utilisateur et le déconnecter ?', deleteConfirm:'Supprimer cet utilisateur et tout son historique ?', clearing:'Nettoyage du chat...', blocking:'Blocage utilisateur...', banning:'Bannissement utilisateur...', deleting:'Suppression utilisateur...' },
+        de: { loginTitle:'Admin-Zugang', loginLead:'Privates Panel zur Verwaltung von Chats, Benutzern und Systemstatus.', password:'Panel-Passwort', loginNotice:'Melde dich an, um das Panel zu laden.', enter:'Anmelden', singleAdmin:'Einzeladmin', chats:'Chats', directManage:'Direkte Gesprächsverwaltung.', logout:'Abmelden', search:'Name, ID, IP, Land, Seite suchen', online:'Online', all:'Alle', refresh:'Aktualisieren', users:'Benutzer', connected:'Verbunden', offline:'Offline', unread:'Ungelesen', messages:'Nachrichten', blocked:'Blockiert', selectChat:'Chat auswählen', detailHere:'Details erscheinen hier.', geo:'Geolokalisierung', page:'Aktuelle Seite', language:'Sprache', created:'Erstellt', lastActive:'Letzte Aktivität', clear:'Chat leeren', block:'Blockieren', ban:'Bannen', delete:'Löschen', history:'Verlauf', reply:'Antworten', ready:'Bereit.', send:'Senden', writeReply:'Antwort schreiben', syncing:'Synchronisiere...', noCsrf:'CSRF-Token nicht gefunden. Seite neu laden.', network:'Netzwerkfehler', unnamed:'Ohne Namen', unknown:'Unbekannt', noIp:'keine IP', noSelection:'Keine Auswahl', noMessages:'Noch keine Nachrichten.', msgCount:n=>`${n} Nachrichten`, unreadCount:n=>`${n} ungelesen`, read:'Gelesen', priority:'Priorität', loading:'Lade...', loadingChats:'Lade Chats...', loadingChat:'Lade Chat...', loggedIn:'Angemeldet.', loginRequired:'Melde dich an, um das Panel zu laden.', loginInvalid:'Sitzung abgelaufen oder nicht gestartet.', connectedReply:'Client verbunden. Du kannst antworten.', offlineReply:'Client offline. Die Antwort bleibt ausstehend.', bannedUser:'Benutzer blockiert.', savedPending:'Antwort gespeichert. Sie wird beim Zurückkommen zugestellt.', sent:'Antwort gesendet.', emptyReply:'Schreibe eine Antwort.', clearConfirm:'Diesen Chatverlauf leeren?', blockConfirm:'Diesen Benutzer blockieren?', banConfirm:'Diesen Benutzer bannen und trennen?', deleteConfirm:'Diesen Benutzer und den gesamten Verlauf löschen?', clearing:'Chat wird geleert...', blocking:'Benutzer wird blockiert...', banning:'Benutzer wird gebannt...', deleting:'Benutzer wird gelöscht...' },
+      };
+      const lang = ['es', 'en', 'pt', 'fr', 'de'].includes((navigator.language || '').split('-')[0]) ? navigator.language.split('-')[0] : 'es';
+      const copy = dictionaries[lang] || dictionaries.es;
+      const attachmentCopy = {
+        es: { attach:'Adjuntar', view:'Ver', download:'Descargar', deleteAttachment:'Borrar', uploadError:'No se pudo subir la imagen.', fileTypeError:'Solo se permiten imágenes JPG, PNG, WebP o GIF.', fileTooLarge:'La imagen no puede superar 5 MB.', attachmentDeleted:'Adjunto eliminado', deletingAttachment:'Borrando adjunto...', uploadingImage:'Subiendo imagen...', imageAttached:'Imagen enviada.', deleteAttachmentConfirm:'¿Borrar esta imagen del chat?' },
+        en: { attach:'Attach', view:'View', download:'Download', deleteAttachment:'Delete', uploadError:'The image could not be uploaded.', fileTypeError:'Only JPG, PNG, WebP or GIF images are allowed.', fileTooLarge:'The image cannot exceed 5 MB.', attachmentDeleted:'Attachment deleted', deletingAttachment:'Deleting attachment...', uploadingImage:'Uploading image...', imageAttached:'Image sent.', deleteAttachmentConfirm:'Delete this image from the chat?' },
+        pt: { attach:'Anexar', view:'Ver', download:'Baixar', deleteAttachment:'Excluir', uploadError:'Não foi possível enviar a imagem.', fileTypeError:'Só são permitidas imagens JPG, PNG, WebP ou GIF.', fileTooLarge:'A imagem não pode exceder 5 MB.', attachmentDeleted:'Anexo removido', deletingAttachment:'Excluindo anexo...', uploadingImage:'Enviando imagem...', imageAttached:'Imagem enviada.', deleteAttachmentConfirm:'Excluir esta imagem do chat?' },
+        fr: { attach:'Joindre', view:'Voir', download:'Télécharger', deleteAttachment:'Supprimer', uploadError:'Impossible d’envoyer l’image.', fileTypeError:'Seules les images JPG, PNG, WebP ou GIF sont autorisées.', fileTooLarge:'L’image ne peut pas dépasser 5 Mo.', attachmentDeleted:'Pièce jointe supprimée', deletingAttachment:'Suppression...', uploadingImage:'Envoi de l’image...', imageAttached:'Image envoyée.', deleteAttachmentConfirm:'Supprimer cette image du chat ?' },
+        de: { attach:'Anhängen', view:'Ansehen', download:'Herunterladen', deleteAttachment:'Löschen', uploadError:'Das Bild konnte nicht hochgeladen werden.', fileTypeError:'Nur JPG-, PNG-, WebP- oder GIF-Bilder sind erlaubt.', fileTooLarge:'Das Bild darf 5 MB nicht überschreiten.', attachmentDeleted:'Anhang gelöscht', deletingAttachment:'Anhang wird gelöscht...', uploadingImage:'Bild wird hochgeladen...', imageAttached:'Bild gesendet.', deleteAttachmentConfirm:'Dieses Bild aus dem Chat löschen?' },
+      };
+      const extraCopy = attachmentCopy[lang] || attachmentCopy.es;
+      const t = (key, ...args) => typeof copy[key] === 'function' ? copy[key](...args) : (copy[key] || extraCopy[key] || dictionaries.es[key] || attachmentCopy.es[key] || key);
+      document.documentElement.lang = lang;
+      document.title = `LiveChat Pro Admin`;
+      const state = { sessions: [], selectedSessionId: null, selectedMessages: [], onlyLive: false, query: '', socket: null, csrfToken: null, typingTimer: null, metricsTimer: null };
+      const allowedImageTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+      const maxImageBytes = 5 * 1024 * 1024;
+      const $ = id => document.getElementById(id);
+      const loginView = $('loginView'), appView = $('appView'), loginForm = $('loginForm'), passwordInput = $('passwordInput'), loginNotice = $('loginNotice'), loadingBadge = $('loadingBadge');
+      const sessionList = $('sessionList'), searchInput = $('searchInput'), onlyLiveBtn = $('onlyLiveBtn'), refreshBtn = $('refreshBtn'), logoutBtn = $('logoutBtn');
+      const emptyState = $('emptyState'), detailPanel = $('detailPanel'), threadPanel = $('threadPanel'), composerPanel = $('composerPanel'), messageList = $('messageList');
+      const replyInput = $('replyInput'), replyStatus = $('replyStatus'), sendBtn = $('sendBtn'), attachBtn = $('attachBtn'), fileInput = $('fileInput'), clearBtn = $('clearBtn'), blockBtn = $('blockBtn'), banBtn = $('banBtn'), deleteBtn = $('deleteBtn');
+      document.querySelectorAll('[data-i18n]').forEach(node => { node.textContent = t(node.dataset.i18n); });
+      document.querySelectorAll('[data-i18n-placeholder]').forEach(node => { node.placeholder = t(node.dataset.i18nPlaceholder); });
+      replyStatus.textContent = t('ready');
+      const showLoading = text => { loadingBadge.textContent = text; loadingBadge.classList.remove('hidden'); };
+      const hideLoading = () => loadingBadge.classList.add('hidden');
+      const readCookie = name => { const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); const match = document.cookie.match(new RegExp(`(?:^|; )${escaped}=([^;]*)`)); return match ? decodeURIComponent(match[1]) : ''; };
+      async function api(path, options = {}) {
+        const method = String(options.method || 'GET').toUpperCase();
+        const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+        if (method !== 'GET' && method !== 'HEAD') {
+          const csrfToken = state.csrfToken || readCookie('lcp_csrf');
+          if (!csrfToken) throw new Error(t('noCsrf'));
+          headers['x-csrf-token'] = csrfToken; state.csrfToken = csrfToken;
+        }
+        const response = await fetch(path, { credentials: 'same-origin', headers, ...options });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || t('network'));
+        return data;
+      }
+      async function uploadApi(path, form) {
+        const csrfToken = state.csrfToken || readCookie('lcp_csrf');
+        if (!csrfToken) throw new Error(t('noCsrf'));
+        state.csrfToken = csrfToken;
+        return new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open('POST', path);
+          xhr.withCredentials = true;
+          xhr.setRequestHeader('x-csrf-token', csrfToken);
+          xhr.upload.onprogress = event => {
+            if (event.lengthComputable) replyStatus.textContent = `${t('uploadingImage')} ${Math.round((event.loaded / event.total) * 100)}%`;
+          };
+          xhr.onload = () => {
+            let data = {};
+            try { data = JSON.parse(xhr.responseText || '{}'); } catch {}
+            if (xhr.status >= 200 && xhr.status < 300) resolve(data);
+            else reject(new Error(data.error || t('network')));
+          };
+          xhr.onerror = () => reject(new Error(t('network')));
+          xhr.send(form);
+        });
+      }
+      const escapeHtml = value => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/\n/g, '<br>');
+      const formatTime = ts => ts ? new Date(ts).toLocaleString(lang, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : t('unknown');
+      const selectedSession = () => state.sessions.find(session => session.sessionId === state.selectedSessionId) || null;
+      const badge = (label, className = '') => `<span class="badge ${className}">${escapeHtml(label)}</span>`;
+      function renderAttachments(message) {
+        const attachments = message.attachments || [];
+        if (!attachments.length) return message.hadDeletedAttachment ? `<div class="attachment-deleted">${escapeHtml(t('attachmentDeleted'))}</div>` : '';
+        return `<div class="attachments">${attachments.map(attachment => `
+          <article class="attachment" data-attachment-id="${escapeHtml(attachment.id)}" ${attachment.width && attachment.height ? `style="aspect-ratio:${escapeHtml(attachment.width)}/${escapeHtml(attachment.height)}"` : ''}>
+            <a href="${escapeHtml(attachment.url)}" target="_blank" rel="noopener"><img src="${escapeHtml(attachment.url)}" alt="${escapeHtml(attachment.originalName || 'imagen')}"></a>
+            <div class="attachment-name">${escapeHtml(attachment.originalName || 'imagen')}</div>
+            <div class="attachment-actions">
+              <a href="${escapeHtml(attachment.url)}" target="_blank" rel="noopener">${escapeHtml(t('view'))}</a>
+              <a href="${escapeHtml(attachment.downloadUrl)}">${escapeHtml(t('download'))}</a>
+              <button type="button" data-delete-attachment="${escapeHtml(attachment.id)}">${escapeHtml(t('deleteAttachment'))}</button>
+            </div>
+          </article>`).join('')}</div>`;
+      }
+      function mergeSession(nextSession) {
+        const index = state.sessions.findIndex(session => session.sessionId === nextSession.sessionId);
+        if (index === -1) state.sessions.unshift(nextSession); else state.sessions[index] = { ...state.sessions[index], ...nextSession };
+        state.sessions.sort((a, b) => (b.lastActive || 0) - (a.lastActive || 0));
+      }
+      function removeSession(sessionId) {
+        state.sessions = state.sessions.filter(session => session.sessionId !== sessionId);
+        if (state.selectedSessionId === sessionId) { state.selectedSessionId = null; state.selectedMessages = []; renderSelection(null, []); }
+      }
+      function renderMetrics(metrics = null) {
+        const fallback = state.sessions.reduce((acc, session) => {
+          acc.totalUsers++; acc.totalMessages += session.messageCount || 0; acc.unreadForAdmin += session.unreadForAdmin || 0;
+          if (session.connected) acc.connectedUsers++; else acc.disconnectedUsers++;
+          if (session.banned) acc.bannedUsers++;
+          return acc;
+        }, { totalUsers: 0, connectedUsers: 0, disconnectedUsers: 0, unreadForAdmin: 0, totalMessages: 0, bannedUsers: 0 });
+        const m = metrics || fallback;
+        $('mUsers').textContent = m.totalUsers || 0; $('mOnline').textContent = m.connectedUsers || 0; $('mOffline').textContent = m.disconnectedUsers || 0;
+        $('mUnread').textContent = m.unreadForAdmin || 0; $('mMessages').textContent = m.totalMessages || 0; $('mBanned').textContent = m.bannedUsers || 0;
+      }
+      function filteredSessions() {
+        return state.sessions.filter(session => {
+          if (state.onlyLive && !session.connected) return false;
+          if (!state.query) return true;
+          return [session.name, session.shortId, session.sessionId, session.ip, session.geo?.city, session.geo?.country, session.currentPage, session.lastMessage?.adminText || session.lastMessage?.text].join(' ').toLowerCase().includes(state.query);
+        });
+      }
+      function renderSessions() {
+        sessionList.innerHTML = filteredSessions().map(session => `
+          <article class="session-card ${session.sessionId === state.selectedSessionId ? 'active' : ''}" data-session-id="${escapeHtml(session.sessionId)}">
+            <div class="session-head"><div><div class="session-name">${escapeHtml(session.name || t('unnamed'))}</div><div class="muted mono">${escapeHtml(session.shortId)} · ${formatTime(session.lastActive)}</div></div>
+            <div class="row">${session.connected ? badge(t('online'), 'ok') : badge(t('offline'))}${session.unreadForAdmin > 0 ? badge(t('unreadCount', session.unreadForAdmin), 'accent') : ''}${session.banned ? badge(t('blocked'), 'danger') : ''}</div></div>
+            <div class="snippet">${escapeHtml(session.lastMessage?.adminText || session.lastMessage?.text || t('noMessages'))}</div>
+            <div class="row muted"><span>${escapeHtml(session.ip || t('noIp'))}</span><span>${escapeHtml(session.geo?.country || t('unknown'))}</span><span>${t('msgCount', session.messageCount || 0)}</span></div>
+          </article>`).join('');
+      }
+      function renderMessages(messages) {
+        messageList.innerHTML = messages.map(message => `<article class="message ${escapeHtml(message.from)}" data-message-id="${escapeHtml(message.id || '')}"><small>${escapeHtml(message.from)} · ${escapeHtml(message.lang || '')}</small><div class="text">${escapeHtml(message.adminText || message.text)}</div>${renderAttachments(message)}<div class="stamp">${formatTime(message.ts)}</div></article>`).join('');
+        messageList.scrollTop = messageList.scrollHeight; $('threadCount').textContent = t('msgCount', messages.length);
+      }
+      function renderSelection(session, messages = state.selectedMessages) {
+        if (!session) { emptyState.classList.remove('hidden'); detailPanel.classList.add('hidden'); threadPanel.classList.add('hidden'); composerPanel.classList.add('hidden'); return; }
+        emptyState.classList.add('hidden'); detailPanel.classList.remove('hidden'); threadPanel.classList.remove('hidden'); composerPanel.classList.remove('hidden');
+        $('detailName').textContent = session.name || t('unnamed'); $('detailMeta').textContent = `${session.geo?.city || t('unknown')}, ${session.geo?.country || t('unknown')} · ${session.currentPage || '/'}`;
+        $('detailBadges').innerHTML = [session.connected ? badge(t('online'), 'ok') : badge(t('offline')), session.unreadForAdmin > 0 ? badge(t('unreadCount', session.unreadForAdmin), 'accent') : badge(t('read'), 'ok'), session.priority ? badge(t('priority'), 'warn') : '', session.banned ? badge(t('blocked'), 'danger') : ''].join('');
+        $('infoSession').textContent = session.sessionId; $('infoIp').textContent = session.ip || t('noIp'); $('infoGeo').textContent = `${session.geo?.city || t('unknown')}, ${session.geo?.country || t('unknown')}`;
+        $('infoIsp').textContent = session.geo?.isp || t('unknown'); $('infoPage').textContent = session.currentPage || '/'; $('infoLang').textContent = session.lang || 'es';
+        $('infoCreated').textContent = formatTime(session.createdAt); $('infoActive').textContent = formatTime(session.lastActive); $('infoAgent').textContent = session.userAgent || 'sin user-agent';
+        renderMessages(messages); sendBtn.disabled = session.banned; attachBtn.disabled = session.banned; banBtn.disabled = session.banned; blockBtn.disabled = session.banned;
+        replyStatus.textContent = session.banned ? t('bannedUser') : (session.connected ? t('connectedReply') : t('offlineReply'));
+      }
+      async function refreshMetrics() { const data = await api('/api/admin/metrics/general'); renderMetrics(data.metrics); }
+      function scheduleRefreshMetrics(delay = 1200) {
+        clearTimeout(state.metricsTimer);
+        state.metricsTimer = setTimeout(() => refreshMetrics().catch(() => {}), delay);
+      }
+      async function markRead(sessionId, messages) {
+        const session = selectedSession();
+        if (session && !session.unreadForAdmin) return;
+        const lastTs = messages.length ? messages[messages.length - 1].ts : Date.now();
+        const data = await api(`/api/admin/sessions/${sessionId}/read`, { method: 'POST', body: JSON.stringify({ reader: 'admin', ts: lastTs }) });
+        if (data?.session) mergeSession(data.session);
+      }
+      async function refreshSessions() {
+        showLoading(t('loadingChats'));
+        try {
+          const data = await api('/api/admin/sessions'); state.sessions = data.sessions || []; renderSessions(); renderMetrics(); scheduleRefreshMetrics(300);
+          if (state.selectedSessionId) await openSession(state.selectedSessionId, false);
+        } finally { hideLoading(); }
+      }
+      async function openSession(sessionId, showSpinner = true) {
+        state.selectedSessionId = sessionId; renderSessions(); if (showSpinner) showLoading(t('loadingChat'));
+        try {
+          const data = await api(`/api/admin/sessions/${sessionId}`); state.selectedMessages = data.messages || []; mergeSession(data.session);
+          await markRead(sessionId, state.selectedMessages); renderSessions(); renderMetrics(); renderSelection(selectedSession() || data.session, state.selectedMessages); scheduleRefreshMetrics();
+        } finally { hideLoading(); }
+      }
+      async function mutateSelected(action, message, path, options = {}) {
+        const session = selectedSession(); if (!session) return; if (message && !window.confirm(message)) return; showLoading(action);
+        try {
+          const data = await api(path(session), options);
+          if (data?.session) mergeSession(data.session); if (data?.messages) state.selectedMessages = data.messages;
+          if (options.method === 'DELETE') removeSession(session.sessionId); else renderSelection(selectedSession(), state.selectedMessages);
+          renderSessions(); renderMetrics(); scheduleRefreshMetrics(300);
+        } catch (error) { replyStatus.textContent = error.message; } finally { hideLoading(); }
+      }
+      function connectRealtime() {
+        if (state.socket) state.socket.close();
+        state.socket = io('/admin', { withCredentials: true, transports: ['websocket', 'polling'] });
+        state.socket.on('bootstrap', payload => { state.sessions = payload.sessions || []; renderSessions(); renderMetrics(); scheduleRefreshMetrics(); });
+        state.socket.on('session:update', payload => { mergeSession(payload.session); renderSessions(); renderMetrics(); scheduleRefreshMetrics(); if (payload.session.sessionId === state.selectedSessionId) openSession(state.selectedSessionId, false).catch(() => {}); });
+        state.socket.on('message:new', payload => { mergeSession(payload.session); renderSessions(); renderMetrics(); scheduleRefreshMetrics(); if (payload.sessionId === state.selectedSessionId) openSession(state.selectedSessionId, false).catch(() => {}); });
+        state.socket.on('attachment:deleted', payload => {
+          state.selectedMessages = state.selectedMessages.map(message => message.id === payload.messageId ? { ...message, attachments: [], hadDeletedAttachment: true } : message);
+          if (payload.sessionId === state.selectedSessionId) renderSelection(selectedSession(), state.selectedMessages);
+        });
+        state.socket.on('session:deleted', payload => { removeSession(payload.sessionId); renderSessions(); renderMetrics(); scheduleRefreshMetrics(300); });
+        state.socket.on('connect_error', error => showLogin(error.message || t('network')));
+      }
+      function showLogin(message = t('loginRequired')) { loginNotice.textContent = message; loginView.classList.remove('hidden'); appView.classList.add('hidden'); }
+      function showApp() { loginView.classList.add('hidden'); appView.classList.remove('hidden'); }
+      loginForm.addEventListener('submit', async event => {
+        event.preventDefault(); showLoading(t('loading'));
+        try { await api('/api/admin/login', { method: 'POST', body: JSON.stringify({ password: passwordInput.value }) }); passwordInput.value = ''; await boot(); }
+        catch (error) { loginNotice.textContent = error.message; } finally { hideLoading(); }
+      });
+      logoutBtn.addEventListener('click', async () => { await api('/api/admin/logout', { method: 'POST' }); if (state.socket) state.socket.close(); state.selectedSessionId = null; showLogin(t('loginRequired')); });
+      refreshBtn.addEventListener('click', () => refreshSessions().catch(error => { loginNotice.textContent = error.message; }));
+      onlyLiveBtn.addEventListener('click', () => { state.onlyLive = !state.onlyLive; onlyLiveBtn.textContent = state.onlyLive ? t('all') : t('online'); onlyLiveBtn.classList.toggle('btn-primary', state.onlyLive); renderSessions(); });
+      searchInput.addEventListener('input', event => { state.query = event.target.value.trim().toLowerCase(); renderSessions(); });
+      sessionList.addEventListener('click', event => { const card = event.target.closest('[data-session-id]'); if (card) openSession(card.dataset.sessionId).catch(error => { loginNotice.textContent = error.message; }); });
+      sendBtn.addEventListener('click', async () => {
+        const session = selectedSession(), text = replyInput.value.trim(); if (!session || !text) { replyStatus.textContent = t('emptyReply'); return; } showLoading(t('send'));
+        try {
+          const data = await api(`/api/admin/sessions/${session.sessionId}/message`, { method: 'POST', body: JSON.stringify({ text }) });
+          replyInput.value = '';
+          replyStatus.textContent = data.pending ? t('savedPending') : t('sent');
+          await openSession(session.sessionId, false);
+        }
+        catch (error) { replyStatus.textContent = error.message; } finally { hideLoading(); }
+      });
+      attachBtn.addEventListener('click', () => fileInput.click());
+      fileInput.addEventListener('change', async () => {
+        const session = selectedSession();
+        const file = fileInput.files && fileInput.files[0];
+        fileInput.value = '';
+        if (!session || !file) return;
+        if (!allowedImageTypes.includes(file.type)) { replyStatus.textContent = t('fileTypeError'); return; }
+        if (file.size > maxImageBytes) { replyStatus.textContent = t('fileTooLarge'); return; }
+        const form = new FormData();
+        form.set('image', file);
+        const caption = replyInput.value.trim();
+        if (caption) form.set('text', caption);
+        showLoading(t('uploadingImage')); attachBtn.disabled = true; sendBtn.disabled = true;
+        try {
+          await uploadApi(`/api/admin/sessions/${session.sessionId}/attachments`, form);
+          replyInput.value = ''; replyStatus.textContent = t('imageAttached');
+          await openSession(session.sessionId, false);
+        } catch (error) { replyStatus.textContent = error.message || t('uploadError'); }
+        finally { attachBtn.disabled = false; sendBtn.disabled = false; hideLoading(); }
+      });
+      messageList.addEventListener('click', async event => {
+        const button = event.target.closest('[data-delete-attachment]');
+        if (!button) return;
+        const attachmentId = button.dataset.deleteAttachment;
+        if (!attachmentId || !window.confirm(t('deleteAttachmentConfirm'))) return;
+        showLoading(t('deletingAttachment')); button.disabled = true;
+        try {
+          await api(`/api/admin/attachments/${encodeURIComponent(attachmentId)}`, { method: 'DELETE' });
+          state.selectedMessages = state.selectedMessages.map(message => ({
+            ...message,
+            attachments: (message.attachments || []).filter(attachment => String(attachment.id) !== String(attachmentId)),
+            hadDeletedAttachment: (message.attachments || []).some(attachment => String(attachment.id) === String(attachmentId)) || message.hadDeletedAttachment,
+          }));
+          renderSelection(selectedSession(), state.selectedMessages);
+        } catch (error) { replyStatus.textContent = error.message; }
+        finally { hideLoading(); }
+      });
+      replyInput.addEventListener('input', () => {
+        const session = selectedSession(); if (!session || !session.connected || session.banned) return; clearTimeout(state.typingTimer);
+        api(`/api/admin/sessions/${session.sessionId}/typing`, { method: 'POST', body: JSON.stringify({ active: true }) }).catch(() => {});
+        state.typingTimer = setTimeout(() => api(`/api/admin/sessions/${session.sessionId}/typing`, { method: 'POST', body: JSON.stringify({ active: false }) }).catch(() => {}), 1200);
+      });
+      clearBtn.addEventListener('click', () => mutateSelected(t('clearing'), t('clearConfirm'), session => `/api/admin/sessions/${session.sessionId}/clear`, { method: 'POST' }));
+      blockBtn.addEventListener('click', () => mutateSelected(t('blocking'), t('blockConfirm'), session => `/api/admin/sessions/${session.sessionId}/block`, { method: 'POST' }));
+      banBtn.addEventListener('click', () => mutateSelected(t('banning'), t('banConfirm'), session => `/api/admin/sessions/${session.sessionId}/ban`, { method: 'POST' }));
+      deleteBtn.addEventListener('click', () => mutateSelected(t('deleting'), t('deleteConfirm'), session => `/api/admin/sessions/${session.sessionId}`, { method: 'DELETE' }));
+      async function boot() {
+        const me = await api('/api/admin/me'); state.csrfToken = readCookie('lcp_csrf');
+        if (!me.enabled) return showLogin('ADMIN_PANEL_PASSWORD');
+        if (!me.authenticated) return showLogin();
+        showApp(); await refreshSessions(); connectRealtime();
+      }
+      boot().catch(error => showLogin(error.message));
+    })();
+  </script>
+</body>
+</html>

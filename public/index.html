@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <title>Demo - LiveChat Pro</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+    :root {
+      --chat-color: #4F46E5;
+      --ink: #172033;
+      --muted: #637083;
+      --line: #d9e0ea;
+      --surface: #ffffff;
+      --soft: #f3f7fb;
+      --green: #0f9f6e;
+      --coral: #d65f45;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background:
+        linear-gradient(135deg, rgba(79, 70, 229, 0.12), transparent 36%),
+        linear-gradient(315deg, rgba(15, 159, 110, 0.14), transparent 32%),
+        #eef3f8;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .page {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(340px, 480px);
+      gap: clamp(24px, 5vw, 64px);
+      align-items: center;
+      width: min(1180px, calc(100% - 40px));
+      margin: 0 auto;
+      padding: 48px 0;
+    }
+
+    .hero {
+      display: grid;
+      gap: 28px;
+      align-content: center;
+    }
+
+    .eyebrow {
+      width: fit-content;
+      padding: 8px 12px;
+      border: 1px solid rgba(79, 70, 229, 0.22);
+      border-radius: 8px;
+      color: var(--chat-color);
+      background: rgba(255, 255, 255, 0.78);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      max-width: 780px;
+      margin: 0;
+      font-size: clamp(42px, 7vw, 86px);
+      line-height: .95;
+      letter-spacing: 0;
+    }
+
+    .lead {
+      max-width: 640px;
+      margin: 0;
+      color: var(--muted);
+      font-size: clamp(17px, 2vw, 21px);
+      line-height: 1.65;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+      padding: 0 16px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      color: var(--ink);
+      background: rgba(255,255,255,.84);
+      text-decoration: none;
+      font-weight: 700;
+      box-shadow: 0 10px 28px rgba(23, 32, 51, .08);
+    }
+
+    .btn.primary {
+      color: #fff;
+      border-color: transparent;
+      background: var(--chat-color);
+    }
+
+    .features {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      max-width: 760px;
+    }
+
+    .feature {
+      min-height: 92px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255,255,255,.78);
+    }
+
+    .feature strong { display: block; margin-bottom: 6px; }
+    .feature span { color: var(--muted); font-size: 13px; line-height: 1.45; }
+
+    .preview {
+      align-self: stretch;
+      display: grid;
+      align-content: center;
+      gap: 16px;
+    }
+
+    .preview-card {
+      border: 1px solid rgba(23, 32, 51, .12);
+      border-radius: 8px;
+      background: rgba(255,255,255,.88);
+      box-shadow: 0 24px 80px rgba(23, 32, 51, .16);
+      overflow: hidden;
+    }
+
+    .browser-bar {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      height: 42px;
+      padding: 0 14px;
+      border-bottom: 1px solid var(--line);
+      background: #f8fafc;
+    }
+
+    .dot { width: 10px; height: 10px; border-radius: 50%; }
+    .dot.red { background: var(--coral); }
+    .dot.yellow { background: #e1a82d; }
+    .dot.green { background: var(--green); }
+
+    .mock-site {
+      min-height: 440px;
+      padding: 28px;
+      background:
+        linear-gradient(180deg, #ffffff 0%, #f6f9fc 100%);
+      position: relative;
+    }
+
+    .mock-nav, .mock-row, .mock-grid { display: grid; gap: 12px; }
+    .mock-nav { grid-template-columns: 120px 1fr 88px; align-items: center; margin-bottom: 28px; }
+    .mock-line, .mock-box { border-radius: 8px; background: #dfe7f0; }
+    .mock-line { height: 12px; }
+    .mock-line.short { width: 64%; }
+    .mock-line.mid { width: 82%; }
+    .mock-box { min-height: 88px; }
+    .mock-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 20px; }
+
+    .floating-preview {
+      position: absolute;
+      right: 24px;
+      bottom: 24px;
+      width: 250px;
+      border-radius: 8px;
+      background: #fff;
+      border: 1px solid rgba(23, 32, 51, .12);
+      box-shadow: 0 20px 60px rgba(23, 32, 51, .2);
+      overflow: hidden;
+    }
+
+    .floating-head {
+      padding: 14px;
+      color: white;
+      background: var(--chat-color);
+      font-weight: 800;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .floating-body {
+      display: grid;
+      gap: 10px;
+      padding: 14px;
+      background: #f8fafc;
+    }
+
+    .bubble {
+      width: 82%;
+      padding: 9px 11px;
+      border-radius: 8px;
+      background: #fff;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .bubble.me {
+      justify-self: end;
+      color: #fff;
+      background: var(--chat-color);
+    }
+
+    .code {
+      margin: 0;
+      padding: 16px;
+      overflow: auto;
+      color: #dce8ff;
+      border-radius: 8px;
+      background: #111827;
+      font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      white-space: pre-wrap;
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 920px) {
+      .page { grid-template-columns: 1fr; }
+      .preview { align-content: stretch; }
+    }
+
+    @media (max-width: 640px) {
+      .page { width: min(100% - 28px, 1180px); padding: 28px 0; }
+      .features, .mock-grid { grid-template-columns: 1fr; }
+      .floating-preview { position: static; width: 100%; margin-top: 22px; }
+      .mock-site { min-height: auto; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <div class="eyebrow" data-i18n="eyebrow">Demo en vivo en el servidor</div>
+      <h1 data-i18n="title">Así se verá el chat cuando lo pegues en tu web.</h1>
+      <p class="lead" data-i18n="lead">Esta página usa la misma configuración real del proyecto: color principal, estilo del botón, idioma del navegador y conexión con Telegram.</p>
+      <div class="actions">
+        <a class="btn primary" href="/admin" data-i18n="admin">Abrir panel admin</a>
+        <a class="btn" href="/health" data-i18n="health">Ver salud del sistema</a>
+      </div>
+      <section class="features" aria-label="Capacidades del chat">
+        <article class="feature"><strong data-i18n="f1t">Widget real</strong><span data-i18n="f1d">El botón flotante de esta demo carga `/widget.js` como lo hará cualquier sitio externo.</span></article>
+        <article class="feature"><strong data-i18n="f2t">Traducción</strong><span data-i18n="f2d">El cliente ve su idioma; el admin trabaja en el idioma configurado.</span></article>
+        <article class="feature"><strong data-i18n="f3t">Telegram</strong><span data-i18n="f3d">Las conversaciones llegan al bot y también quedan disponibles en `/admin`.</span></article>
+      </section>
+    </section>
+
+    <aside class="preview" aria-label="Vista previa">
+      <div class="preview-card">
+        <div class="browser-bar">
+          <span class="dot red"></span>
+          <span class="dot yellow"></span>
+          <span class="dot green"></span>
+        </div>
+        <div class="mock-site">
+          <div class="mock-nav">
+            <div class="mock-line"></div>
+            <div class="mock-line mid"></div>
+            <div class="mock-line"></div>
+          </div>
+          <div class="mock-row">
+            <div class="mock-line mid"></div>
+            <div class="mock-line short"></div>
+            <div class="mock-grid">
+              <div class="mock-box"></div>
+              <div class="mock-box"></div>
+            </div>
+          </div>
+          <div class="floating-preview">
+            <div class="floating-head">
+              <span data-i18n="support">Soporte en vivo</span>
+              <span data-i18n="online">Online</span>
+            </div>
+            <div class="floating-body">
+              <div class="bubble" data-i18n="b1">¡Hola! ¿Cómo te gustaría que te llamemos?</div>
+              <div class="bubble me">Wilkin</div>
+              <div class="bubble" data-i18n="b2">Encantado. ¿En qué podemos ayudarte?</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <pre id="snippet" class="code">&lt;script src="/widget.js" data-server=""&gt;&lt;/script&gt;</pre>
+      <p class="hint" data-i18n="hint">Usa el botón real de la esquina inferior para probar el flujo completo de visitante.</p>
+    </aside>
+  </main>
+
+  <script>
+    (() => {
+      const translations = {
+        es: { titlePage:'Demo - LiveChat Pro', eyebrow:'Demo en vivo en el servidor', title:'Así se verá el chat cuando lo pegues en tu web.', lead:'Esta página usa la misma configuración real del proyecto: color principal, estilo del botón, idioma del navegador y conexión con Telegram.', admin:'Abrir panel admin', health:'Ver salud del sistema', f1t:'Widget real', f1d:'El botón flotante de esta demo carga `/widget.js` como lo hará cualquier sitio externo.', f2t:'Traducción', f2d:'El cliente ve su idioma; el admin trabaja en el idioma configurado.', f3t:'Telegram', f3d:'Las conversaciones llegan al bot y también quedan disponibles en `/admin`.', support:'Soporte en vivo', online:'Online', b1:'¡Hola! ¿Cómo te gustaría que te llamemos?', b2:'Encantado. ¿En qué podemos ayudarte?', hint:'Usa el botón real de la esquina inferior para probar el flujo completo de visitante.' },
+        en: { titlePage:'Demo - LiveChat Pro', eyebrow:'Live demo on this server', title:'This is how the chat will look when you paste it into your site.', lead:'This page uses the real project configuration: primary color, button style, browser language and Telegram connection.', admin:'Open admin panel', health:'View system health', f1t:'Real widget', f1d:'The floating button in this demo loads `/widget.js` just like any external site will.', f2t:'Translation', f2d:'The visitor sees their language; the admin works in the configured language.', f3t:'Telegram', f3d:'Conversations arrive in the bot and are also available in `/admin`.', support:'Live support', online:'Online', b1:'Hi! What name would you like us to use?', b2:'Nice to meet you. How can we help?', hint:'Use the real button in the lower corner to test the complete visitor flow.' },
+        pt: { titlePage:'Demo - LiveChat Pro', eyebrow:'Demo ao vivo no servidor', title:'Assim o chat ficará quando você colar no seu site.', lead:'Esta página usa a configuração real do projeto: cor principal, estilo do botão, idioma do navegador e conexão com Telegram.', admin:'Abrir painel admin', health:'Ver saúde do sistema', f1t:'Widget real', f1d:'O botão flutuante desta demo carrega `/widget.js` como qualquer site externo.', f2t:'Tradução', f2d:'O cliente vê seu idioma; o admin trabalha no idioma configurado.', f3t:'Telegram', f3d:'As conversas chegam ao bot e também ficam disponíveis em `/admin`.', support:'Suporte ao vivo', online:'Online', b1:'Olá! Como você gostaria que chamássemos você?', b2:'Prazer. Como podemos ajudar?', hint:'Use o botão real no canto inferior para testar o fluxo completo do visitante.' },
+        fr: { titlePage:'Démo - LiveChat Pro', eyebrow:'Démo en direct sur le serveur', title:'Voici à quoi ressemblera le chat une fois intégré à votre site.', lead:'Cette page utilise la configuration réelle du projet : couleur principale, style du bouton, langue du navigateur et connexion Telegram.', admin:'Ouvrir admin', health:'Voir l’état du système', f1t:'Widget réel', f1d:'Le bouton flottant de cette démo charge `/widget.js` comme tout site externe.', f2t:'Traduction', f2d:'Le visiteur voit sa langue ; l’admin travaille dans la langue configurée.', f3t:'Telegram', f3d:'Les conversations arrivent dans le bot et restent disponibles dans `/admin`.', support:'Support en direct', online:'Online', b1:'Bonjour ! Quel nom souhaitez-vous utiliser ?', b2:'Enchanté. Comment pouvons-nous aider ?', hint:'Utilisez le vrai bouton en bas pour tester le parcours complet du visiteur.' },
+        de: { titlePage:'Demo - LiveChat Pro', eyebrow:'Live-Demo auf dem Server', title:'So sieht der Chat aus, wenn du ihn in deine Website einfügst.', lead:'Diese Seite nutzt die echte Projektkonfiguration: Hauptfarbe, Button-Stil, Browsersprache und Telegram-Verbindung.', admin:'Admin öffnen', health:'Systemstatus anzeigen', f1t:'Echtes Widget', f1d:'Der schwebende Button dieser Demo lädt `/widget.js` wie jede externe Website.', f2t:'Übersetzung', f2d:'Der Besucher sieht seine Sprache; der Admin arbeitet in der konfigurierten Sprache.', f3t:'Telegram', f3d:'Unterhaltungen kommen im Bot an und bleiben auch in `/admin` verfügbar.', support:'Live-Support', online:'Online', b1:'Hallo! Wie sollen wir dich nennen?', b2:'Freut mich. Wie können wir helfen?', hint:'Nutze den echten Button unten, um den kompletten Besucherfluss zu testen.' },
+      };
+      const lang = ['es', 'en', 'pt', 'fr', 'de'].includes((navigator.language || '').split('-')[0]) ? navigator.language.split('-')[0] : 'es';
+      const copy = translations[lang] || translations.es;
+      document.documentElement.lang = lang;
+      document.title = copy.titlePage;
+      document.querySelectorAll('[data-i18n]').forEach(node => { node.textContent = copy[node.dataset.i18n] || node.textContent; });
+
+      const root = document.documentElement;
+      const origin = window.location.origin;
+      fetch('/config-public')
+        .then(response => response.json())
+        .then(config => {
+          if (config.primaryColor) root.style.setProperty('--chat-color', config.primaryColor);
+        })
+        .catch(() => {});
+
+      document.getElementById('snippet').textContent =
+        `<script src="${origin}/widget.js" data-server="${origin}"><` + '/script>';
+    })();
+  </script>
+  <script src="/widget.js" data-server=""></script>
+</body>
+</html>

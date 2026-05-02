@@ -1,0 +1,32 @@
+{
+  "es": {
+    "offensive": ["idiota", "imbecil", "imbécil", "estupido", "estúpido", "mierda", "puta", "pendejo", "cabron", "cabrón", "coño", "joder", "cojones"],
+    "negative": ["malo", "mala", "terrible", "horrible", "molesto", "molesta", "enojo", "enojado", "enojada", "odio", "fatal", "peor", "problema", "queja"],
+    "hints": ["que", "para", "con", "este", "esta", "hola", "gracias", "ayuda", "quiero", "necesito", "porque"]
+  },
+  "en": {
+    "offensive": ["idiot", "moron", "stupid", "shit", "fuck", "asshole", "bastard", "dumbass", "jerk"],
+    "negative": ["bad", "terrible", "horrible", "angry", "upset", "hate", "awful", "worse", "worst", "problem", "complaint", "broken"],
+    "hints": ["the", "and", "for", "with", "this", "hello", "thanks", "help", "want", "need", "because"]
+  },
+  "pt": {
+    "offensive": ["idiota", "imbecil", "estupido", "estúpido", "merda", "puta", "caralho", "babaca", "otario", "otário"],
+    "negative": ["mau", "má", "ruim", "terrível", "horrível", "irritado", "irritada", "odeio", "pior", "problema", "reclamação"],
+    "hints": ["que", "para", "com", "este", "esta", "olá", "obrigado", "obrigada", "ajuda", "quero", "preciso", "porque"]
+  },
+  "fr": {
+    "offensive": ["idiot", "imbecile", "imbécile", "stupide", "merde", "putain", "connard", "salope", "bordel"],
+    "negative": ["mauvais", "mauvaise", "terrible", "horrible", "fâché", "fâchée", "déteste", "pire", "problème", "plainte", "cassé"],
+    "hints": ["que", "pour", "avec", "ceci", "bonjour", "merci", "aide", "veux", "besoin", "parce"]
+  },
+  "de": {
+    "offensive": ["idiot", "dummkopf", "scheisse", "scheiße", "arschloch", "bastard", "mistkerl"],
+    "negative": ["schlecht", "schrecklich", "furchtbar", "wütend", "verärgert", "hasse", "schlimmer", "problem", "beschwerde", "kaputt"],
+    "hints": ["der", "die", "das", "und", "für", "mit", "hallo", "danke", "hilfe", "will", "brauche", "weil"]
+  },
+  "it": {
+    "offensive": ["idiota", "imbecille", "stupido", "merda", "puttana", "stronzo", "cazzo", "bastardo"],
+    "negative": ["cattivo", "cattiva", "terribile", "orribile", "arrabbiato", "arrabbiata", "odio", "peggio", "problema", "reclamo", "rotto"],
+    "hints": ["che", "per", "con", "questo", "questa", "ciao", "grazie", "aiuto", "voglio", "bisogno", "perché"]
+  }
+}
