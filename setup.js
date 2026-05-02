@@ -445,6 +445,10 @@ function sudoArgs(command, args) {
   return { command: 'sudo', args: [command].concat(args) };
 }
 
+function localStartCommand() {
+  return `${sudoCommand('npm install')} && ${sudoCommand('node server.js')}`;
+}
+
 function hasSystemd() {
   return commandExists('systemctl') && fs.existsSync('/run/systemd/system');
 }
@@ -889,7 +893,7 @@ async function chooseRunMode(recommendedMode = 'local') {
   console.log('\n' + color('blue', 'Startup mode'));
   const localMarker = recommendedMode === 'local' ? '  ← recommended' : '';
   const dockerMarker = recommendedMode === 'docker' ? '  ← recommended' : '';
-  console.log(`   [1] Local with sudo node server.js${localMarker}`);
+  console.log(`   [1] Local with sudo npm install && sudo node server.js${localMarker}`);
   console.log(`   [2] Docker with sudo docker compose up -d${dockerMarker}`);
   console.log('   [3] Only generate .env, do not start now');
   const choice = await ask(color('yellow', `   Choose an option [${recommendedMode === 'docker' ? '2' : '1'}]: `));
@@ -1060,7 +1064,7 @@ async function main() {
   console.log('\n' + color('green', `✓ Configuration written to ${ENV_PATH}`));
 
   const mode = await chooseRunMode(recommendedRunMode);
-  let finalCommand = sudoCommand('node server.js');
+  let finalCommand = localStartCommand();
 
   if (mode === 'docker') {
     finalCommand = sudoCommand('docker compose up -d');
@@ -1072,11 +1076,15 @@ async function main() {
       console.log(code === 0 ? color('green', '✓ Docker started successfully.') : color('red', 'Docker exited with errors. Review the output above.'));
     }
   } else if (mode === 'local') {
-    finalCommand = sudoCommand('node server.js');
+    finalCommand = localStartCommand();
     if (!fs.existsSync(path.join(ROOT, 'node_modules'))) {
-      const npmCommand = 'npm';
-      if (await chooseYesNo(`node_modules was not found. Install dependencies with ${npmCommand} install?`, true)) {
-        await runCommand(npmCommand, ['install']);
+      if (await chooseYesNo('node_modules was not found. Install dependencies with sudo npm install?', true)) {
+        const npmInstallCommand = sudoArgs('npm', ['install']);
+        const installCode = await runCommand(npmInstallCommand.command, npmInstallCommand.args);
+        if (installCode !== 0) {
+          console.log(color('red', 'npm install failed. Install dependencies successfully before starting local mode.'));
+          return;
+        }
       }
     }
     if (await chooseYesNo('Start now in local mode?', false)) {
@@ -1085,7 +1093,7 @@ async function main() {
       await runCommand(nodeCommand.command, nodeCommand.args);
     }
   } else {
-    finalCommand = recommendedRunMode === 'docker' ? sudoCommand('docker compose up -d') : sudoCommand('node server.js');
+    finalCommand = recommendedRunMode === 'docker' ? sudoCommand('docker compose up -d') : localStartCommand();
   }
 
   console.log('\n' + color('green', 'Installation ready.'));
