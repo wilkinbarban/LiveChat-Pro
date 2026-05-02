@@ -6,6 +6,8 @@ const { Router } = require('express');
 const { sanitizeText } = require('../utils/sanitizer');
 const { getLastInsertId } = require('../utils/sqlite-result');
 
+// Multer keeps uploads in memory so the attachment service can validate the
+// binary signature before anything is written to disk.
 function createUploadMiddleware(attachmentService) {
   return multer({
     storage: multer.memoryStorage(),
@@ -22,6 +24,7 @@ function createUploadMiddleware(attachmentService) {
   }).single('image');
 }
 
+// Normalizes multer errors into the JSON shape used by the rest of the API.
 function runUpload(upload) {
   return (req, res, next) => {
     upload(req, res, error => {
@@ -32,6 +35,8 @@ function runUpload(upload) {
   };
 }
 
+// Attachment reads are allowed for admins, tokenized links, the owning visitor
+// cookie, or a session id query used by constrained widget contexts.
 function canReadAttachment(req, attachment, { verifyAdminToken, adminCookieName }) {
   if (verifyAdminToken(req.cookies?.[adminCookieName])) return true;
   if (attachment.access_token && String(req.query?.token || '') === attachment.access_token) return true;
@@ -39,6 +44,7 @@ function canReadAttachment(req, attachment, { verifyAdminToken, adminCookieName 
   return req.cookies?.lchat_sid === attachment.session_id;
 }
 
+// Routes for visitor uploads, admin uploads, attachment reads and admin deletes.
 function createAttachmentRouter(deps) {
   const {
     WIDGET_API_KEY,
@@ -66,6 +72,8 @@ function createAttachmentRouter(deps) {
   const router = Router();
   const uploadImage = runUpload(createUploadMiddleware(attachmentService));
 
+  // Optional widget API key protects upload endpoints when the project is embedded
+  // on domains outside the LiveChat Pro server.
   function validateWidgetKey(req, res, next) {
     if (!WIDGET_API_KEY) return next();
     const provided = String(req.get('x-widget-api-key') || '');
@@ -73,6 +81,8 @@ function createAttachmentRouter(deps) {
     return next();
   }
 
+  // Creates the chat message first, then the file metadata. If saving the file or
+  // metadata fails, the partially-created message is rolled back by the service.
   async function createAttachmentMessage({ session, role, text, file }) {
     const ts = Date.now();
     const message = {
@@ -106,6 +116,8 @@ function createAttachmentRouter(deps) {
         now: ts,
       });
     } catch (error) {
+      // Avoid leaving a text-only placeholder when the intended attachment could
+      // not be stored.
       try {
         await stmts.deleteMessage.run(message.id);
       } catch (deleteError) {

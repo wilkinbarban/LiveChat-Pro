@@ -1,6 +1,9 @@
 const { Telegraf } = require('telegraf');
 const { escapeTelegramHtml } = require('../utils/sanitizer');
 
+// The bot module keeps a singleton Telegraf instance because Telegram long
+// polling/webhook ownership is process-wide. setupTelegramBot wires runtime
+// dependencies after server.js has created services and sockets.
 let bot = null;
 let _adminId = null;
 let _logger = null;
@@ -27,6 +30,8 @@ function setupTelegramBot(deps) {
   _logger = logger;
   _clusterState = clusterState;
 
+  // Lists only live sessions so the admin can choose where to reply from
+  // Telegram without opening the web panel.
   bot.command('usuarios', async (ctx) => {
     if (ctx.from.id !== adminId) return;
     const active = (await listSessionsForAdmin()).filter(s => s.connected);
@@ -37,6 +42,8 @@ function setupTelegramBot(deps) {
     ctx.replyWithHTML(`👥 <b>Usuarios activos (${active.length})</b>\n\n${list}`);
   });
 
+  // Telegram-side ban mirrors the web admin ban flow: persist, update shared
+  // state, disconnect visitor sockets and remove local cache.
   bot.command('ban', async (ctx) => {
     if (ctx.from.id !== adminId) return;
     const id = ctx.message.text.split(' ')[1];
@@ -64,6 +71,7 @@ function setupTelegramBot(deps) {
     ctx.reply(`✅ Usuario ${session.name || sid.slice(0,8)} baneado.`);
   });
 
+  // Diagnostic session detail for support work directly from Telegram.
   bot.command('info', async (ctx) => {
     if (ctx.from.id !== adminId) return;
     const id = ctx.message.text.split(' ')[1];
@@ -87,6 +95,7 @@ function setupTelegramBot(deps) {
     );
   });
 
+  // Manual cleanup trims stale in-memory sessions and empty old database rows.
   bot.command('clean', async (ctx) => {
     if (ctx.from.id !== adminId) return;
     const threshold = Date.now() - 3600000;
@@ -108,6 +117,9 @@ function setupTelegramBot(deps) {
     ctx.reply(`🧹 ${memCount} sesiones eliminadas de memoria, ${dbCount} de la base de datos.`);
   });
 
+  // A plain Telegram message is treated as an admin reply. If the admin replied
+  // to a specific notification, that Telegram message id wins; otherwise the
+  // latest pending session is used.
   bot.on('message', async (ctx) => {
     if (ctx.from.id !== adminId) return;
     if (ctx.message.text?.startsWith('/')) return;
@@ -133,6 +145,8 @@ function setupTelegramBot(deps) {
 }
 
 function launchTelegramBot(timeoutMs) {
+  // Telegraf launch can hang on network issues. The timeout lets the HTTP server
+  // start and exposes Telegram readiness through /health.
   return new Promise((resolve, reject) => {
     let settled = false;
     const timer = setTimeout(() => {
@@ -166,6 +180,8 @@ async function sendToAdmin(text, extra = {}, sessionId = null) {
   try {
     const message = await bot.telegram.sendMessage(_adminId, text, { parse_mode: 'HTML', ...extra });
     if (sessionId && message?.message_id) {
+      // Store reverse mapping so replying to this Telegram message targets the
+      // originating chat session.
       await _clusterState.setTelegramMessageSession(_adminId, message.message_id, sessionId);
     }
     return message;
@@ -174,6 +190,8 @@ async function sendToAdmin(text, extra = {}, sessionId = null) {
   }
 }
 
+// Compact HTML card used by Telegram notifications. All user-controlled fields
+// must be escaped before passing parse_mode=HTML.
 function sessionCard(s) {
   return [
     `👤 <b>${escapeTelegramHtml(s.name || 'Sin nombre')}</b> · <code>${escapeTelegramHtml(s.sessionId.slice(0,8))}</code>`,

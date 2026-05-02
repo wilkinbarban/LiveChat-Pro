@@ -10,6 +10,9 @@ function isHexToken(value, size) {
   return typeof value === 'string' && new RegExp(`^[a-f0-9]{${size}}$`, 'i').test(value);
 }
 
+// Builds all admin authentication helpers around the configured cookie names and
+// password. The module is intentionally stateless: tokens are signed and carry
+// their own expiration timestamp.
 function createAdminAuth({
   telegramToken,
   adminPanelPassword,
@@ -18,6 +21,8 @@ function createAdminAuth({
   csrfCookieName,
   cookieSameSite,
 }) {
+  // Admin sessions are HMAC-signed with both the Telegram token and panel
+  // password. Rotating either secret invalidates existing cookies.
   function createAdminSignature(payload) {
     return crypto
       .createHmac('sha256', `${telegramToken}:${adminPanelPassword}`)
@@ -25,6 +30,8 @@ function createAdminAuth({
       .digest('hex');
   }
 
+  // Session token format: "<expiresAt>.<hmac>". No server-side session table is
+  // required, which keeps single-node and Redis deployments consistent.
   function createAdminToken() {
     const expiresAt = Date.now() + adminSessionTtlMs;
     const payload = String(expiresAt);
@@ -39,6 +46,9 @@ function createAdminAuth({
     return resolveSameSiteForRequest(req, cookieSameSite);
   }
 
+  // The CSRF cookie is readable by the admin page so the client can echo it in
+  // x-csrf-token. It is not an auth credential; it only binds unsafe requests to
+  // a browser that first loaded the admin origin.
   function ensureCsrfCookie(req, res) {
     const current = req.cookies?.[csrfCookieName];
     if (isHexToken(current, 48)) return current;
@@ -54,6 +64,8 @@ function createAdminAuth({
     return token;
   }
 
+  // Double-submit CSRF validation. The cookie and header must both be valid
+  // 48-character hex tokens and match using timing-safe comparison.
   function verifyCsrf(req) {
     const cookieToken = req.cookies?.[csrfCookieName] || '';
     const headerToken = (req.get('x-csrf-token') || '').trim();
@@ -70,6 +82,8 @@ function createAdminAuth({
     return res.status(403).json({ error: 'CSRF token inválido o ausente' });
   }
 
+  // Verifies signature and expiration without decoding any untrusted structured
+  // data. The payload is only a millisecond timestamp string.
   function verifyAdminToken(token) {
     if (!token || !adminPanelPassword) return false;
 
@@ -85,6 +99,8 @@ function createAdminAuth({
     return Number(payload) > Date.now();
   }
 
+  // requireAdmin also refreshes the CSRF cookie for authenticated and
+  // unauthenticated admin API reads, so the panel can recover after cookie loss.
   function requireAdmin(req, res, next) {
     ensureCsrfCookie(req, res);
 

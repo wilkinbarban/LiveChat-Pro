@@ -6,12 +6,16 @@ const NodeCache = require('node-cache');
 
 const SUPPORTED_PROVIDERS = new Set(['google_free', 'google_cloud', 'deepl']);
 
+// Short-lived in-process cache avoids repeatedly translating the same message
+// when it appears in admin lists, detail views and Telegram notifications.
 const translationCache = new NodeCache({
   stdTTL: 60 * 60,
   checkperiod: 10 * 60,
   useClones: false,
 });
 
+// Provider selection is environment-driven so deployments can start with the
+// free Google endpoint and later switch to an official paid API without code.
 function getProviderConfig() {
   const provider = String(process.env.TRANSLATION_PROVIDER || 'google_free').toLowerCase();
   return {
@@ -20,6 +24,8 @@ function getProviderConfig() {
   };
 }
 
+// Include provider and target language in the hash to avoid cross-provider or
+// cross-language cache collisions for identical input text.
 function buildTranslationCacheKey(text, targetLang, provider = getProviderConfig().provider) {
   return crypto
     .createHash('sha256')
@@ -41,6 +47,7 @@ async function translateWithGoogleFree(text, targetLang) {
   return data[0].map(s => s[0]).join('');
 }
 
+// DeepL expects form-urlencoded payloads and uppercase target language codes.
 async function translateWithDeepL(text, targetLang, apiKey) {
   const endpoint = process.env.DEEPL_API_URL || 'https://api-free.deepl.com/v2/translate';
   const params = new URLSearchParams({
@@ -66,12 +73,16 @@ async function translateWithGoogleCloud(text, targetLang, apiKey) {
   return data?.data?.translations?.[0]?.translatedText || text;
 }
 
+// Adapter dispatcher. Missing API keys intentionally fall back to google_free so
+// translation remains best-effort instead of disabling chat delivery.
 async function runTranslationAdapter(text, targetLang, config) {
   if (config.provider === 'deepl' && config.apiKey) return translateWithDeepL(text, targetLang, config.apiKey);
   if (config.provider === 'google_cloud' && config.apiKey) return translateWithGoogleCloud(text, targetLang, config.apiKey);
   return translateWithGoogleFree(text, targetLang);
 }
 
+// Translation is best-effort: any provider failure returns the original text so
+// message delivery is never blocked by a third-party outage.
 async function translate(text, targetLang, isEnabled = true) {
   if (!isEnabled) return text;
 
@@ -115,6 +126,8 @@ async function detectLangWithGoogleCloud(text, apiKey) {
   return data?.data?.detections?.[0]?.[0]?.language || 'es';
 }
 
+// Language detection follows the same fail-open rule as translation. Spanish is
+// the default because the admin copy and historical defaults are Spanish-first.
 async function detectLang(text, isEnabled = true) {
   if (!isEnabled) return 'es';
   try {

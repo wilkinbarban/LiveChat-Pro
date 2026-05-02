@@ -1,3 +1,7 @@
+// ============================================================
+// Attachment service unit tests — src/services/attachments.js
+// Covers filename sanitization, MIME signature checks, dimensions and cleanup.
+// ============================================================
 'use strict';
 
 const test = require('node:test');

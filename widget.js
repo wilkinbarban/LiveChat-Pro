@@ -10,6 +10,9 @@
   const SERVER_URL = (SCRIPT_TAG && SCRIPT_TAG.getAttribute('data-server')) || window.location.origin;
   const API_KEY = (SCRIPT_TAG && (SCRIPT_TAG.getAttribute('data-api-key') || SCRIPT_TAG.getAttribute('data-key'))) || '';
   const CLIENT_CONFIG = window.LiveChatConfig || window.LiveChatProConfig || {};
+  // Options can be configured either as data-* attributes on the script tag or
+  // through a global config object. Attributes win because they are colocated with
+  // the embed snippet.
   const getOption = (name, fallback) => {
     const attrName = `data-${name.replace(/[A-Z]/g, letter => `-${letter.toLowerCase()}`)}`;
     const fromAttribute = SCRIPT_TAG && SCRIPT_TAG.getAttribute(attrName);
@@ -36,6 +39,8 @@
     theme: optionIn(getOption('theme', 'auto'), ['auto', 'classic'], 'auto'),
     position: optionIn(getOption('position', 'bottom-right'), ['bottom-right', 'bottom-left'], 'bottom-right'),
   };
+  // UI language is derived from the browser. Message translation itself is
+  // handled by the backend per chat session.
   const RAW_WIDGET_LANG = (navigator.languages && navigator.languages[0]) || navigator.language || 'es';
   const WIDGET_LOCALE = Intl.DateTimeFormat.supportedLocalesOf([RAW_WIDGET_LANG])[0] || 'es';
   const WIDGET_BASE_LANG = ['es', 'en', 'pt', 'fr', 'de'].includes(WIDGET_LOCALE.toLowerCase().split('-')[0])
@@ -122,6 +127,9 @@
     const closeIconSvg = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>';
 
     // ── Session persistence ────────────────────────────────
+    // The visitor session id is stored in both localStorage and a cookie. The
+    // cookie lets HTTP attachment uploads prove ownership; localStorage survives
+    // stricter cookie contexts in some embedded deployments.
     let sessionId = localStorage.getItem('lchat_sid');
     if (!sessionId) {
       sessionId = crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
@@ -132,6 +140,8 @@
     }
 
     // ── Fetch config ───────────────────────────────────────
+    // Public config is intentionally visual-only. Security-sensitive options stay
+    // server-side and are never exposed to embedded pages.
     let primaryColor = '#4F46E5';
     let buttonStyle = 'floating';
 
@@ -144,6 +154,8 @@
     }).catch(() => { });
 
     // ── Socket connection ──────────────────────────────────
+    // autoConnect is disabled until the DOM is ready and event handlers are
+    // attached, preventing early events from being missed.
     const socket = io(SERVER_URL, {
       auth: { sessionId, apiKey: API_KEY, lang: WIDGET_LOCALE },
       autoConnect: false,
@@ -161,6 +173,8 @@
         --lcp-panel-bg: #fff;
         --lcp-surface-bg: #f7f7f8;
         --lcp-input-bg: #fff;
+        --lcp-input-text-color: #18181b;
+        --lcp-input-placeholder-color: #71717a;
         --lcp-text-color: #18181b;
         --lcp-muted-color: #71717a;
         --lcp-border-color: rgba(24,24,27,.1);
@@ -265,10 +279,12 @@
       #lcp-input {
         flex: 1; border: 1.5px solid var(--lcp-border-color); border-radius: 12px; padding: 10px 14px;
         font-size: 13.5px; outline: none; resize: none; line-height: 1.4; max-height: 80px;
-        transition: border-color .2s; background: var(--lcp-input-bg); color: var(--lcp-text-color);
+        transition: border-color .2s; background: var(--lcp-input-bg); color: var(--lcp-input-text-color);
+        caret-color: var(--lcp-input-text-color);
         font-family: var(--lcp-font-family);
       }
-      #lcp-input:focus { border-color: var(--lcp-color, #4F46E5); background: #fff; }
+      #lcp-input::placeholder { color: var(--lcp-input-placeholder-color); opacity: 1; }
+      #lcp-input:focus { border-color: var(--lcp-color, #4F46E5); background: var(--lcp-input-bg); color: var(--lcp-input-text-color); }
       #lcp-attach, #lcp-send {
         width: 42px; height: 42px; border: none; border-radius: 12px; cursor: pointer;
         color: #fff; display: flex; align-items: center; justify-content: center;
@@ -388,6 +404,8 @@
 
     const host = document.createElement('div');
     host.id = 'lcp-host';
+    // Shadow DOM isolates widget styles from the host site. The fallback still
+    // works in older browsers by appending styles directly to the host node.
     const root = host.attachShadow ? host.attachShadow({ mode: 'open' }) : host;
     const proxyBtn = document.createElement('button');
     proxyBtn.id = 'lcp-btn';
@@ -474,6 +492,8 @@
     }
 
     function readSiteTheme(fallbackColor) {
+      // Auto theme samples the host page to make the widget feel native without
+      // requiring site-specific CSS.
       const bodyStyle = window.getComputedStyle(document.body);
       const htmlStyle = window.getComputedStyle(document.documentElement);
       const siteBg = firstUsableColor(bodyStyle.backgroundColor, htmlStyle.backgroundColor);
@@ -487,6 +507,8 @@
         panelBg: siteBg || (isDark ? '#18181b' : '#fff'),
         surfaceBg: isDark ? '#27272a' : '#f7f7f8',
         inputBg: isDark ? '#09090b' : '#fff',
+        inputTextColor: isDark ? '#f4f4f5' : siteText,
+        inputPlaceholderColor: isDark ? '#a1a1aa' : '#71717a',
         textColor: siteText,
         mutedColor: isDark ? '#a1a1aa' : '#71717a',
         borderColor: isDark ? 'rgba(255,255,255,.12)' : 'rgba(24,24,27,.12)',
@@ -503,6 +525,8 @@
         panelBg: '#fff',
         surfaceBg: '#f8f7ff',
         inputBg: '#fafafa',
+        inputTextColor: '#1a1a2e',
+        inputPlaceholderColor: '#64748b',
         textColor: '#1a1a2e',
         mutedColor: '#64748b',
         borderColor: 'rgba(79,70,229,.12)',
@@ -515,6 +539,8 @@
       wrap.style.setProperty('--lcp-panel-bg', theme.panelBg);
       wrap.style.setProperty('--lcp-surface-bg', theme.surfaceBg);
       wrap.style.setProperty('--lcp-input-bg', theme.inputBg);
+      wrap.style.setProperty('--lcp-input-text-color', theme.inputTextColor);
+      wrap.style.setProperty('--lcp-input-placeholder-color', theme.inputPlaceholderColor);
       wrap.style.setProperty('--lcp-text-color', theme.textColor);
       wrap.style.setProperty('--lcp-muted-color', theme.mutedColor);
       wrap.style.setProperty('--lcp-border-color', theme.borderColor);
@@ -529,6 +555,8 @@
     }
 
     function updateViewportMetrics() {
+      // Mobile browsers change visualViewport when the keyboard opens. These
+      // values drive CSS variables so the chat stays visible above the keyboard.
       const visualViewport = window.visualViewport;
       const viewportHeight = Math.round(visualViewport?.height || window.innerHeight || document.documentElement.clientHeight || 600);
       const viewportTop = Math.round(visualViewport?.offsetTop || 0);
@@ -614,6 +642,8 @@
     }
 
     function uploadWithProgress(url, form, headers, onProgress) {
+      // fetch does not expose upload progress consistently, so XHR is used for
+      // attachment uploads while regular chat messages stay on Socket.IO.
       return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhr.open('POST', url);
@@ -634,6 +664,8 @@
     }
 
     function emitRead(ts = Date.now()) {
+      // Read receipts are timestamp-based and idempotent; sending the same or an
+      // older timestamp cannot mark newer messages as read.
       socket.emit('read', { ts });
     }
 
@@ -718,6 +750,8 @@
     // ── Typing indicator to server ──────────────────────────
     let typingTimer;
     inputEl.addEventListener('input', () => {
+      // The server debounces and forwards a translated preview to Telegram. This
+      // client-side timer sends a stop signal after typing pauses.
       inputEl.style.height = 'auto';
       inputEl.style.height = Math.min(inputEl.scrollHeight, 80) + 'px';
       clearTimeout(typingTimer);
@@ -729,6 +763,7 @@
 
     // ── Socket events ────────────────────────────────────────
     socket.on('session', ({ sessionId: sid, history, name, config: cfg }) => {
+      // The server can replace a stale local id with the canonical session id.
       localStorage.setItem('lchat_sid', sid);
       document.cookie = `lchat_sid=${sid};path=/;max-age=31536000`;
       if (cfg?.primaryColor) applyTheme(cfg.primaryColor);
@@ -752,6 +787,8 @@
     });
 
     socket.on('attachment:deleted', ({ messageId }) => {
+      // Keep already-rendered message bubbles but remove the file preview when an
+      // admin deletes an attachment.
       const messageEl = messagesEl.querySelector(`[data-message-id="${String(messageId)}"]`);
       if (!messageEl) return;
       const attachments = messageEl.querySelector('.lcp-attachments');

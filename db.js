@@ -17,6 +17,8 @@ if (DB_FILE !== ':memory:' && !fs.existsSync(DATA_DIR)) {
 
 let dbPromise = null;
 
+// The sqlite package accepts named parameters with @/$/: prefixes. Most call
+// sites use plain object keys, so this adapter adds the expected @ prefix once.
 function normalizeParams(params) {
   if (params.length !== 1 || !params[0] || Array.isArray(params[0]) || typeof params[0] !== 'object') {
     return params;
@@ -32,6 +34,8 @@ function normalizeParams(params) {
   ];
 }
 
+// Lazily opens the database for each statement wrapper. This keeps imports cheap
+// in tests and lets every statement share the same initialized connection.
 function withDb(method) {
   return async (...args) => {
     const db = await initDb();
@@ -40,6 +44,8 @@ function withDb(method) {
   };
 }
 
+// Prepared-statement facade used by the rest of the app. The SQL is fixed at
+// module load time, while the actual sqlite connection is opened on first use.
 function createStatement(sql) {
   return {
     run: withDb('run').bind(null, sql),
@@ -48,6 +54,8 @@ function createStatement(sql) {
   };
 }
 
+// Node 22+ ships node:sqlite. It is used only as a fallback when the sqlite3
+// native binding is unavailable in the runtime environment.
 function createFallbackDb() {
   const { DatabaseSync } = require('node:sqlite');
   const syncDb = new DatabaseSync(DB_FILE);
@@ -90,6 +98,8 @@ async function createDb() {
       driver: sqlite3.Database,
     });
   } catch (error) {
+    // Falling back keeps the app usable in constrained installs where sqlite3
+    // failed to compile or load, while preserving the same async interface.
     db = createFallbackDb();
   }
 
@@ -156,7 +166,8 @@ async function createDb() {
     CREATE INDEX IF NOT EXISTS idx_attachments_session ON attachments(session_id, deleted_at);
   `);
 
-  // Migrations for existing databases (idempotent).
+  // Migrations for existing databases (idempotent). SQLite raises when a column
+  // already exists, so each ALTER is intentionally isolated and ignored.
   try { await db.exec('ALTER TABLE sessions ADD COLUMN admin_last_seen_ts INTEGER NOT NULL DEFAULT 0'); } catch {}
   try { await db.exec('ALTER TABLE sessions ADD COLUMN user_last_seen_ts INTEGER NOT NULL DEFAULT 0'); } catch {}
   try { await db.exec('ALTER TABLE attachments ADD COLUMN access_token TEXT'); } catch {}
@@ -167,6 +178,8 @@ async function createDb() {
 }
 
 function initDb() {
+  // If initialization fails, clear the cached promise so a later retry can open
+  // a fresh connection instead of reusing a permanently rejected promise.
   if (!dbPromise) {
     dbPromise = createDb().catch(error => {
       dbPromise = null;
@@ -224,6 +237,8 @@ const stmts = {
     'SELECT * FROM sessions WHERE last_active >= ? ORDER BY last_active DESC'
   ),
 
+  // Admin overview denormalizes last-message and unread counters in one query so
+  // the admin list can render without loading every message body for every chat.
   getSessionsOverview: createStatement(`
     SELECT
       s.*,
@@ -329,6 +344,8 @@ const stmts = {
     'SELECT * FROM attachments WHERE message_id = ? AND deleted_at IS NULL ORDER BY created_at ASC'
   ),
 
+  // json_each lets callers pass a single JSON array instead of interpolating a
+  // variable-length IN (...) list.
   getAttachmentsByMessages: createStatement(`
     SELECT * FROM attachments
     WHERE deleted_at IS NULL

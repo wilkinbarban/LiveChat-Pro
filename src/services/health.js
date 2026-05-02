@@ -2,6 +2,8 @@
 
 const { escapeHtml, safeCssColor } = require('../utils/sanitizer');
 
+// Static copy for the HTML health page. The JSON endpoint uses the same payload
+// without localization.
 const HEALTH_I18N = {
   es: {
     ok: 'Activo', off: 'Inactivo', eyebrow: 'LiveChat Pro health',
@@ -50,6 +52,7 @@ function healthLabel(value, lang = 'es') {
   return value ? dict.ok : dict.off;
 }
 
+// Compact uptime formatter for the status cards.
 function formatDuration(totalSeconds) {
   const seconds = Math.max(0, Number(totalSeconds) || 0);
   const days = Math.floor(seconds / 86400);
@@ -60,6 +63,8 @@ function formatDuration(totalSeconds) {
   return `${minutes}m ${seconds % 60}s`;
 }
 
+// Public operational snapshot. It intentionally avoids secrets while exposing
+// enough configuration to debug deployment and widget behavior.
 function buildHealthPayload({ sessions, clusterState, telegramReady, config }) {
   return {
     status: 'ok',
@@ -78,6 +83,8 @@ function buildHealthPayload({ sessions, clusterState, telegramReady, config }) {
   };
 }
 
+// Renders a self-contained HTML page so /health can be inspected directly from a
+// browser without requiring any frontend build step.
 function renderHealthPage(data, lang = 'es') {
   const copy = HEALTH_I18N[lang] || HEALTH_I18N.es;
   const accent = safeCssColor(data.widget.primaryColor);

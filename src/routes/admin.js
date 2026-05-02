@@ -4,6 +4,9 @@ const path = require('path');
 const { Router } = require('express');
 const { sanitizeText } = require('../utils/sanitizer');
 
+// Admin routes expose the single-operator web panel and all privileged chat
+// mutations. Authentication and CSRF helpers are injected from server.js so tests
+// can exercise the router with the same policies as production.
 function createAdminRouter(deps) {
   const {
     rootDir,
@@ -39,6 +42,8 @@ function createAdminRouter(deps) {
 
   const router = Router();
 
+  // Ban and block share the same enforcement path: persist the ban, disconnect
+  // active sockets, remove shared session presence and notify admin clients.
   async function banSession(session, reason) {
     session.banned = true;
     session.connected = false;
@@ -59,6 +64,7 @@ function createAdminRouter(deps) {
     broadcastAdminSessionUpdate(session, { reason });
   }
 
+  // Serving /admin also seeds the CSRF cookie used by the first login request.
   router.get('/admin', (req, res) => {
     ensureCsrfCookie(req, res);
     res.sendFile(path.join(rootDir, 'public', 'admin.html'));
@@ -133,6 +139,7 @@ function createAdminRouter(deps) {
 
     await sendAdminTypingToSession(session, false);
 
+    // Sending a reply implies the admin has read up to that message.
     const seenTs = result.message?.ts || Date.now();
     session.adminLastSeenTs = Math.max(session.adminLastSeenTs || 0, seenTs);
     try {

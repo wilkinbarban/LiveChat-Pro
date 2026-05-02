@@ -13,6 +13,8 @@ const EXTENSIONS_BY_MIME = {
   'image/gif': '.gif',
 };
 
+// MIME detection uses file signatures instead of trusting the browser-provided
+// upload header, which can be spoofed.
 function detectImageMime(buffer) {
   if (!Buffer.isBuffer(buffer) || buffer.length < 3) return null;
   if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) return 'image/jpeg';
@@ -33,6 +35,8 @@ function detectImageMime(buffer) {
   return null;
 }
 
+// Reads dimensions for supported formats without decoding the full image. The
+// values are used for stable aspect ratios in the widget and admin panel.
 function readImageDimensions(buffer, mimeType) {
   if (!Buffer.isBuffer(buffer)) return { width: null, height: null };
   if (mimeType === 'image/png' && buffer.length >= 24) {
@@ -76,6 +80,7 @@ function readImageDimensions(buffer, mimeType) {
   return { width: null, height: null };
 }
 
+// Original filenames are shown in the UI but never used as storage filenames.
 function sanitizeOriginalName(name = '') {
   const base = path.basename(String(name || 'imagen'));
   return base
@@ -85,6 +90,8 @@ function sanitizeOriginalName(name = '') {
     .slice(0, 120) || 'imagen';
 }
 
+// Upload paths are resolved relative to the project root unless an absolute path
+// is explicitly configured.
 function normalizeUploadConfig(config = {}, rootDir = process.cwd()) {
   const maxMb = Number.isFinite(Number(config.maxMb)) && Number(config.maxMb) > 0 ? Number(config.maxMb) : 5;
   const uploadDir = path.isAbsolute(config.dir || '')
@@ -98,9 +105,13 @@ function normalizeUploadConfig(config = {}, rootDir = process.cwd()) {
   };
 }
 
+// AttachmentService owns file validation, disk writes, metadata persistence and
+// safe read paths. Routers decide who is allowed to call each operation.
 function createAttachmentService({ stmts, logger = console, config = {}, rootDir }) {
   const { uploadDir, maxBytes, allowedImageTypes } = normalizeUploadConfig(config, rootDir);
 
+  // Validation checks type allowlist, binary signature and size before writing
+  // anything to disk.
   function validateImageFile(file) {
     if (!file) {
       const error = new Error('No se recibió ninguna imagen');
@@ -179,6 +190,8 @@ function createAttachmentService({ stmts, logger = console, config = {}, rootDir
         deleted_at: null,
       });
     } catch (error) {
+      // If metadata persistence fails after writing the file, remove the orphaned
+      // file so the upload directory does not accumulate unreachable blobs.
       try {
         await fs.unlink(storagePath);
       } catch {}
@@ -217,6 +230,8 @@ function createAttachmentService({ stmts, logger = console, config = {}, rootDir
   }
 
   async function attachFilesToMessages(messages = []) {
+    // Batch lookup avoids one attachment query per message when hydrating chat
+    // history for admin detail views or visitor reconnects.
     const ids = messages.map(message => message.id).filter(Number.isFinite);
     if (!ids.length) return messages.map(message => ({ ...message, attachments: message.attachments || [] }));
 
@@ -279,6 +294,8 @@ function createAttachmentService({ stmts, logger = console, config = {}, rootDir
   }
 
   function getStoragePath(row) {
+    // Resolve and verify the path stays under the configured upload directory to
+    // avoid serving arbitrary files if the database row is tampered with.
     if (!row?.storage_path) return null;
     const resolved = path.resolve(row.storage_path);
     const uploadRoot = path.resolve(uploadDir);

@@ -28,6 +28,8 @@ const COLORS = {
 const color = (name, text) => `${COLORS[name]}${text}${COLORS.reset}`;
 const quoteEnv = value => JSON.stringify(String(value ?? ''));
 const shouldRunSystemChecks = process.env.LIVECHAT_SKIP_SYSTEM_CHECKS !== '1';
+// ask() supports both interactive use and scripted stdin. Tests/install docs can
+// pipe answers while normal users get readline prompts.
 const ask = question => {
   if (SCRIPTED_INPUT) {
     process.stdout.write(question);
@@ -77,6 +79,8 @@ function header() {
 }
 
 function parseEnvFile(filePath) {
+  // Minimal .env parser for setup defaults. Runtime loading is still delegated
+  // to dotenv in src/config.
   if (!fs.existsSync(filePath)) return {};
   const env = {};
   for (const line of fs.readFileSync(filePath, 'utf8').split(/\r?\n/)) {
@@ -91,6 +95,8 @@ function parseEnvFile(filePath) {
 }
 
 function readLegacyDefaults() {
+  // Older versions generated config.json. Preserve those answers so running the
+  // modern installer can migrate without forcing the user to re-enter everything.
   if (!fs.existsSync(LEGACY_CONFIG_PATH)) return {};
   try {
     const old = JSON.parse(fs.readFileSync(LEGACY_CONFIG_PATH, 'utf8'));
@@ -145,6 +151,7 @@ async function askSecret(label, current, validator, help) {
 }
 
 async function choose(label, options, currentValue) {
+  // Reuses current .env values as defaults when rerunning setup.
   console.log('\n' + color('blue', label));
   for (const option of options) {
     const marker = option.value === currentValue || option.code === currentValue ? '  ← actual' : '';
@@ -166,10 +173,13 @@ function randomPassword() {
 }
 
 function cryptoRandomBytes(size) {
+  // Lazy require keeps setup startup lightweight and avoids holding crypto in the
+  // top-level namespace until randomness is needed.
   return require('crypto').randomBytes(size);
 }
 
 function buildEnv(config) {
+  // Emit a deterministic .env file so rerunning setup produces small diffs.
   return [
     '# ============================================================',
     '# LiveChat Pro — generado por setup.js',
@@ -244,6 +254,8 @@ function executableExists(filePath) {
 }
 
 function runCommand(command, args) {
+  // Non-interactive command runner used for checks where stdout/stderr are only
+  // needed to decide success.
   return new Promise(resolve => {
     const child = spawn(command, args, { cwd: ROOT, stdio: 'inherit', shell: process.platform === 'win32' });
     child.on('exit', code => resolve(code || 0));
@@ -252,6 +264,8 @@ function runCommand(command, args) {
 }
 
 function runInteractiveCommand(command, args) {
+  // Interactive commands inherit stdio so package managers and sudo can prompt
+  // normally.
   const hadReadline = closeReadlineForInteractiveCommand();
   return new Promise(resolve => {
     const child = spawn(command, args, { cwd: ROOT, stdio: 'inherit', shell: process.platform === 'win32' });
@@ -275,6 +289,8 @@ function runShell(command) {
 }
 
 async function ensureSudoAccess() {
+  // Validate sudo once before install steps so later package-manager commands do
+  // not fail halfway through a setup profile.
   if (!process.getuid || process.getuid() === 0 || sudoValidated) return true;
   if (!commandExists('sudo')) {
     console.log(color('red', 'No encontré sudo. Ejecuta setup.js como root o instala sudo para preparar el VPS.'));
@@ -318,6 +334,8 @@ function captureShell(command) {
 }
 
 function parseOsRelease() {
+  // /etc/os-release gives enough signal to choose package-manager commands
+  // without pulling in external platform detection packages.
   const filePath = '/etc/os-release';
   if (!fs.existsSync(filePath)) return { id: process.platform, idLike: '', prettyName: process.platform };
   const values = {};
@@ -343,6 +361,8 @@ function hasSystemd() {
 }
 
 function dockerInstallCommand(osInfo) {
+  // Docker installation varies by distro family. Commands are intentionally
+  // explicit so users can inspect what setup is about to run.
   const sudo = sudoPrefix();
   const id = osInfo.id;
   const like = osInfo.idLike;
@@ -439,6 +459,8 @@ function nodeInstallCommand(osInfo) {
 }
 
 async function ensureSystemNode(osInfo) {
+  // The project uses the system Node.js installation rather than bundling a
+  // version manager. setup can install Node where a supported package path exists.
   const nodeInfo = await getSystemNodeInfo();
   if (nodeInfo && !nodeInfo.isProjectLocal && nodeInfo.major >= REQUIRED_NODE_MAJOR) {
     console.log(color('green', `✓ Node.js del sistema detectado: ${nodeInfo.version} (${nodeInfo.location})`));
@@ -475,6 +497,8 @@ async function ensureSystemNode(osInfo) {
 }
 
 async function ensureDocker(osInfo) {
+  // Docker is required for the recommended VPS profile. Validating it here makes
+  // the final deployment instructions actionable.
   if (commandExists('docker')) {
     const dockerVersion = await captureShell('docker --version');
     const composeVersion = await captureShell('docker compose version');
@@ -521,6 +545,7 @@ async function checkPortListening(port) {
 }
 
 async function openFirewallPorts() {
+  // Firewall opening is best-effort and limited to common Linux firewalls.
   console.log('\n' + color('bright', 'Firewall y puertos públicos'));
   const publicPort = 8080;
   const publicPortRule = `${publicPort}/tcp`;
@@ -568,6 +593,8 @@ async function preflightSystem() {
 }
 
 function normalizeOrigins(input) {
+  // CORS origins are stored as a clean comma-separated list. "*" remains the
+  // default for simple widget embedding during setup.
   const value = String(input || '').trim();
   if (!value || value === '*') return '*';
   return value
@@ -579,6 +606,8 @@ function normalizeOrigins(input) {
 }
 
 function publicBaseUrl(allowedOrigins, port) {
+  // Prefer an explicit public origin; otherwise fall back to localhost for the
+  // generated snippets shown at the end of setup.
   const firstOrigin = String(allowedOrigins || '')
     .split(',')
     .map(item => item.trim())
@@ -620,6 +649,8 @@ function publicOriginFromDomainOrIp(input, publicIp) {
 }
 
 function widgetSnippet(baseUrl, apiKey) {
+  // This is the exact script tag expected by widget.js: data-server points to the
+  // LiveChat Pro backend and data-api-key is optional.
   const keyAttr = apiKey ? ` data-api-key="${apiKey.replace(/"/g, '&quot;')}"` : '';
   return `<script src="${baseUrl}/widget.js" data-server="${baseUrl}"${keyAttr}></script>`;
 }
@@ -651,6 +682,8 @@ async function chooseRunMode(recommendedMode = 'local') {
 }
 
 async function main() {
+  // Main orchestrates prompt collection, optional system preparation, .env
+  // generation and final run/deploy guidance.
   header();
   await preflightSystem();
   const defaults = mergeDefaults();

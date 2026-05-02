@@ -3,6 +3,9 @@ const { getClientIpFromSocket, getGeoInfo, shouldRefreshGeo } = require('../serv
 const { sanitizeLanguage, sanitizeUserAgent, sanitizePage, sanitizeText, sanitizeName, escapeTelegramHtml } = require('../utils/sanitizer');
 const { getLastInsertId } = require('../utils/sqlite-result');
 
+// Socket setup handles two namespaces:
+// - default namespace: visitor widget connections
+// - /admin namespace: authenticated admin realtime updates
 function setupSockets(io, adminIo, deps) {
   const {
     WIDGET_API_KEY,
@@ -38,6 +41,8 @@ function setupSockets(io, adminIo, deps) {
   } = deps;
 
   io.on('connection', async (socket) => {
+    // Optional shared secret for embedded widgets. Timing-safe comparison avoids
+    // leaking how much of the configured key matched.
     if (WIDGET_API_KEY) {
       const providedApiKey = typeof socket.handshake.auth?.apiKey === 'string'
         ? socket.handshake.auth.apiKey
@@ -58,6 +63,8 @@ function setupSockets(io, adminIo, deps) {
     let sessionId = cookieMap['lchat_sid'] || socket.handshake.auth?.sessionId;
     const widgetLang = sanitizeLanguage(socket.handshake.auth?.lang);
 
+    // Only accept v4 UUIDs from clients; otherwise issue a fresh id to prevent
+    // arbitrary room names or path-like values from becoming session identifiers.
     const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     if (!sessionId || !UUID_RE.test(sessionId)) sessionId = crypto.randomUUID();
 
@@ -77,6 +84,8 @@ function setupSockets(io, adminIo, deps) {
     const isNewSession = !session;
 
     if (isNewSession) {
+      // New sessions start in "awaitingName" mode. The first user message is
+      // captured as the visitor name rather than stored as a support message.
       const geo = await getGeoInfo(clientIp, features.geoLocation);
       session = {
         sessionId,
@@ -112,6 +121,8 @@ function setupSockets(io, adminIo, deps) {
       session.socketId = socket.id;
       session.lastActive = Date.now();
       session.connected = true;
+      // Reconnects may arrive through a different proxy/IP. Refresh network
+      // metadata only when it is meaningfully different or previously unknown.
       const refreshNetworkInfo = shouldRefreshGeo(session, clientIp);
       if (refreshNetworkInfo) {
         session.ip = clientIp;
@@ -174,6 +185,8 @@ function setupSockets(io, adminIo, deps) {
 
     let typingTimeout;
     socket.on('typing', async (text) => {
+      // Ghost typing sends a translated preview to Telegram after a short debounce
+      // so the admin can see visitor intent without flooding Telegram edits.
       if (!session || !features.ghostTyping || typeof text !== 'string') return;
       clearTimeout(typingTimeout);
       const previewText = await translateForAdmin(sanitizeText(text).slice(0, 100), session.lang);
@@ -204,6 +217,7 @@ function setupSockets(io, adminIo, deps) {
       session.lastActive = Date.now();
 
       if (session.typingMsgId) {
+        // A real message supersedes the transient Telegram typing preview.
         try { await getBot()?.telegram.deleteMessage(ADMIN_ID, session.typingMsgId); } catch {}
         session.typingMsgId = null;
       }
@@ -235,6 +249,8 @@ function setupSockets(io, adminIo, deps) {
       }
 
       if (!session.langDetected) {
+        // Browser language is used initially, but the first real message can
+        // correct it when the user writes in another language.
         session.lang = await detectLang(text);
         session.langDetected = true;
         try {
@@ -317,6 +333,7 @@ function setupSockets(io, adminIo, deps) {
   });
 
   adminIo.use((socket, next) => {
+    // Admin realtime access relies on the same signed cookie as the REST API.
     if (!ADMIN_PANEL_PASSWORD) return next(new Error('Panel admin deshabilitado'));
     const cookies = parseCookies(socket.handshake.headers.cookie || '');
     if (!verifyAdminToken(cookies[ADMIN_COOKIE_NAME])) return next(new Error('No autenticado'));
@@ -324,6 +341,8 @@ function setupSockets(io, adminIo, deps) {
   });
 
   adminIo.on('connection', async (socket) => {
+    // Bootstrap gives newly-opened admin tabs the current overview immediately;
+    // subsequent changes arrive through session:update/message:new events.
     socket.emit('bootstrap', { sessions: await listSessionsForAdmin() });
   });
 }

@@ -1,5 +1,7 @@
 'use strict';
 
+// ClusterState is the only module that knows whether the application is
+// running as a single process or with Redis-backed shared state.
 class ClusterState {
   constructor({ redisUrl = '', keyPrefix = 'lcp', logger = console } = {}) {
     this.redisUrl = redisUrl;
@@ -11,11 +13,15 @@ class ClusterState {
     this.subClient = null;
     this.stateClient = null;
 
+    // In-memory mirrors are always populated. When Redis is available they are
+    // used as a fast local cache; without Redis they become the source of truth.
     this.pendingReply = new Map();
     this.bannedSessions = new Set();
     this.telegramMessageSessions = new Map();
   }
 
+  // Keep every Redis key namespaced so multiple deployments can share a Redis
+  // instance without colliding.
   key(suffix) {
     return `${this.keyPrefix}:${suffix}`;
   }
@@ -32,6 +38,8 @@ class ClusterState {
     return this.key(`tgmsg:${adminId}:${messageId}`);
   }
 
+  // A snapshot intentionally excludes full message history. Socket presence and
+  // admin overviews need lightweight session metadata; messages stay in SQLite.
   snapshotFromSession(session, overrides = {}) {
     return {
       sessionId: session.sessionId,
@@ -57,6 +65,8 @@ class ClusterState {
     };
   }
 
+  // Enables Socket.IO cross-node fanout and Redis-backed state. Failure is
+  // non-fatal so local development and single-node deployments continue to work.
   async connect(io) {
     if (!this.redisUrl) return false;
 
@@ -105,6 +115,8 @@ class ClusterState {
     ]);
   }
 
+  // Banned sessions are copied into Redis at startup so every node can reject a
+  // blocked visitor before joining a Socket.IO room.
   async seedBanned(sessionIds) {
     for (const sessionId of sessionIds) this.bannedSessions.add(sessionId);
     if (!this.stateClient || !sessionIds.length) return;
@@ -129,6 +141,9 @@ class ClusterState {
     await this.stateClient.sRem(this.key('banned'), sessionId);
   }
 
+  // Telegram replies without an explicit quoted message use the last session the
+  // admin interacted with. The value is keyed by admin id for future multi-admin
+  // compatibility even though the current product targets one admin.
   async setPendingReply(adminId, sessionId) {
     this.pendingReply.set(String(adminId), sessionId);
     if (!this.stateClient) return;
@@ -144,6 +159,8 @@ class ClusterState {
     return sessionId || null;
   }
 
+  // Maps Telegram message ids back to chat sessions so replying to a Telegram
+  // notification targets the correct visitor even after process restarts.
   async setTelegramMessageSession(adminId, messageId, sessionId, ttlSeconds = 7 * 24 * 60 * 60) {
     const key = `${adminId}:${messageId}`;
     this.telegramMessageSessions.set(key, sessionId);
@@ -161,6 +178,8 @@ class ClusterState {
     return sessionId || null;
   }
 
+  // Presence is a reference count rather than a boolean because one visitor can
+  // open the widget in multiple tabs or reconnect while an old socket is closing.
   async incrementPresence(sessionId) {
     if (!this.stateClient) return 1;
     const presenceKey = this.presenceKey(sessionId);
@@ -187,6 +206,8 @@ class ClusterState {
     return Math.max(0, Number.parseInt(value || '0', 10) || 0);
   }
 
+  // Persist the latest lightweight session view for admin lists and reconnects
+  // across nodes. SQLite remains the durable store for messages.
   async syncSession(session, overrides = {}) {
     if (!this.stateClient) return this.snapshotFromSession(session, overrides);
 

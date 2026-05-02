@@ -1,8 +1,29 @@
-# LiveChat Pro
+<div align="center">
+  <img src="assets/Icon.png" alt="LiveChat Pro Logo" width="220">
+  <h1>LiveChat Pro</h1>
+
+  <p>
+    Self-hosted live chat with embeddable widget, Telegram integration, admin panel, SQLite persistence and Docker deployment.
+  </p>
+
+  <p>
+    <a href="https://www.gnu.org/licenses/gpl-3.0"><img alt="License: GPL v3" src="https://img.shields.io/badge/License-GPLv3-blue.svg"></a>
+    <a href="https://nodejs.org/"><img alt="Node.js >=20" src="https://img.shields.io/badge/Node.js-%3E%3D20-339933.svg?logo=node.js&logoColor=white"></a>
+    <a href="https://www.docker.com/"><img alt="Docker Ready" src="https://img.shields.io/badge/Docker-ready-2496ED.svg?logo=docker&logoColor=white"></a>
+    <a href="https://telegram.org/"><img alt="Telegram Bot" src="https://img.shields.io/badge/Telegram-bot-26A5E4.svg?logo=telegram&logoColor=white"></a>
+    <a href="https://www.sqlite.org/"><img alt="SQLite" src="https://img.shields.io/badge/SQLite-persistence-003B57.svg?logo=sqlite&logoColor=white"></a>
+    <a href="https://github.com/wilkinbarban/LiveChat-Pro/releases"><img alt="Releases" src="https://img.shields.io/github/v/release/wilkinbarban/LiveChat-Pro"></a>
+    <a href="#educational-project"><img alt="Purpose Educational" src="https://img.shields.io/badge/Purpose-Educational-orange.svg"></a>
+  </p>
+
+  <p>
+    <a href="README_ES.md">Español</a> | <a href="README.md">English</a> | <a href="README_BR.md">Português</a>
+  </p>
+</div>
+
+## Educational Project
 
 > Educational project: this repository is intended for learning, experimentation and technical reference. Review, harden and adapt the configuration before using it in production.
-
-[Español](README_ES.md) | [English](README.md) | [Português](README_BR.md)
 
 Self-hosted live chat with an embeddable widget, Telegram integration, single web administration panel, SQLite persistence and recommended Docker deployment.
 
@@ -280,6 +301,8 @@ When opened on mobile, the chat uses a controlled full-screen view: fixed header
 
 With `data-theme="auto"`, the widget takes the font, text color, base background and accent from the site where it is inserted. This prevents the opened chat from looking visually disconnected in mobile mode.
 
+The message input keeps explicit foreground, placeholder and caret colors. In dark host pages, the focused field keeps the dark input background instead of switching to a light field, so typed text remains readable while the visitor writes.
+
 When the chat opens on mobile, the panel is limited with `visualViewport` when the browser supports it. This keeps the message area and input within the visible screen, even when the mobile keyboard appears. The widget internal CSS is encapsulated with Shadow DOM to reduce conflicts with site styles.
 
 You can customize the behavior per site with script attributes:
@@ -358,6 +381,12 @@ Features:
 - Clear individual chat.
 - Block or ban user.
 - Delete session and messages.
+
+### Admin Panel Visual Behavior
+
+The admin panel keeps the light theme as the default visual style. Input and textarea fields define explicit text, placeholder and caret colors, and force a light input color scheme when the browser or operating system is in dark mode. This prevents light-on-light or browser-inverted field colors while preserving the original light panel design.
+
+Admin action buttons include hover, active and keyboard focus states. Primary, warning, destructive and soft buttons use subtle gradients, elevation and border changes to make actions easier to scan without changing the panel layout.
 
 ### Current Admin API
 

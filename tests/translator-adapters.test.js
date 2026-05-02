@@ -1,3 +1,7 @@
+// ============================================================
+// Translator adapter tests — src/services/translator.js
+// Exercises provider selection, payload formats and fallback behavior.
+// ============================================================
 'use strict';
 
 const test = require('node:test');

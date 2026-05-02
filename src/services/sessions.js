@@ -1,5 +1,8 @@
 'use strict';
 
+// SessionService owns the conversion between durable SQLite rows, live in-memory
+// sessions and admin-facing DTOs. It deliberately does not know about Express or
+// Socket.IO so routes and sockets can share the same behavior.
 function createSessionService(deps) {
   const {
     sessions,
@@ -10,6 +13,8 @@ function createSessionService(deps) {
     translate,
   } = deps;
 
+  // Merge Redis metadata into an existing local session without replacing the
+  // message array that was loaded from SQLite.
   function applySharedSessionSnapshot(session, snapshot) {
     if (!session || !snapshot) return session;
 
@@ -36,6 +41,8 @@ function createSessionService(deps) {
     return applySharedSessionSnapshot(session, snapshot);
   }
 
+  // Database rows use snake_case and integer booleans; runtime session objects
+  // use camelCase and native booleans.
   function dbRowToSession(row, messages = []) {
     return {
       sessionId: row.session_id,
@@ -87,6 +94,8 @@ function createSessionService(deps) {
     };
   }
 
+  // Read receipts are timestamp-based, which lets sessions recover unread counts
+  // after restarts without storing per-message read state.
   function countUnreadForAdmin(session) {
     const lastSeen = session.adminLastSeenTs || 0;
     return session.messages.filter(message => message.from === 'user' && message.ts > lastSeen).length;
@@ -98,6 +107,8 @@ function createSessionService(deps) {
   }
 
   async function loadFromDB() {
+    // Only recent sessions are hydrated into memory at startup. Older sessions
+    // remain in SQLite and are loaded lazily when the admin opens them.
     const bannedRows = await stmts.getAllBanned.all();
     await clusterState.seedBanned(bannedRows.map(row => row.session_id));
 
@@ -214,6 +225,8 @@ function createSessionService(deps) {
   }
 
   async function serializeSessionOverview(row, liveSession = null) {
+    // Prefer live memory/Redis data for volatile fields such as connection
+    // status, but keep database aggregate columns for unloaded message history.
     const effectiveSession = liveSession || sessions.get(row.session_id) || null;
     const lastMessage = row.last_text && row.last_from && row.last_ts
       ? {
@@ -257,6 +270,8 @@ function createSessionService(deps) {
   }
 
   async function listSessionsForAdmin() {
+    // Admin lists combine SQLite aggregates with Redis snapshots so a node can
+    // show sessions that are currently connected to another node.
     const rows = await stmts.getSessionsOverview.all();
     const sharedSnapshots = await clusterState.getSessionSnapshots(rows.map(row => row.session_id));
     return Promise.all(rows.map(async (row) => {
@@ -271,6 +286,8 @@ function createSessionService(deps) {
   }
 
   async function getGeneralAdminMetrics() {
+    // Metrics intentionally reuse the same serialized overview used by the list
+    // to avoid counting sessions differently across UI endpoints.
     const allSessions = await listSessionsForAdmin();
     const now = Date.now();
     return allSessions.reduce((metrics, session) => {

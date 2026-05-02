@@ -1,3 +1,7 @@
+// ============================================================
+// Sentiment tests — src/services/sentiment
+// Verifies language hints, offensive content and high-priority detection.
+// ============================================================
 'use strict';
 
 const test = require('node:test');

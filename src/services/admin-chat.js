@@ -2,6 +2,9 @@
 
 const { getLastInsertId } = require('../utils/sqlite-result');
 
+// AdminChatService contains operations initiated by the web admin panel. It
+// updates memory, SQLite, Redis snapshots, visitor sockets and admin sockets as
+// one coordinated workflow.
 function createAdminChatService(deps) {
   const {
     io,
@@ -20,6 +23,8 @@ function createAdminChatService(deps) {
     attachmentService,
   } = deps;
 
+  // Lightweight session broadcasts keep the admin list and metrics fresh without
+  // forcing every connected admin client to reload full message history.
   function broadcastAdminSessionUpdate(session, extra = {}) {
     adminIo.emit('session:update', {
       session: serializeSession(session),
@@ -35,6 +40,8 @@ function createAdminChatService(deps) {
     });
   }
 
+  // Clearing a chat removes message and attachment history, resets read markers
+  // and tells the visitor widget to clear its local thread.
   async function clearSessionChat(session) {
     session.messages = [];
     session.lastActive = Date.now();
@@ -55,6 +62,8 @@ function createAdminChatService(deps) {
     broadcastAdminSessionUpdate(session, { reason: 'cleared' });
   }
 
+  // Full deletion disconnects active visitor sockets before deleting the durable
+  // session row so no client continues writing to a removed conversation.
   async function deleteAdminSession(session) {
     const sockets = await io.in(sessionRoom(session.sessionId)).fetchSockets();
     for (const activeSocket of sockets) {
@@ -76,6 +85,9 @@ function createAdminChatService(deps) {
     adminIo.emit('session:deleted', { sessionId: session.sessionId });
   }
 
+  // Typing state is only useful for currently connected visitors. When no socket
+  // remains in the room, the session presence is corrected and the caller can
+  // return a conflict to the admin UI.
   async function sendAdminTypingToSession(session, active) {
     const sockets = await io.in(sessionRoom(session.sessionId)).fetchSockets();
     if (!sockets.length) {
@@ -92,6 +104,8 @@ function createAdminChatService(deps) {
     return true;
   }
 
+  // Admin replies are translated into the visitor language before persistence so
+  // all delivery channels and history show the same text to the visitor.
   async function sendAdminReplyToSession(session, replyText) {
     const sockets = await io.in(sessionRoom(session.sessionId)).fetchSockets();
     const isOnline = sockets.length > 0;

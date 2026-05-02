@@ -3,6 +3,8 @@
 const net = require('net');
 const geoip = require('geoip-lite');
 
+// Normalize the common proxy/socket IP formats into a value net.isIP can check:
+// quoted headers, bracketed IPv6, IPv4-mapped IPv6 and IPv4:port.
 function normalizeClientIp(value) {
   if (typeof value !== 'string') return '';
   let ip = value.trim().replace(/^"|"$/g, '');
@@ -23,6 +25,8 @@ function normalizeClientIp(value) {
   return net.isIP(ip) ? ip : '';
 }
 
+// Treat local, private, documentation and multicast ranges as non-public. Those
+// should not be sent through geo lookup and should not replace a known public IP.
 function isPrivateClientIp(ip) {
   const normalizedIp = normalizeClientIp(ip);
   if (!normalizedIp) return true;
@@ -50,6 +54,8 @@ function isPrivateClientIp(ip) {
     a >= 224;
 }
 
+// Prefer CDN/proxy headers that usually carry the original client, then fall back
+// to the Socket.IO address. The first public candidate wins.
 function getClientIpFromSocket(socket) {
   const headers = socket.handshake.headers || {};
   const candidates = [];
@@ -73,6 +79,8 @@ function getClientIpFromSocket(socket) {
   return normalized.find(ip => !isPrivateClientIp(ip)) || normalized[0] || '';
 }
 
+// Geo data is refreshed only when it is missing or when the visitor moves to a
+// new public IP, avoiding unnecessary updates on every reconnect.
 function shouldRefreshGeo(session, ip) {
   const normalizedIp = normalizeClientIp(ip);
   if (!session || !normalizedIp) return false;
@@ -89,6 +97,8 @@ function shouldRefreshGeo(session, ip) {
   return hasUnknownGeo && !isPrivateClientIp(normalizedIp);
 }
 
+// geoip-lite is local and best-effort. Unknown/private addresses receive
+// explicit placeholders so the admin UI can distinguish them from real cities.
 async function getGeoInfo(ip, geoLocationEnabled = true) {
   if (!geoLocationEnabled) return { city: 'N/A', country: 'N/A', isp: 'N/A', ip };
 

@@ -54,6 +54,9 @@ const logger = pino({
   timestamp: pino.stdTimeFunctions.isoTime,
 });
 
+// Configuration is normalized once during bootstrap. The constants below keep
+// the rest of server.js readable while still preserving the structured config
+// object for services that need grouped settings.
 const config = createConfig({ logger });
 const configErrors = validateConfig(config);
 const TELEGRAM_TOKEN = config.telegram.token;
@@ -97,7 +100,8 @@ const WIDGET_MESSAGES = {
   },
 };
 
-
+// Widget greetings are server-side so every embedded site receives the same
+// localized first-run flow without needing to bundle copy in widget config.
 function getWidgetMessage(lang, key, ...args) {
   const message = WIDGET_MESSAGES[normalizeWidgetLang(lang)]?.[key] || WIDGET_MESSAGES.es[key];
   return typeof message === 'function' ? message(...args) : message;
@@ -123,6 +127,8 @@ const io = new Server(httpServer, {
 const adminIo = io.of('/admin');
 
 function publicWidgetHeaders(req, res, next) {
+  // widget.js and config-public must be embeddable from arbitrary websites, so
+  // they get permissive cross-origin headers independent of the private API CORS.
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -212,6 +218,8 @@ const {
   cookieSameSite: COOKIE_SAME_SITE,
 });
 
+// HTTP rate limiting is applied before routers. Authenticated admin calls are
+// exempted inside the limiter factory.
 const {
   publicApiLimiter,
   loginLimiter,
@@ -239,12 +247,15 @@ const clusterState = new ClusterState({
 });
 
 async function resolveTelegramReplySessionId(message) {
+  // Used by tests and by Telegram reply handling to resolve quoted admin
+  // notifications back to the original chat session.
   const replyToMessageId = message?.reply_to_message?.message_id;
   if (!replyToMessageId) return null;
   return clusterState.getTelegramMessageSession(ADMIN_ID, replyToMessageId);
 }
 
 function sessionRoom(sessionId) {
+  // Every visitor tab for the same logical chat joins the same room.
   return `session:${sessionId}`;
 }
 
@@ -264,6 +275,8 @@ const attachmentService = createAttachmentService({
   rootDir: __dirname,
 });
 
+// Services are created before routers/sockets so every transport shares the same
+// session serialization, persistence and broadcast behavior.
 const sessionService = createSessionService({
   sessions,
   stmts,
@@ -397,6 +410,7 @@ app.get('/widget.js', publicApiLimiter, (req, res) => {
 });
 
 app.get('/config-public', publicApiLimiter, (req, res) => {
+  // Only expose visual widget settings that are safe for public embedded pages.
   res.json({ primaryColor: widgetCfg.primaryColor, buttonStyle: widgetCfg.buttonStyle });
 });
 
@@ -436,6 +450,9 @@ app.use(createHealthRouter({ sessions, clusterState, get telegramReady() { retur
 
 // ── Startup ───────────────────────────────────────────────────
 async function start() {
+  // Startup order matters: database first, optional cluster state second, then
+  // hydration. HTTP starts before Telegram so a slow bot launch does not block
+  // the health endpoint or local development.
   await initDb();
   await clusterState.connect(io);
   await loadFromDB();
@@ -478,6 +495,8 @@ async function start() {
 }
 
 async function shutdown(signal) {
+  // Close external resources that can otherwise keep the process alive during
+  // tests, Docker stops or local Ctrl+C.
   if (telegramReady) {
     try {
       getBot()?.stop(signal);

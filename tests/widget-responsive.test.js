@@ -1,3 +1,7 @@
+// ============================================================
+// Widget responsive tests — widget.js and README.md
+// Static checks for mobile layout options and documented embed behavior.
+// ============================================================
 'use strict';
 
 const assert = require('node:assert/strict');
