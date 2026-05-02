@@ -12,7 +12,7 @@ const ENV_PATH = process.env.LIVECHAT_ENV_PATH || path.join(ROOT, '.env');
 const LEGACY_CONFIG_PATH = path.join(ROOT, 'config.json');
 const SCRIPTED_INPUT = process.stdin.isTTY ? null : fs.readFileSync(0, 'utf8').split(/\r?\n/);
 let rl = SCRIPTED_INPUT ? null : readline.createInterface({ input: process.stdin, output: process.stdout });
-const REQUIRED_NODE_MAJOR = 20;
+const REQUIRED_NODE_MAJOR = 24;
 let sudoValidated = false;
 
 const COLORS = {
@@ -690,7 +690,7 @@ async function ensureSystemNode(osInfo) {
   }
   if (!(await ensureSudoAccess())) return false;
 
-  if (!(await runManagedSystemTask('Installing Node.js 20', installCommand, osInfo))) return false;
+  if (!(await runManagedSystemTask(`Installing Node.js ${REQUIRED_NODE_MAJOR}`, installCommand, osInfo))) return false;
 
   const installed = await getSystemNodeInfo();
   const ok = installed && !installed.isProjectLocal && installed.major >= REQUIRED_NODE_MAJOR && installed.npmVersion;
@@ -1077,14 +1077,16 @@ async function main() {
     }
   } else if (mode === 'local') {
     finalCommand = localStartCommand();
-    if (!fs.existsSync(path.join(ROOT, 'node_modules'))) {
-      if (await chooseYesNo('node_modules was not found. Install dependencies with sudo npm install?', true)) {
-        const npmInstallCommand = sudoArgs('npm', ['install']);
-        const installCode = await runCommand(npmInstallCommand.command, npmInstallCommand.args);
-        if (installCode !== 0) {
-          console.log(color('red', 'npm install failed. Install dependencies successfully before starting local mode.'));
-          return;
-        }
+    const needsDependencies = !fs.existsSync(path.join(ROOT, 'node_modules'));
+    const installPrompt = needsDependencies
+      ? 'node_modules was not found. Install dependencies with sudo npm install?'
+      : 'Refresh local dependencies with sudo npm install before starting?';
+    if (await chooseYesNo(installPrompt, true)) {
+      const npmInstallCommand = sudoArgs('npm', ['install']);
+      const installCode = await runCommand(npmInstallCommand.command, npmInstallCommand.args);
+      if (installCode !== 0) {
+        console.log(color('red', 'npm install failed. Install dependencies successfully before starting local mode.'));
+        return;
       }
     }
     if (await chooseYesNo('Start now in local mode?', false)) {

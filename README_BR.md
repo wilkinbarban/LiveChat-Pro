@@ -20,20 +20,20 @@ Chat ao vivo auto-hospedado com widget incorporável, integração com Telegram,
 
 Para desenvolvimento local:
 
-- Node.js do sistema `>=20`
+- Node.js do sistema `>=24`
 - npm
 - Acesso à internet para instalar dependências e usar tradução automática
 
 Para VPS público:
 
 - Linux com usuário que tenha `sudo`
-- Node.js do sistema `>=20`
+- Node.js do sistema `>=24`
 - Docker Engine + plugin Docker Compose
 - Porta `8080/tcp` aberta para o LiveChat Pro
 - Bot do Telegram criado com [@BotFather](https://t.me/BotFather)
 - Seu ID numérico do Telegram
 
-`setup.js` valida o Node.js do sistema antes de continuar. O comando `node` precisa existir primeiro para que o instalador possa rodar; se essa versão inicial for menor que v20 ou não incluir `npm`, o instalador tenta atualizar para Node.js 20 nas distribuições suportadas. No Ubuntu/Debian ele remove pacotes antigos `nodejs`/`npm`, adiciona o repositório NodeSource 20.x, instala `nodejs` e depois verifica `node --version` e `npm --version`. Também valida Docker/Compose e pode instalar Docker em distribuições suportadas.
+`setup.js` valida o Node.js do sistema antes de continuar. O comando `node` precisa existir primeiro para que o instalador possa rodar; se essa versão inicial for menor que v24 ou não incluir `npm`, o instalador tenta atualizar para Node.js 24 nas distribuições suportadas. No Ubuntu/Debian ele remove pacotes antigos `nodejs`/`npm`, adiciona o repositório NodeSource 24.x, instala `nodejs` e depois verifica `node --version` e `npm --version`. Também valida Docker/Compose e pode instalar Docker em distribuições suportadas.
 
 O projeto utiliza apenas o Node.js do sistema.
 
@@ -84,14 +84,14 @@ Depois execute a instalação com um comando:
 git clone https://github.com/wilkinbarban/LiveChat-Pro.git && cd LiveChat-Pro && node setup.js
 ```
 
-Se esse primeiro pacote instalar uma versão antiga do Node.js, como `v12.22.9` no Ubuntu, o instalador tentará atualizá-la primeiro para Node.js 20 e depois continuará com o assistente guiado.
+Se esse primeiro pacote instalar uma versão antiga do Node.js, como `v12.22.9` no Ubuntu, o instalador tentará atualizá-la primeiro para Node.js 24 e depois continuará com o assistente guiado.
 
 ## Início Rápido Local
 
 ```bash
-npm install
+sudo npm install
 node setup.js
-node server.js
+sudo node server.js
 ```
 
 Depois abra:
@@ -194,9 +194,9 @@ docker compose down -v
 ## Sem Docker
 
 ```bash
-npm install
+sudo npm install
 node setup.js
-node server.js
+sudo node server.js
 ```
 
 Com PM2:

@@ -6,16 +6,16 @@ Runtime
 El proyecto utiliza Node.js del sistema.
 
 Requisito mínimo:
-- Node.js >= 20
+- Node.js >= 24
 - npm
 
-setup.js valida Node.js del sistema. Si no está instalado, intenta instalarlo en distribuciones Linux soportadas.
+setup.js valida Node.js del sistema. El comando node debe existir para poder arrancar el instalador; si la versión inicial es menor que 24, intenta actualizarla en distribuciones Linux soportadas.
 
 Comandos habituales:
 
-  npm install
+  sudo npm install
   node setup.js
-  node server.js
+  sudo node server.js
 
 Dependencias Node.js
 --------------------

@@ -8,7 +8,7 @@
 
   <p>
     <a href="https://www.gnu.org/licenses/gpl-3.0"><img alt="License: GPL v3" src="https://img.shields.io/badge/License-GPLv3-blue.svg"></a>
-    <a href="https://nodejs.org/"><img alt="Node.js >=20" src="https://img.shields.io/badge/Node.js-%3E%3D20-339933.svg?logo=node.js&logoColor=white"></a>
+    <a href="https://nodejs.org/"><img alt="Node.js >=24" src="https://img.shields.io/badge/Node.js-%3E%3D24-339933.svg?logo=node.js&logoColor=white"></a>
     <a href="https://www.docker.com/"><img alt="Docker Ready" src="https://img.shields.io/badge/Docker-ready-2496ED.svg?logo=docker&logoColor=white"></a>
     <a href="https://telegram.org/"><img alt="Telegram Bot" src="https://img.shields.io/badge/Telegram-bot-26A5E4.svg?logo=telegram&logoColor=white"></a>
     <a href="https://www.sqlite.org/"><img alt="SQLite" src="https://img.shields.io/badge/SQLite-persistence-003B57.svg?logo=sqlite&logoColor=white"></a>
@@ -41,20 +41,20 @@ Self-hosted live chat with an embeddable widget, Telegram integration, single we
 
 For local development:
 
-- System Node.js `>=20`
+- System Node.js `>=24`
 - npm
 - Internet access to install dependencies and use automatic translation
 
 For a public VPS:
 
 - Linux with a user that has `sudo`
-- System Node.js `>=20`
+- System Node.js `>=24`
 - Docker Engine + Docker Compose plugin
 - Port `8080/tcp` open for LiveChat Pro
 - Telegram bot created with [@BotFather](https://t.me/BotFather)
 - Your numeric Telegram ID
 
-`setup.js` validates the system Node.js installation before continuing. The `node` command must exist first so the installer can run; if that initial version is older than v20 or does not include `npm`, the installer tries to upgrade to Node.js 20 on supported distributions. On Ubuntu/Debian it removes old `nodejs`/`npm` packages, adds the NodeSource 20.x repository, installs `nodejs`, and then verifies `node --version` and `npm --version`. It also validates Docker/Compose and can install Docker on supported distributions.
+`setup.js` validates the system Node.js installation before continuing. The `node` command must exist first so the installer can run; if that initial version is older than v24 or does not include `npm`, the installer tries to upgrade to Node.js 24 on supported distributions. On Ubuntu/Debian it removes old `nodejs`/`npm` packages, adds the NodeSource 24.x repository, installs `nodejs`, and then verifies `node --version` and `npm --version`. It also validates Docker/Compose and can install Docker on supported distributions.
 
 The project uses only the system Node.js installation.
 
@@ -105,14 +105,14 @@ Then run the one-command installation:
 git clone https://github.com/wilkinbarban/LiveChat-Pro.git && cd LiveChat-Pro && node setup.js
 ```
 
-If that first package installs an old Node.js version, such as Ubuntu's `v12.22.9`, the installer will try to upgrade it to Node.js 20 first and then continue with the guided setup.
+If that first package installs an old Node.js version, such as Ubuntu's `v12.22.9`, the installer will try to upgrade it to Node.js 24 first and then continue with the guided setup.
 
 ## Local Quick Start
 
 ```bash
-npm install
+sudo npm install
 node setup.js
-node server.js
+sudo node server.js
 ```
 
 Then open:
@@ -215,9 +215,9 @@ docker compose down -v
 ## Without Docker
 
 ```bash
-npm install
+sudo npm install
 node setup.js
-node server.js
+sudo node server.js
 ```
 
 With PM2:
