@@ -1,7 +1,7 @@
 /**
  * LiveChat Pro — widget.js
- * Inserta este script en cualquier página HTML:
- * <script src="https://tu-servidor.com/widget.js" data-server="https://tu-servidor.com"></script>
+ * Insert this script into any HTML page:
+ * <script src="https://your-server.com/widget.js" data-server="https://your-server.com"></script>
  */
 (function () {
   'use strict';
@@ -151,9 +151,9 @@
     });
 
     // ── DOM ────────────────────────────────────────────────
-    // Estilos separados para que el diseño de PC y de celular pueda evolucionar
-    // sin mezclar reglas. DESKTOP_CHAT_STYLES conserva la base visual actual;
-    // MOBILE_CHAT_STYLES contiene solo las adaptaciones de celular.
+    // Styles are separated so desktop and mobile layouts can evolve without
+    // mixing rules. DESKTOP_CHAT_STYLES keeps the current visual foundation;
+    // MOBILE_CHAT_STYLES contains only mobile adaptations.
     const DESKTOP_CHAT_STYLES = `
       #lcp-wrap {
         --lcp-font-family: inherit;

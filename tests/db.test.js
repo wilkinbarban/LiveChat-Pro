@@ -1,17 +1,17 @@
 // ============================================================
-// Pruebas de la capa de persistencia — db.js
-// Usa base de datos en memoria (:memory:) para aislamiento
+// Persistence layer tests — db.js
+// Uses an in-memory database (:memory:) for isolation.
 // ============================================================
 'use strict';
 
-// Debe establecerse ANTES de requerir db.js
+// Must be set BEFORE requiring db.js.
 process.env.DB_PATH = ':memory:';
 
 const { describe, it, after } = require('node:test');
 const assert = require('node:assert/strict');
 const { db, stmts, initDb, closeDb } = require('../db');
 
-// ── Datos de prueba ──────────────────────────────────────────
+// ── Test data ────────────────────────────────────────────────
 const SID = 'a1a1a1a1-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const SID2 = 'b2b2b2b2-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const NOW = Date.now();
@@ -43,7 +43,7 @@ after(async () => {
   await closeDb();
 });
 
-// ── Sesiones ─────────────────────────────────────────────────
+// ── Sessions ─────────────────────────────────────────────────
 describe('Sesiones', () => {
   it('upsertSession inserta una sesión nueva', async () => {
     await initDb();
@@ -127,7 +127,7 @@ describe('Sesiones', () => {
   });
 });
 
-// ── Mensajes ─────────────────────────────────────────────────
+// ── Messages ─────────────────────────────────────────────────
 describe('Mensajes', () => {
   it('insertMessage guarda un mensaje de usuario', async () => {
     await stmts.insertMessage.run({ session_id: SID, from_role: 'user', text: 'Hola', ts: NOW, lang: 'es' });
@@ -158,7 +158,7 @@ describe('Mensajes', () => {
   });
 });
 
-// ── Adjuntos ─────────────────────────────────────────────────
+// ── Attachments ──────────────────────────────────────────────
 describe('Adjuntos', () => {
   it('insertAttachment guarda metadatos y permite listarlos por mensaje y sesión', async () => {
     const [message] = await stmts.getMessages.all(SID);
@@ -208,7 +208,7 @@ describe('Adjuntos', () => {
   });
 });
 
-// ── Vista general de sesiones ─────────────────────────────────
+// ── Sessions overview ────────────────────────────────────────
 describe('getSessionsOverview', () => {
   it('incluye conteo de mensajes correcto', async () => {
     const rows = await stmts.getSessionsOverview.all();
@@ -235,7 +235,7 @@ describe('getSessionsOverview', () => {
   });
 });
 
-// ── Baneo ─────────────────────────────────────────────────────
+// ── Banning ──────────────────────────────────────────────────
 describe('Baneo', () => {
   it('banSession marca la sesión como baneada', async () => {
     await stmts.banSession.run(SID);
@@ -251,7 +251,7 @@ describe('Baneo', () => {
   });
 });
 
-// ── Limpieza ──────────────────────────────────────────────────
+// ── Cleanup ──────────────────────────────────────────────────
 describe('deleteEmptyInactive', () => {
   it('elimina sesión inactiva sin mensajes', async () => {
     const oldTs = NOW - 3_600_001;
@@ -269,7 +269,7 @@ describe('deleteEmptyInactive', () => {
   });
 });
 
-// ── Persistencia base ────────────────────────────────────────
+// ── Base persistence ─────────────────────────────────────────
 describe('Persistencia', () => {
   it('la BD en memoria está disponible y contiene la tabla sessions', async () => {
     const result = await db.get("SELECT name FROM sqlite_master WHERE type='table' AND name='sessions'");

@@ -1,10 +1,10 @@
 // ============================================================
-// Pruebas de integración HTTP — server.js
-// Smoke tests + Admin API (autenticación y gestión de sesiones)
+// HTTP integration tests — server.js
+// Smoke tests + Admin API (authentication and session management)
 // ============================================================
 'use strict';
 
-// ── Variables de entorno (antes de cualquier require) ────────
+// ── Environment variables (before any require) ───────────────
 process.env.TELEGRAM_TOKEN = 'test:token_000000000:AAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx';
 process.env.TELEGRAM_ADMIN_ID = '999999';
 process.env.ADMIN_PANEL_PASSWORD = 'testpass123';
@@ -19,7 +19,7 @@ process.env.RATE_LIMIT_ADMIN_MAX = '10000';
 process.env.RATE_LIMIT_LOGIN_MAX = '10000';
 process.env.RATE_LIMIT_UPLOAD_MAX = '10000';
 
-// ── Mock de Telegraf (antes de requerir server.js) ───────────
+// ── Telegraf mock (before requiring server.js) ───────────────
 const telegrafPath = require.resolve('telegraf');
 require.cache[telegrafPath] = {
   id: telegrafPath,
@@ -177,7 +177,7 @@ describe('Smoke tests', () => {
   });
 });
 
-// ── Autenticación admin ───────────────────────────────────────
+// ── Admin authentication ─────────────────────────────────────
 describe('Autenticación admin', () => {
   it('GET /api/admin/me sin sesión → { enabled: true, authenticated: false }', async () => {
     const r = await request('/api/admin/me');
@@ -307,7 +307,7 @@ describe('Endurecimiento de entradas', () => {
   });
 });
 
-// ── Gestión de sesiones ───────────────────────────────────────
+// ── Session management ───────────────────────────────────────
 describe('Sesiones admin', () => {
   const UNKNOWN_SID = 'ffffffff-ffff-4fff-8fff-ffffffffffff';
   const TEST_SID = 'd4d4d4d4-dddd-4ddd-8ddd-dddddddddddd';
@@ -731,7 +731,7 @@ describe('Adjuntos de imagen', () => {
   });
 });
 
-// ── Persistencia: la BD existe y tiene las tablas correctas ──
+// ── Persistence: the DB exists and has the expected tables ───
 describe('Persistencia', () => {
   it('la BD en memoria está disponible y contiene la tabla sessions', async () => {
     const result = await db.get("SELECT name FROM sqlite_master WHERE type='table' AND name='sessions'");

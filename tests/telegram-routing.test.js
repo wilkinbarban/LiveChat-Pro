@@ -1,7 +1,7 @@
 // ============================================================
-// Pruebas de enrutamiento Telegram — server.js
-// Verifica que responder a un mensaje de Telegram resuelva
-// correctamente la sesión vinculada.
+// Telegram routing tests — server.js
+// Verifies that replying to a Telegram message correctly resolves
+// the linked session.
 // ============================================================
 'use strict';
 

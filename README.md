@@ -539,7 +539,6 @@ Shows general status, in-memory sessions, state mode (`memory` or `redis`), Tele
 
 ## Security
 
-- Do not commit `.env` to Git.
 - Use a strong password for `ADMIN_PANEL_PASSWORD`.
 - In production with a domain, use HTTPS.
 - Restrict `ALLOWED_ORIGINS` to the real domain.

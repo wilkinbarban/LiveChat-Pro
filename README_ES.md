@@ -539,7 +539,6 @@ Muestra estado general, sesiones en memoria, modo de estado (`memory` o `redis`)
 
 ## Seguridad
 
-- No subas `.env` a Git.
 - Usa contraseña fuerte para `ADMIN_PANEL_PASSWORD`.
 - En producción con dominio, usa HTTPS.
 - Restringe `ALLOWED_ORIGINS` al dominio real.

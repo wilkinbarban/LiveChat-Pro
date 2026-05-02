@@ -1,5 +1,5 @@
 // ============================================================
-// LiveChat Pro — server.js  v4 (Fases 1-4: DB, seguridad, Docker, CI/CD)
+// LiveChat Pro — server.js v4 (Phases 1-4: DB, security, Docker, CI/CD)
 // ============================================================
 'use strict';
 
@@ -111,9 +111,9 @@ if (configErrors.length) {
 // ── App bootstrap ────────────────────────────────────────────
 const app = express();
 
-// Confiar en el primer proxy inverso (nginx / Docker / Heroku).
-// Necesario para que req.ip refleje la IP real del cliente y para que
-// el rate limiter no tome nginx (127.0.0.1) como único cliente.
+// Trust the first reverse proxy (nginx / Docker / Heroku).
+// Required so req.ip reflects the real client IP and so the rate limiter
+// does not treat nginx (127.0.0.1) as the only client.
 app.set('trust proxy', TRUST_PROXY_HOPS);
 
 const httpServer = http.createServer(app);
@@ -132,13 +132,13 @@ function publicWidgetHeaders(req, res, next) {
   return next();
 }
 
-// ── Seguridad ─────────────────────────────────────────────────
-// CSP específica para admin/demo/health sin bloquear scripts y estilos locales
-// que aún viven embebidos en las páginas HTML del proyecto.
-// crossOriginResourcePolicy se desactiva globalmente para poder exponer
-// recursos públicos embebibles de forma explícita por ruta.
-// crossOriginOpenerPolicy y originAgentCluster se desactivan porque Chrome
-// los rechaza en despliegues de desarrollo por IP pública HTTP.
+// ── Security ──────────────────────────────────────────────────
+// CSP for admin/demo/health without blocking local scripts and styles that
+// still live embedded in the project HTML pages.
+// crossOriginResourcePolicy is disabled globally so embeddable public
+// resources can be exposed explicitly per route.
+// crossOriginOpenerPolicy and originAgentCluster are disabled because Chrome
+// rejects them in HTTP development deployments by public IP.
 app.use(helmet({
   contentSecurityPolicy: {
     useDefaults: true,
@@ -228,9 +228,9 @@ app.use('/api/admin', adminLimiter);
 // ── Telegram Bot ─────────────────────────────────────────────
 let telegramReady = false;
 
-// ── Estado en memoria (caché sobre la DB) ────────────────────
-// sessions: caché local de sesiones con historial hidratado desde SQLite
-// clusterState: estado compartido opcional en Redis para multi-nodo
+// ── In-memory state (cache over the DB) ───────────────────────
+// sessions: local session cache with history hydrated from SQLite
+// clusterState: optional shared state in Redis for multi-node deployments
 const sessions = new Map();
 const clusterState = new ClusterState({
   redisUrl: REDIS_URL,
@@ -317,10 +317,10 @@ const {
 } = adminChatService;
 
 // ── Geo lookup ───────────────────────────────────────────────
-// Movido a src/services/geo.js
+// Moved to src/services/geo.js
 
-// ── Validación y sanitización ────────────────────────────────
-// Movido a src/utils/sanitizer.js
+// ── Validation and sanitization ───────────────────────────────
+// Moved to src/utils/sanitizer.js
 
 // ── Telegram helpers ─────────────────────────────────────────
 async function findSessionIdByPrefix(prefix) {
@@ -434,7 +434,7 @@ app.use(createAdminRouter({
 
 app.use(createHealthRouter({ sessions, clusterState, get telegramReady() { return telegramReady; }, config }));
 
-// ── Arranque ──────────────────────────────────────────────────
+// ── Startup ───────────────────────────────────────────────────
 async function start() {
   await initDb();
   await clusterState.connect(io);

@@ -1,13 +1,13 @@
 // ============================================================
 // LiveChat Pro — db.js
-// Capa de persistencia SQLite asíncrona (sqlite + sqlite3)
+// Asynchronous SQLite persistence layer (sqlite + sqlite3)
 // ============================================================
 'use strict';
 
 const path = require('path');
 const fs = require('fs');
-// Directorio de datos y ruta del fichero de base de datos
-// Permite sobreescribir con DB_PATH=:memory: en pruebas
+// Data directory and database file path.
+// Allows overriding with DB_PATH=:memory: in tests.
 const DATA_DIR = path.join(__dirname, 'data');
 const DB_FILE = process.env.DB_PATH || path.join(DATA_DIR, 'livechat.db');
 
@@ -93,12 +93,12 @@ async function createDb() {
     db = createFallbackDb();
   }
 
-  // Pragmas de rendimiento y seguridad
+  // Performance and safety pragmas.
   await db.exec('PRAGMA journal_mode = WAL');
   await db.exec('PRAGMA foreign_keys = ON');
   await db.exec('PRAGMA synchronous = NORMAL');
 
-  // ── Esquema ─────────────────────────────────────────────────
+  // ── Schema ──────────────────────────────────────────────────
   await db.exec(`
     CREATE TABLE IF NOT EXISTS sessions (
       session_id    TEXT    PRIMARY KEY,
@@ -156,7 +156,7 @@ async function createDb() {
     CREATE INDEX IF NOT EXISTS idx_attachments_session ON attachments(session_id, deleted_at);
   `);
 
-  // Migraciones para bases de datos existentes (idempotentes)
+  // Migrations for existing databases (idempotent).
   try { await db.exec('ALTER TABLE sessions ADD COLUMN admin_last_seen_ts INTEGER NOT NULL DEFAULT 0'); } catch {}
   try { await db.exec('ALTER TABLE sessions ADD COLUMN user_last_seen_ts INTEGER NOT NULL DEFAULT 0'); } catch {}
   try { await db.exec('ALTER TABLE attachments ADD COLUMN access_token TEXT'); } catch {}
@@ -193,7 +193,7 @@ const db = {
 
 // ── Prepared statements ───────────────────────────────────────
 const stmts = {
-  // Sesiones
+  // Sessions
   upsertSession: createStatement(`
     INSERT INTO sessions
       (session_id, name, lang, lang_detected, ip, geo_city, geo_country, geo_isp,
@@ -219,7 +219,7 @@ const stmts = {
     'SELECT * FROM sessions WHERE session_id = ?'
   ),
 
-  // Sesiones activas en las últimas N ms (para cargar al inicio)
+  // Sessions active within the last N ms (loaded at startup).
   getRecentSessions: createStatement(
     'SELECT * FROM sessions WHERE last_active >= ? ORDER BY last_active DESC'
   ),
@@ -266,7 +266,7 @@ const stmts = {
     'UPDATE sessions SET current_page = ?, last_active = ? WHERE session_id = ?'
   ),
 
-  // Guarda nombre y desactiva el flag awaiting_name
+  // Stores the name and disables the awaiting_name flag.
   setName: createStatement(
     'UPDATE sessions SET name = ?, awaiting_name = 0, last_active = ? WHERE session_id = ?'
   ),
@@ -295,7 +295,7 @@ const stmts = {
     'DELETE FROM sessions WHERE session_id = ?'
   ),
 
-  // Mensajes
+  // Messages
   insertMessage: createStatement(`
     INSERT INTO messages (session_id, from_role, text, ts, lang)
     VALUES (@session_id, @from_role, @text, @ts, @lang)
@@ -313,7 +313,7 @@ const stmts = {
     'DELETE FROM messages WHERE id = ?'
   ),
 
-  // Adjuntos
+  // Attachments
   insertAttachment: createStatement(`
     INSERT INTO attachments
       (session_id, message_id, filename, original_name, mime_type, size_bytes, storage_path, access_token, width, height, created_at, deleted_at)
@@ -348,7 +348,7 @@ const stmts = {
     'UPDATE attachments SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL'
   ),
 
-  // Limpieza: elimina sesiones sin mensajes que llevan inactivas más de X ms
+  // Cleanup: deletes sessions without messages that have been inactive for more than X ms.
   deleteEmptyInactive: createStatement(`
     DELETE FROM sessions
     WHERE session_id NOT IN (SELECT DISTINCT session_id FROM messages)

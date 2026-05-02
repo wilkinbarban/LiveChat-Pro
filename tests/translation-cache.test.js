@@ -1,6 +1,6 @@
 // ============================================================
-// Pruebas de caché de traducción — server.js
-// Verifica que traducciones repetidas reutilizan caché local
+// Translation cache tests — server.js
+// Verifies that repeated translations reuse the local cache.
 // ============================================================
 'use strict';
 
