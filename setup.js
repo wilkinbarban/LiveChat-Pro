@@ -26,7 +26,7 @@ const COLORS = {
 };
 
 const color = (name, text) => `${COLORS[name]}${text}${COLORS.reset}`;
-const quoteEnv = value => JSON.stringify(String(value ?? ''));
+const quoteEnv = value => JSON.stringify(String(value == null ? '' : value));
 const shouldRunSystemChecks = process.env.LIVECHAT_SKIP_SYSTEM_CHECKS !== '1';
 // ask() supports both interactive use and scripted stdin. Tests/install docs can
 // pipe answers while normal users get readline prompts.
@@ -101,17 +101,17 @@ function readLegacyDefaults() {
   try {
     const old = JSON.parse(fs.readFileSync(LEGACY_CONFIG_PATH, 'utf8'));
     return {
-      TELEGRAM_TOKEN: old.telegram?.token,
-      TELEGRAM_ADMIN_ID: old.telegram?.adminId,
-      PORT: old.server?.port,
-      HOST_PORT: old.server?.hostPort,
-      WIDGET_BUTTON_STYLE: old.widget?.buttonStyle,
-      WIDGET_PRIMARY_COLOR: old.widget?.primaryColor,
-      WIDGET_WELCOME_MESSAGE: old.widget?.welcomeMessage,
-      ADMIN_PANEL_PASSWORD: old.admin?.panelPassword,
-      ADMIN_LANGUAGE: old.admin?.language,
+      TELEGRAM_TOKEN: old.telegram && old.telegram.token,
+      TELEGRAM_ADMIN_ID: old.telegram && old.telegram.adminId,
+      PORT: old.server && old.server.port,
+      HOST_PORT: old.server && old.server.hostPort,
+      WIDGET_BUTTON_STYLE: old.widget && old.widget.buttonStyle,
+      WIDGET_PRIMARY_COLOR: old.widget && old.widget.primaryColor,
+      WIDGET_WELCOME_MESSAGE: old.widget && old.widget.welcomeMessage,
+      ADMIN_PANEL_PASSWORD: old.admin && old.admin.panelPassword,
+      ADMIN_LANGUAGE: old.admin && old.admin.language,
     };
-  } catch {
+  } catch (error) {
     return {};
   }
 }
@@ -248,7 +248,7 @@ function executableExists(filePath) {
   try {
     fs.accessSync(filePath, fs.constants.X_OK);
     return true;
-  } catch {
+  } catch (error) {
     return false;
   }
 }
@@ -356,6 +356,11 @@ function sudoPrefix() {
   return process.stdin.isTTY ? 'sudo ' : 'sudo -n ';
 }
 
+function sudoEnvPrefix() {
+  if (process.getuid && process.getuid() === 0) return '';
+  return process.stdin.isTTY ? 'sudo -E ' : 'sudo -n -E ';
+}
+
 function hasSystemd() {
   return commandExists('systemctl') && fs.existsSync('/run/systemd/system');
 }
@@ -416,6 +421,7 @@ async function getSystemNodeInfo() {
   const binary = lines[0] || '';
   const version = lines[1] || '';
   const realpath = await captureShell(`realpath "${binary}" 2>/dev/null || readlink -f "${binary}" 2>/dev/null || echo "${binary}"`);
+  const npm = await captureShell('npm --version 2>/dev/null');
   const location = realpath.stdout || binary;
   const localRoot = path.join(ROOT, '.local');
   const isProjectLocal = location === path.join(ROOT, 'node-local') || location.startsWith(`${localRoot}${path.sep}`);
@@ -423,6 +429,7 @@ async function getSystemNodeInfo() {
     binary,
     location,
     version,
+    npmVersion: npm.code === 0 ? npm.stdout : '',
     major: parseNodeMajor(version),
     isProjectLocal,
   };
@@ -430,26 +437,37 @@ async function getSystemNodeInfo() {
 
 function nodeInstallCommand(osInfo) {
   const sudo = sudoPrefix();
+  const sudoEnv = sudoEnvPrefix();
   const id = osInfo.id;
   const like = osInfo.idLike;
 
   if (id === 'ubuntu' || id === 'debian' || like.includes('debian')) {
     return [
+      `${sudo}apt-get remove -y nodejs npm || true`,
       `${sudo}apt-get update`,
       `${sudo}apt-get install -y ca-certificates curl gnupg`,
-      `curl -fsSL https://deb.nodesource.com/setup_${REQUIRED_NODE_MAJOR}.x | ${sudo}bash -`,
+      `curl -fsSL https://deb.nodesource.com/setup_${REQUIRED_NODE_MAJOR}.x | ${sudoEnv}bash -`,
       `${sudo}apt-get install -y nodejs`,
     ].join(' && ');
   }
 
-  if (id === 'fedora') return `${sudo}dnf -y install nodejs npm`;
+  if (id === 'fedora') {
+    return [
+      `${sudo}dnf -y remove nodejs npm || true`,
+      `${sudo}dnf -y install ca-certificates curl`,
+      `curl -fsSL https://rpm.nodesource.com/setup_${REQUIRED_NODE_MAJOR}.x | ${sudoEnv}bash -`,
+      `${sudo}dnf -y install nodejs`,
+    ].join(' && ');
+  }
 
   if (['centos', 'rhel', 'rocky', 'almalinux'].includes(id) || like.includes('rhel')) {
     const pkg = commandExists('dnf') ? 'dnf' : 'yum';
     return [
+      `${sudo}${pkg} -y remove nodejs npm || true`,
       `${sudo}${pkg} -y module reset nodejs || true`,
-      `${sudo}${pkg} -y module enable nodejs:${REQUIRED_NODE_MAJOR} || true`,
-      `${sudo}${pkg} -y install nodejs npm`,
+      `${sudo}${pkg} -y install ca-certificates curl`,
+      `curl -fsSL https://rpm.nodesource.com/setup_${REQUIRED_NODE_MAJOR}.x | ${sudoEnv}bash -`,
+      `${sudo}${pkg} -y install nodejs`,
     ].join(' && ');
   }
 
@@ -462,17 +480,21 @@ async function ensureSystemNode(osInfo) {
   // The project uses the system Node.js installation rather than bundling a
   // version manager. setup can install Node where a supported package path exists.
   const nodeInfo = await getSystemNodeInfo();
-  if (nodeInfo && !nodeInfo.isProjectLocal && nodeInfo.major >= REQUIRED_NODE_MAJOR) {
+  if (nodeInfo && !nodeInfo.isProjectLocal && nodeInfo.major >= REQUIRED_NODE_MAJOR && nodeInfo.npmVersion) {
     console.log(color('green', `✓ Node.js del sistema detectado: ${nodeInfo.version} (${nodeInfo.location})`));
+    console.log(color('green', `✓ npm detectado: ${nodeInfo.npmVersion}`));
     return true;
   }
 
-  if (nodeInfo?.isProjectLocal) {
+  if (nodeInfo && nodeInfo.isProjectLocal) {
     console.log(color('yellow', `⚠ Detecté Node del proyecto (${nodeInfo.location}); se ignorará para preparar el VPS.`));
   } else if (nodeInfo) {
-    console.log(color('yellow', `⚠ Node.js del sistema es antiguo: ${nodeInfo.version}. Se requiere >= ${REQUIRED_NODE_MAJOR}.`));
+    const reason = nodeInfo.major >= REQUIRED_NODE_MAJOR && !nodeInfo.npmVersion
+      ? 'npm no está disponible'
+      : `Node.js del sistema es antiguo: ${nodeInfo.version}. Se requiere >= ${REQUIRED_NODE_MAJOR}`;
+    console.log(color('yellow', `⚠ ${reason}; intentaré instalar Node ${REQUIRED_NODE_MAJOR} con npm.`));
   } else {
-    console.log(color('yellow', 'Node.js del sistema no está instalado.'));
+    console.log(color('yellow', `Node.js del sistema no está instalado. Intentaré instalar Node ${REQUIRED_NODE_MAJOR}.`));
   }
 
   const installCommand = nodeInstallCommand(osInfo);
@@ -489,10 +511,15 @@ async function ensureSystemNode(osInfo) {
   }
 
   const installed = await getSystemNodeInfo();
-  const ok = installed && !installed.isProjectLocal && installed.major >= REQUIRED_NODE_MAJOR;
-  console.log(ok
-    ? color('green', `✓ Node.js instalado y verificado: ${installed.version} (${installed.location})`)
-    : color('red', `Node.js no quedó verificado con versión >= ${REQUIRED_NODE_MAJOR}.`));
+  const ok = installed && !installed.isProjectLocal && installed.major >= REQUIRED_NODE_MAJOR && installed.npmVersion;
+  if (ok) {
+    console.log(color('green', `✓ Node.js instalado y verificado: ${installed.version} (${installed.location})`));
+    console.log(color('green', `✓ npm instalado y verificado: ${installed.npmVersion}`));
+  } else {
+    console.log(installed && installed.major >= REQUIRED_NODE_MAJOR
+      ? color('red', `Node.js quedó en ${installed.version}, pero npm no quedó disponible.`)
+      : color('red', `Node.js no quedó verificado con versión >= ${REQUIRED_NODE_MAJOR}.`));
+  }
   return ok;
 }
 
@@ -619,7 +646,7 @@ function publicBaseUrl(allowedOrigins, port) {
       const needsPort = Number(port) && !['80', '443'].includes(String(port)) && !url.port;
       if (needsPort) url.port = String(port);
       return url.toString().replace(/\/+$/, '');
-    } catch {
+    } catch (error) {
       return cleanOrigin;
     }
   }
@@ -833,7 +860,7 @@ async function main() {
     const overwrite = await chooseYesNo(`\n${ENV_PATH} ya existe. ¿Sobrescribirlo?`, true);
     if (!overwrite) {
       console.log(color('yellow', 'Instalación cancelada sin modificar .env.'));
-      rl?.close();
+      if (rl) rl.close();
       return;
     }
   }
@@ -881,11 +908,11 @@ async function main() {
     console.log('\n' + color('bright', 'Botón personalizado para abrir el chat oculto'));
     console.log(color('cyan', hiddenWidgetOpenSnippet()));
   }
-  rl?.close();
+  if (rl) rl.close();
 }
 
 main().catch(error => {
   console.error(color('red', error.stack || error.message));
-  rl?.close();
+  if (rl) rl.close();
   process.exitCode = 1;
 });

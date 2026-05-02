@@ -33,9 +33,58 @@ Para VPS público:
 - Bot do Telegram criado com [@BotFather](https://t.me/BotFather)
 - Seu ID numérico do Telegram
 
-`setup.js` valida o Node.js do sistema e, se ele não existir, tenta instalá-lo. Também valida Docker/Compose e pode instalar Docker em distribuições suportadas.
+`setup.js` valida o Node.js do sistema antes de continuar. O comando `node` precisa existir primeiro para que o instalador possa rodar; se essa versão inicial for menor que v20 ou não incluir `npm`, o instalador tenta atualizar para Node.js 20 nas distribuições suportadas. No Ubuntu/Debian ele remove pacotes antigos `nodejs`/`npm`, adiciona o repositório NodeSource 20.x, instala `nodejs` e depois verifica `node --version` e `npm --version`. Também valida Docker/Compose e pode instalar Docker em distribuições suportadas.
 
 O projeto utiliza apenas o Node.js do sistema.
+
+## Instalação com um Comando
+
+Primeiro garanta que o comando `node` existe. Se o servidor estiver limpo e não tiver Node.js instalado, instale o pacote inicial para sua distro:
+
+Ubuntu/Debian:
+
+```bash
+sudo apt update
+sudo apt install -y nodejs npm
+```
+
+Fedora:
+
+```bash
+sudo dnf install -y nodejs npm
+```
+
+CentOS/RHEL/Rocky Linux/AlmaLinux:
+
+```bash
+sudo dnf install -y nodejs npm
+```
+
+Se o seu sistema usa `yum`:
+
+```bash
+sudo yum install -y nodejs npm
+```
+
+Arch Linux:
+
+```bash
+sudo pacman -Sy --noconfirm nodejs npm
+```
+
+Alpine Linux:
+
+```bash
+sudo apk add --no-cache nodejs npm
+```
+
+Depois execute a instalação com um comando:
+
+```bash
+git clone https://github.com/wilkinbarban/LiveChat-Pro.git && cd LiveChat-Pro && node setup.js
+```
+
+Se esse primeiro pacote instalar uma versão antiga do Node.js, como `v12.22.9` no Ubuntu, o instalador tentará atualizá-la primeiro para Node.js 20 e depois continuará com o assistente guiado.
 
 ## Início Rápido Local
 
@@ -54,9 +103,7 @@ Depois abra:
 ## Instalação Recomendada em VPS
 
 ```bash
-git clone <seu-repo>
-cd Chat
-node setup.js
+git clone https://github.com/wilkinbarban/LiveChat-Pro.git && cd LiveChat-Pro && node setup.js
 ```
 
 Durante o assistente, escolha:
