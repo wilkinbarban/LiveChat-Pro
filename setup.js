@@ -462,17 +462,19 @@ function sudoNonInteractivePrefix() {
   return 'sudo -n ';
 }
 
+function localBackgroundStartScript(logPath, pidPath) {
+  const launcher = commandExists('setsid') ? 'setsid ' : '';
+  return [
+    `cd ${shellQuote(ROOT)}`,
+    `mkdir -p ${shellQuote(path.dirname(logPath))}`,
+    `{ ${launcher}nohup node server.js > ${shellQuote(logPath)} 2>&1 < /dev/null & pid=$!; echo "$pid" > ${shellQuote(pidPath)}; echo "$pid"; }`,
+  ].join(' && ');
+}
+
 function localStartCommand() {
   const logPath = localLogPath();
   const pidPath = localPidPath();
-  const launcher = commandExists('setsid') ? 'setsid ' : '';
-  const inner = [
-    `cd ${shellQuote(ROOT)}`,
-    `mkdir -p ${shellQuote(path.dirname(logPath))}`,
-    `${launcher}nohup node server.js > ${shellQuote(logPath)} 2>&1 < /dev/null &`,
-    `echo $! > ${shellQuote(pidPath)}`,
-    `cat ${shellQuote(pidPath)}`,
-  ].join(' && ');
+  const inner = localBackgroundStartScript(logPath, pidPath);
   return `${sudoCommand('npm install')} && ${sudoNonInteractivePrefix()}sh -c ${shellQuote(inner)}`;
 }
 
@@ -482,14 +484,7 @@ async function startLocalServerInBackground() {
   fs.mkdirSync(path.dirname(logPath), { recursive: true });
   if (!(await ensureSudoAccess())) return null;
 
-  const launcher = commandExists('setsid') ? 'setsid ' : '';
-  const inner = [
-    `cd ${shellQuote(ROOT)}`,
-    `mkdir -p ${shellQuote(path.dirname(logPath))}`,
-    `${launcher}nohup node server.js > ${shellQuote(logPath)} 2>&1 < /dev/null &`,
-    `echo $! > ${shellQuote(pidPath)}`,
-    `cat ${shellQuote(pidPath)}`,
-  ].join(' && ');
+  const inner = localBackgroundStartScript(logPath, pidPath);
   const command = `${sudoNonInteractivePrefix()}sh -c ${shellQuote(inner)}`;
   const result = await captureShell(command);
   if (result.code !== 0 || !result.stdout) {
