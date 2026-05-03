@@ -45,37 +45,37 @@ Ubuntu/Debian:
 
 ```bash
 sudo apt update
-sudo apt install -y nodejs npm
+sudo apt install -y nodejs
 ```
 
 Fedora:
 
 ```bash
-sudo dnf install -y nodejs npm
+sudo dnf install -y nodejs
 ```
 
 CentOS/RHEL/Rocky Linux/AlmaLinux:
 
 ```bash
-sudo dnf install -y nodejs npm
+sudo dnf install -y nodejs
 ```
 
 Si tu sistema usa `yum`:
 
 ```bash
-sudo yum install -y nodejs npm
+sudo yum install -y nodejs
 ```
 
 Arch Linux:
 
 ```bash
-sudo pacman -Sy --noconfirm nodejs npm
+sudo pacman -Sy --noconfirm nodejs
 ```
 
 Alpine Linux:
 
 ```bash
-sudo apk add --no-cache nodejs npm
+sudo apk add --no-cache nodejs
 ```
 
 Después ejecuta la instalación de un clic:

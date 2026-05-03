@@ -630,6 +630,17 @@ function parseNodeMajor(versionText) {
   return match ? Number(match[1]) : 0;
 }
 
+function compareVersions(left, right) {
+  const leftParts = String(left || '').split('.').map(part => Number(part) || 0);
+  const rightParts = String(right || '').split('.').map(part => Number(part) || 0);
+  const max = Math.max(leftParts.length, rightParts.length);
+  for (let index = 0; index < max; index += 1) {
+    const diff = (leftParts[index] || 0) - (rightParts[index] || 0);
+    if (diff !== 0) return diff;
+  }
+  return 0;
+}
+
 async function getSystemNodeInfo() {
   const resolved = await captureShell('command -v node 2>/dev/null && node --version');
   if (resolved.code !== 0 || !resolved.stdout) return null;
@@ -692,6 +703,45 @@ function nodeInstallCommand(osInfo) {
   return '';
 }
 
+async function ensureLatestNpm(osInfo) {
+  const before = await captureShell('npm --version 2>/dev/null');
+  if (before.code !== 0 || !before.stdout) {
+    console.log(color('red', 'npm is not available after Node.js preparation.'));
+    return false;
+  }
+
+  const latest = await captureShell('npm view npm version 2>/dev/null');
+  if (latest.code !== 0 || !latest.stdout) {
+    console.log(color('red', 'Could not check the latest npm version from the npm registry.'));
+    if (latest.stderr) console.log(color('yellow', latest.stderr));
+    console.log(color('yellow', repairSuggestion(osInfo)));
+    return false;
+  }
+
+  if (compareVersions(before.stdout, latest.stdout) >= 0) {
+    console.log(color('green', `✓ npm is up to date: ${before.stdout}`));
+    return true;
+  }
+
+  console.log(color('yellow', `npm ${before.stdout} detected. Updating npm to ${latest.stdout}.`));
+  if (!(await ensureSudoAccess())) return false;
+  const result = await runShellQuiet(`${sudoCommand('npm install -g npm@latest --no-fund --no-audit')}`, 'Updating npm to latest');
+  if (result.code !== 0) {
+    printManagedFailure('Updating npm to latest', result, osInfo);
+    return false;
+  }
+
+  const after = await captureShell('npm --version 2>/dev/null');
+  if (after.code !== 0 || !after.stdout || compareVersions(after.stdout, latest.stdout) < 0) {
+    console.log(color('red', `npm was not updated to the expected latest version (${latest.stdout}).`));
+    console.log(color('yellow', repairSuggestion(osInfo)));
+    return false;
+  }
+
+  console.log(color('green', `✓ npm updated and verified: ${after.stdout}`));
+  return true;
+}
+
 async function ensureSystemNode(osInfo) {
   // The project uses the system Node.js installation rather than bundling a
   // version manager. setup can install Node where a supported package path exists.
@@ -699,7 +749,7 @@ async function ensureSystemNode(osInfo) {
   if (nodeInfo && !nodeInfo.isProjectLocal && nodeInfo.major >= REQUIRED_NODE_MAJOR && nodeInfo.npmVersion) {
     console.log(color('green', `✓ System Node.js detected: ${nodeInfo.version} (${nodeInfo.location})`));
     console.log(color('green', `✓ npm detected: ${nodeInfo.npmVersion}`));
-    return true;
+    return ensureLatestNpm(osInfo);
   }
 
   if (nodeInfo && nodeInfo.isProjectLocal) {
@@ -733,7 +783,8 @@ async function ensureSystemNode(osInfo) {
       : color('red', `Node.js was not verified with version >= ${REQUIRED_NODE_MAJOR}.`));
     console.log(color('yellow', repairSuggestion(osInfo)));
   }
-  return ok;
+  if (!ok) return false;
+  return ensureLatestNpm(osInfo);
 }
 
 async function ensureDocker(osInfo) {
