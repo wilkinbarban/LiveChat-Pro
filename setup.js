@@ -453,17 +453,44 @@ function localLogPath() {
   return process.env.LIVECHAT_LOCAL_LOG_PATH || path.join(ROOT, 'data', 'livechat-pro.local.log');
 }
 
+function localPidPath() {
+  return process.env.LIVECHAT_LOCAL_PID_PATH || path.join(ROOT, 'data', 'livechat-pro.local.pid');
+}
+
+function sudoNonInteractivePrefix() {
+  if (process.getuid && process.getuid() === 0) return '';
+  return 'sudo -n ';
+}
+
 function localStartCommand() {
   const logPath = localLogPath();
-  return `${sudoCommand('npm install')} && (${sudoCommand('nohup node server.js')} > ${shellQuote(logPath)} 2>&1 & echo $!)`;
+  const pidPath = localPidPath();
+  const launcher = commandExists('setsid') ? 'setsid ' : '';
+  const inner = [
+    `cd ${shellQuote(ROOT)}`,
+    `mkdir -p ${shellQuote(path.dirname(logPath))}`,
+    `${launcher}nohup node server.js > ${shellQuote(logPath)} 2>&1 < /dev/null &`,
+    `echo $! > ${shellQuote(pidPath)}`,
+    `cat ${shellQuote(pidPath)}`,
+  ].join(' && ');
+  return `${sudoCommand('npm install')} && ${sudoNonInteractivePrefix()}sh -c ${shellQuote(inner)}`;
 }
 
 async function startLocalServerInBackground() {
   const logPath = localLogPath();
+  const pidPath = localPidPath();
   fs.mkdirSync(path.dirname(logPath), { recursive: true });
   if (!(await ensureSudoAccess())) return null;
 
-  const command = `${sudoCommand('nohup node server.js')} > ${shellQuote(logPath)} 2>&1 & echo $!`;
+  const launcher = commandExists('setsid') ? 'setsid ' : '';
+  const inner = [
+    `cd ${shellQuote(ROOT)}`,
+    `mkdir -p ${shellQuote(path.dirname(logPath))}`,
+    `${launcher}nohup node server.js > ${shellQuote(logPath)} 2>&1 < /dev/null &`,
+    `echo $! > ${shellQuote(pidPath)}`,
+    `cat ${shellQuote(pidPath)}`,
+  ].join(' && ');
+  const command = `${sudoNonInteractivePrefix()}sh -c ${shellQuote(inner)}`;
   const result = await captureShell(command);
   if (result.code !== 0 || !result.stdout) {
     console.log(color('red', 'Local server could not be started in the background.'));
@@ -475,6 +502,7 @@ async function startLocalServerInBackground() {
   const pid = result.stdout.split(/\r?\n/).filter(Boolean).pop();
   console.log(color('green', `✓ Local server started in the background. PID: ${pid}`));
   console.log(color('blue', `Local server log: ${logPath}`));
+  console.log(color('blue', `PID file: ${pidPath}`));
   console.log(color('yellow', `Stop it with: sudo kill ${pid}`));
   return { pid, logPath };
 }
