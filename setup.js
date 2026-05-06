@@ -29,6 +29,7 @@ const COLORS = {
 const color = (name, text) => `${COLORS[name]}${text}${COLORS.reset}`;
 const quoteEnv = value => JSON.stringify(String(value == null ? '' : value));
 const shouldRunSystemChecks = process.env.LIVECHAT_SKIP_SYSTEM_CHECKS !== '1';
+const setupLogger = createSetupLogger();
 // ask() supports both interactive use and scripted stdin. Tests/install docs can
 // pipe answers while normal users get readline prompts.
 const ask = question => {
@@ -45,6 +46,101 @@ function closeReadlineForInteractiveCommand() {
   rl.close();
   rl = null;
   return true;
+}
+
+function createSetupLogger() {
+  const originalStdoutWrite = process.stdout.write.bind(process.stdout);
+  const originalStderrWrite = process.stderr.write.bind(process.stderr);
+  let stream = null;
+  let logPath = '';
+
+  try {
+    logPath = setupLogPath();
+    fs.mkdirSync(path.dirname(logPath), { recursive: true });
+    stream = fs.createWriteStream(logPath, { flags: 'a' });
+    stream.write([
+      '',
+      '============================================================',
+      `LiveChat Pro setup log - ${new Date().toISOString()}`,
+      `Working directory: ${ROOT}`,
+      `Command: ${process.argv.map(shellQuote).join(' ')}`,
+      `Node.js: ${process.version}`,
+      `Platform: ${process.platform} ${process.arch}`,
+      '============================================================',
+      '',
+    ].join('\n'));
+  } catch (error) {
+    originalStderrWrite(color('yellow', `Setup log could not be opened: ${error.message}\n`));
+  }
+
+  const writeLog = chunk => {
+    if (!stream) return;
+    const text = Buffer.isBuffer(chunk) ? chunk.toString('utf8') : String(chunk);
+    stream.write(stripAnsi(text));
+  };
+
+  process.stdout.write = function writeStdout(chunk, encoding, callback) {
+    writeLog(chunk);
+    return originalStdoutWrite(chunk, encoding, callback);
+  };
+  process.stderr.write = function writeStderr(chunk, encoding, callback) {
+    writeLog(chunk);
+    return originalStderrWrite(chunk, encoding, callback);
+  };
+
+  return {
+    path: logPath,
+    write: writeLog,
+    close() {
+      if (stream) stream.end();
+      stream = null;
+    },
+  };
+}
+
+function setupLogPath() {
+  const explicitPath = String(process.env.LIVECHAT_SETUP_LOG_PATH || '').trim();
+  if (explicitPath) return path.resolve(explicitPath);
+
+  const explicitDir = String(process.env.LIVECHAT_SETUP_LOG_DIR || '').trim();
+  const logDir = explicitDir ? path.resolve(explicitDir) : resolveDesktopDir();
+  return path.join(logDir, `livechat-pro-setup-${timestampForFilename()}.log`);
+}
+
+function stripAnsi(text) {
+  return String(text).replace(/\x1B\[[0-?]*[ -/]*[@-~]/g, '');
+}
+
+function timestampForFilename() {
+  return new Date().toISOString().replace(/[:.]/g, '-');
+}
+
+function resolveDesktopDir() {
+  const homeDir = resolveRealUserHome();
+  const xdgDesktop = readXdgDesktopDir(homeDir);
+  if (xdgDesktop) return xdgDesktop;
+
+  const localizedDesktop = path.join(homeDir, 'Escritorio');
+  if (fs.existsSync(localizedDesktop)) return localizedDesktop;
+  return path.join(homeDir, 'Desktop');
+}
+
+function resolveRealUserHome() {
+  const sudoUser = process.env.SUDO_USER && process.env.SUDO_USER !== 'root' ? process.env.SUDO_USER : '';
+  if (sudoUser) {
+    const sudoHome = path.join('/home', sudoUser);
+    if (fs.existsSync(sudoHome)) return sudoHome;
+  }
+  return os.homedir();
+}
+
+function readXdgDesktopDir(homeDir) {
+  const userDirsPath = path.join(homeDir, '.config', 'user-dirs.dirs');
+  if (!fs.existsSync(userDirsPath)) return '';
+  const content = fs.readFileSync(userDirsPath, 'utf8');
+  const match = content.match(/^XDG_DESKTOP_DIR=(["']?)(.+?)\1$/m);
+  if (!match) return '';
+  return match[2].replace(/\$HOME/g, homeDir);
 }
 
 const COLOR_OPTIONS = [
@@ -257,10 +353,21 @@ function executableExists(filePath) {
 function runCommand(command, args) {
   // Non-interactive command runner used for checks where stdout/stderr are only
   // needed to decide success.
+  setupLogger.write(`\n$ ${[command].concat(args || []).map(shellQuote).join(' ')}\n`);
   return new Promise(resolve => {
-    const child = spawn(command, args, { cwd: ROOT, stdio: 'inherit', shell: process.platform === 'win32' });
-    child.on('exit', code => resolve(code || 0));
-    child.on('error', () => resolve(1));
+    const child = spawn(command, args, { cwd: ROOT, stdio: ['inherit', 'pipe', 'pipe'], shell: process.platform === 'win32' });
+    child.stdout.on('data', chunk => process.stdout.write(chunk));
+    child.stderr.on('data', chunk => process.stderr.write(chunk));
+    child.on('exit', code => {
+      const exitCode = code || 0;
+      setupLogger.write(`\n[exit ${exitCode}] ${command}\n`);
+      resolve(exitCode);
+    });
+    child.on('error', error => {
+      process.stderr.write(`${error.message}\n`);
+      setupLogger.write(`\n[spawn error] ${command}: ${error.message}\n`);
+      resolve(1);
+    });
   });
 }
 
@@ -268,24 +375,44 @@ function runInteractiveCommand(command, args) {
   // Interactive commands inherit stdio so package managers and sudo can prompt
   // normally.
   const hadReadline = closeReadlineForInteractiveCommand();
+  setupLogger.write(`\n$ ${[command].concat(args || []).map(shellQuote).join(' ')}\n`);
   return new Promise(resolve => {
-    const child = spawn(command, args, { cwd: ROOT, stdio: 'inherit', shell: process.platform === 'win32' });
+    const child = spawn(command, args, { cwd: ROOT, stdio: ['inherit', 'pipe', 'pipe'], shell: process.platform === 'win32' });
+    child.stdout.on('data', chunk => process.stdout.write(chunk));
+    child.stderr.on('data', chunk => process.stderr.write(chunk));
     const finish = code => {
       if (hadReadline && process.stdin.isTTY && !rl) {
         rl = readline.createInterface({ input: process.stdin, output: process.stdout });
       }
-      resolve(code || 0);
+      const exitCode = code || 0;
+      setupLogger.write(`\n[exit ${exitCode}] ${command}\n`);
+      resolve(exitCode);
     };
     child.on('exit', finish);
-    child.on('error', () => finish(1));
+    child.on('error', error => {
+      process.stderr.write(`${error.message}\n`);
+      setupLogger.write(`\n[spawn error] ${command}: ${error.message}\n`);
+      finish(1);
+    });
   });
 }
 
 function runShell(command) {
+  setupLogger.write(`\n$ ${command}\n`);
   return new Promise(resolve => {
-    const child = spawn('/bin/sh', ['-lc', command], { cwd: ROOT, stdio: 'inherit' });
-    child.on('exit', code => resolve(code || 0));
-    child.on('error', () => resolve(1));
+    const child = spawn('/bin/sh', ['-lc', command], { cwd: ROOT, stdio: ['inherit', 'pipe', 'pipe'] });
+    child.stdout.on('data', chunk => process.stdout.write(chunk));
+    child.stderr.on('data', chunk => process.stderr.write(chunk));
+    child.on('exit', code => {
+      const exitCode = code || 0;
+      setupLogger.write(`\n[exit ${exitCode}] ${command}\n`);
+      resolve(exitCode);
+    });
+    child.on('error', error => {
+      process.stderr.write(`${error.message}\n`);
+      setupLogger.write(`\n[spawn error] ${command}: ${error.message}\n`);
+      resolve(1);
+    });
   });
 }
 
@@ -338,6 +465,7 @@ function runShellQuiet(command, label) {
   const logPath = logFileFor(label);
   const logStream = fs.createWriteStream(logPath, { flags: 'a' });
   const stopProgress = startProgress(label);
+  setupLogger.write(`\n$ ${command}\n`);
 
   return new Promise(resolve => {
     const child = spawn('/bin/sh', ['-lc', command], { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -346,17 +474,20 @@ function runShellQuiet(command, label) {
       const text = String(chunk);
       output += text;
       logStream.write(text);
+      setupLogger.write(text);
     };
     child.stdout.on('data', collect);
     child.stderr.on('data', collect);
     child.on('exit', code => {
       const exitCode = code === 0 ? 0 : (code || 1);
       stopProgress(exitCode === 0 ? 'ok' : 'fail');
+      setupLogger.write(`\n[exit ${exitCode}] ${label}\n`);
       logStream.end(() => resolve({ code: exitCode, logPath, tail: tailText(output, 18) }));
     });
     child.on('error', error => {
       collect(error.message);
       stopProgress('fail');
+      setupLogger.write(`\n[spawn error] ${label}: ${error.message}\n`);
       logStream.end(() => resolve({ code: 1, logPath, tail: tailText(output || error.message, 18) }));
     });
   });
@@ -396,14 +527,24 @@ async function ensureSudoAccess() {
 }
 
 function captureShell(command) {
+  setupLogger.write(`\n$ ${command}\n`);
   return new Promise(resolve => {
     const child = spawn('/bin/sh', ['-lc', command], { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] });
     let stdout = '';
     let stderr = '';
     child.stdout.on('data', chunk => { stdout += chunk; });
     child.stderr.on('data', chunk => { stderr += chunk; });
-    child.on('exit', code => resolve({ code: code || 0, stdout: stdout.trim(), stderr: stderr.trim() }));
-    child.on('error', error => resolve({ code: 1, stdout: '', stderr: error.message }));
+    child.on('exit', code => {
+      const exitCode = code || 0;
+      if (stdout) setupLogger.write(stdout);
+      if (stderr) setupLogger.write(stderr);
+      setupLogger.write(`\n[exit ${exitCode}] ${command}\n`);
+      resolve({ code: exitCode, stdout: stdout.trim(), stderr: stderr.trim() });
+    });
+    child.on('error', error => {
+      setupLogger.write(`\n[spawn error] ${command}: ${error.message}\n`);
+      resolve({ code: 1, stdout: '', stderr: error.message });
+    });
   });
 }
 
@@ -1059,6 +1200,7 @@ async function main() {
   // Main orchestrates prompt collection, optional system preparation, .env
   // generation and final run/deploy guidance.
   header();
+  if (setupLogger.path) console.log(color('blue', `Setup log: ${setupLogger.path}`));
   await preflightSystem();
   const defaults = mergeDefaults();
 
@@ -1270,8 +1412,11 @@ async function main() {
   if (rl) rl.close();
 }
 
-main().catch(error => {
+main().then(() => {
+  setupLogger.close();
+}).catch(error => {
   console.error(color('red', error.stack || error.message));
   if (rl) rl.close();
+  setupLogger.close();
   process.exitCode = 1;
 });
