@@ -860,7 +860,7 @@ function nodeInstallCommand(osInfo) {
 
   if (id === 'fedora') {
     return [
-      `${sudo}dnf -y remove nodejs npm || true`,
+      rpmNodeRemovalCommand('dnf'),
       `${sudo}dnf -y install ca-certificates curl`,
       `curl -fsSL https://rpm.nodesource.com/setup_${REQUIRED_NODE_MAJOR}.x | ${sudoEnv}bash -`,
       `${sudo}dnf -y install nodejs`,
@@ -870,7 +870,7 @@ function nodeInstallCommand(osInfo) {
   if (['centos', 'rhel', 'rocky', 'almalinux'].includes(id) || like.includes('rhel')) {
     const pkg = commandExists('dnf') ? 'dnf' : 'yum';
     return [
-      `${sudo}${pkg} -y remove nodejs npm || true`,
+      rpmNodeRemovalCommand(pkg),
       `${sudo}${pkg} -y module reset nodejs || true`,
       `${sudo}${pkg} -y install ca-certificates curl`,
       `curl -fsSL https://rpm.nodesource.com/setup_${REQUIRED_NODE_MAJOR}.x | ${sudoEnv}bash -`,
@@ -881,6 +881,23 @@ function nodeInstallCommand(osInfo) {
   if (id === 'arch' || like.includes('arch')) return `${sudo}pacman -Sy --noconfirm nodejs npm`;
   if (id === 'alpine') return `${sudo}apk add --no-cache nodejs npm`;
   return '';
+}
+
+function rpmNodeRemovalCommand(pkg) {
+  // Fedora can install versioned Node.js packages such as nodejs22-bin and
+  // nodejs22-npm-bin. Removing only "nodejs npm" leaves file conflicts with
+  // NodeSource's nodejs package, so remove whichever RPMs own the binaries.
+  const sudo = sudoPrefix();
+  const manager = pkg === 'yum' ? 'yum' : 'dnf';
+  const removeOwners = [
+    'rpm -q --whatprovides /usr/bin/node /usr/bin/npm /usr/bin/npx 2>/dev/null',
+    'sort -u',
+    `xargs -r ${sudo}${manager} -y remove`,
+  ].join(' | ');
+  return [
+    `${removeOwners} || true`,
+    `${sudo}${manager} -y remove nodejs npm nodejs*-bin nodejs*-npm-bin || true`,
+  ].join(' && ');
 }
 
 async function ensureLatestNpm(osInfo) {
