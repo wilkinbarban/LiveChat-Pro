@@ -629,7 +629,7 @@ function dockerInstallCommand(osInfo) {
   if (id === 'fedora') {
     return [
       `${sudo}dnf -y install dnf-plugins-core`,
-      `${sudo}dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo`,
+      dnfAddRepoCommand('https://download.docker.com/linux/fedora/docker-ce.repo'),
       `${sudo}dnf -y install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin`,
     ].join(' && ');
   }
@@ -638,7 +638,9 @@ function dockerInstallCommand(osInfo) {
     const pkg = commandExists('dnf') ? 'dnf' : 'yum';
     return [
       `${sudo}${pkg} -y install ${pkg === 'dnf' ? 'dnf-plugins-core' : 'yum-utils'}`,
-      `${sudo}${pkg} config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo`,
+      pkg === 'dnf'
+        ? dnfAddRepoCommand('https://download.docker.com/linux/centos/docker-ce.repo')
+        : `${sudo}yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo`,
       `${sudo}${pkg} -y install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin`,
     ].join(' && ');
   }
@@ -646,6 +648,20 @@ function dockerInstallCommand(osInfo) {
   if (id === 'arch' || like.includes('arch')) return `${sudo}pacman -Sy --noconfirm docker docker-compose`;
   if (id === 'alpine') return `${sudo}apk add --no-cache docker docker-cli-compose`;
   return '';
+}
+
+function dnfAddRepoCommand(repoUrl) {
+  // dnf5 changed config-manager syntax. This keeps Fedora/RHEL-family installs
+  // compatible with both dnf4 and dnf5.
+  const sudo = sudoPrefix();
+  const quotedRepoUrl = shellQuote(repoUrl);
+  return [
+    'if dnf config-manager --help 2>&1 | grep -q "addrepo"; then',
+    `${sudo}dnf config-manager addrepo --from-repofile=${quotedRepoUrl};`,
+    'else',
+    `${sudo}dnf config-manager --add-repo ${quotedRepoUrl};`,
+    'fi',
+  ].join(' ');
 }
 
 function parseNodeMajor(versionText) {
@@ -817,10 +833,12 @@ async function ensureDocker(osInfo) {
     const dockerVersion = await captureShell('docker --version');
     const composeVersion = await captureShell('docker compose version');
     console.log(color('green', `✓ Docker detected: ${dockerVersion.stdout || 'docker installed'}`));
-    console.log(composeVersion.code === 0
-      ? color('green', `✓ Docker Compose detected: ${composeVersion.stdout}`)
-      : color('yellow', '⚠ Docker is installed, but the docker compose plugin was not detected.'));
-    return composeVersion.code === 0;
+    if (composeVersion.code !== 0) {
+      console.log(color('yellow', '⚠ Docker is installed, but the docker compose plugin was not detected.'));
+      return false;
+    }
+    console.log(color('green', `✓ Docker Compose detected: ${composeVersion.stdout}`));
+    return ensureDockerDaemon(osInfo);
   }
 
   console.log(color('yellow', 'Docker is not installed. Docker Engine will be installed from the official repository when the distro is supported.'));
@@ -834,29 +852,59 @@ async function ensureDocker(osInfo) {
 
   if (!(await runManagedSystemTask('Installing Docker Engine', installCommand, osInfo))) return false;
 
-  const sudo = sudoPrefix();
-  if (hasSystemd()) {
-    const service = await runShellQuiet(`${sudo}systemctl enable --now docker`, 'Starting Docker service');
-    if (service.code !== 0) {
-      printManagedFailure('Starting Docker service', service, osInfo);
-      return false;
-    }
-  } else if (commandExists('service')) {
-    const service = await runShellQuiet(`${sudo}service docker start`, 'Starting Docker service');
-    if (service.code !== 0) {
-      printManagedFailure('Starting Docker service', service, osInfo);
-      return false;
-    }
-  }
-
   const dockerVersion = await captureShell('docker --version');
   const composeVersion = await captureShell('docker compose version');
-  const ok = dockerVersion.code === 0 && composeVersion.code === 0;
+  const ok = dockerVersion.code === 0 && composeVersion.code === 0 && await ensureDockerDaemon(osInfo);
   console.log(ok
     ? color('green', `✓ Docker installed and verified: ${dockerVersion.stdout}; ${composeVersion.stdout}`)
     : color('red', 'Docker was installed, but verification failed.'));
   if (!ok) console.log(color('yellow', repairSuggestion(osInfo)));
   return ok;
+}
+
+async function ensureDockerDaemon(osInfo) {
+  if (!(await ensureSudoAccess())) return false;
+  const infoCommand = sudoCommand('docker info >/dev/null 2>&1');
+  const before = await captureShell(infoCommand);
+  if (before.code === 0) {
+    console.log(color('green', '✓ Docker daemon is running.'));
+    return true;
+  }
+
+  console.log(color('yellow', 'Docker is installed, but the daemon is not running. Starting Docker service.'));
+  const service = await startDockerService(osInfo);
+  if (service.code !== 0) {
+    printManagedFailure('Starting Docker service', service, osInfo);
+    return false;
+  }
+
+  const after = await captureShell(infoCommand);
+  if (after.code === 0) {
+    console.log(color('green', '✓ Docker daemon started and verified.'));
+    return true;
+  }
+
+  console.log(color('red', 'Docker service was started, but the daemon still did not answer to docker info.'));
+  console.log(color('yellow', repairSuggestion(osInfo)));
+  return false;
+}
+
+async function startDockerService(osInfo) {
+  const sudo = sudoPrefix();
+  if (hasSystemd()) {
+    return runShellQuiet(`${sudo}systemctl enable --now docker`, 'Starting Docker service');
+  }
+  if (commandExists('rc-service')) {
+    return runShellQuiet(`${sudo}rc-update add docker default || true; ${sudo}rc-service docker start`, 'Starting Docker service');
+  }
+  if (commandExists('service')) {
+    return runShellQuiet(`${sudo}service docker start`, 'Starting Docker service');
+  }
+  return {
+    code: 1,
+    logPath: '',
+    tail: `No supported service manager was detected on ${osInfo.prettyName}. Start Docker manually, then run setup.js again.`,
+  };
 }
 
 async function checkPortListening(port) {
@@ -1169,15 +1217,19 @@ async function main() {
 
   const mode = await chooseRunMode(recommendedRunMode);
   let finalCommand = localStartCommand();
+  let startupSucceeded = true;
 
   if (mode === 'docker') {
     finalCommand = sudoCommand('docker compose up -d');
-    if (!commandExists('docker')) {
-      console.log(color('yellow', 'docker was not found in PATH. Install Docker or use local startup.'));
+    const osInfo = parseOsRelease();
+    if (!(await ensureDocker(osInfo))) {
+      startupSucceeded = false;
+      console.log(color('yellow', 'Docker is not ready. The .env file was generated, but the application was not started.'));
     } else if (await chooseYesNo('Build and start now with Docker?', true)) {
       const dockerCommand = sudoArgs('docker', ['compose', 'up', '-d', '--build']);
       const code = await runCommand(dockerCommand.command, dockerCommand.args);
-      console.log(code === 0 ? color('green', '✓ Docker started successfully.') : color('red', 'Docker exited with errors. Review the output above.'));
+      startupSucceeded = code === 0;
+      console.log(startupSucceeded ? color('green', '✓ Docker started successfully.') : color('red', 'Docker exited with errors. Review the output above.'));
     }
   } else if (mode === 'local') {
     finalCommand = localStartCommand();
@@ -1202,7 +1254,7 @@ async function main() {
     finalCommand = recommendedRunMode === 'docker' ? sudoCommand('docker compose up -d') : localStartCommand();
   }
 
-  console.log('\n' + color('green', 'Installation ready.'));
+  console.log('\n' + (startupSucceeded ? color('green', 'Installation ready.') : color('yellow', 'Configuration ready; startup still needs attention.')));
   console.log(color('bright', `Recommended final command: ${finalCommand}`));
   const shownPort = finalCommand.includes('docker compose') ? config.hostPort : config.port;
   const baseUrl = publicBaseUrl(config.allowedOrigins, shownPort);

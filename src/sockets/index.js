@@ -216,11 +216,10 @@ function setupSockets(io, adminIo, deps) {
 
       session.lastActive = Date.now();
 
-      if (session.typingMsgId) {
-        // A real message supersedes the transient Telegram typing preview.
-        try { await getBot()?.telegram.deleteMessage(ADMIN_ID, session.typingMsgId); } catch {}
-        session.typingMsgId = null;
-      }
+      // A real message supersedes the transient Telegram typing preview.
+      // Instead of deleting and creating a new message, we edit the existing one
+      // so Telegram shows a single notification that transitions from ✍️ to 💬.
+      // (edit logic runs below, after telegramText is assembled)
 
       if (session.awaitingName) {
         const name = sanitizeName(text);
@@ -295,7 +294,25 @@ function setupSockets(io, adminIo, deps) {
 
       await clusterState.setPendingReply(ADMIN_ID, sessionId);
       await broadcastAdminMessage(session, msgObj);
-      await sendToAdmin(telegramText, {}, sessionId);
+
+      if (session.typingMsgId) {
+        // Edit the existing typing preview in-place → single Telegram notification.
+        const prevTypingId = session.typingMsgId;
+        session.typingMsgId = null;
+        try {
+          await getBot()?.telegram.editMessageText(
+            ADMIN_ID, prevTypingId, null, telegramText, { parse_mode: 'HTML' }
+          );
+          // Remap the message id so replies still target this session.
+          await clusterState?.setTelegramMessageSession?.(ADMIN_ID, prevTypingId, sessionId);
+        } catch {
+          // Edit can fail if the message is too old or was already deleted;
+          // fall back to sending a fresh message.
+          await sendToAdmin(telegramText, {}, sessionId);
+        }
+      } else {
+        await sendToAdmin(telegramText, {}, sessionId);
+      }
     });
 
     socket.on('read', async (payload = {}) => {
