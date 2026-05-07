@@ -261,6 +261,9 @@
       .lcp-msg { max-width: 80%; padding: 10px 14px; border-radius: 16px; font-size: 13.5px; line-height: 1.5; word-break: break-word; }
       .lcp-msg.user { background: var(--lcp-color, #4F46E5); color: #fff; align-self: flex-end; border-bottom-right-radius: 4px; }
       .lcp-msg.bot, .lcp-msg.admin { background: var(--lcp-panel-bg); color: var(--lcp-text-color); align-self: flex-start; border-bottom-left-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,.07); }
+      .lcp-msg-role { font-size: 11px; opacity: .6; margin-bottom: 2px; display: block; }
+      .lcp-typewriter-cursor { display: inline-block; width: 2px; height: 1em; background: currentColor; opacity: .7; margin-left: 1px; vertical-align: text-bottom; animation: lcp-blink .6s steps(1) infinite; }
+      @keyframes lcp-blink { 0%, 100% { opacity: .7; } 50% { opacity: 0; } }
       .lcp-msg.deleted-attachment { opacity: .68; font-style: italic; }
       .lcp-attachments { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
       .lcp-attachment {
@@ -627,14 +630,96 @@
       }).join('')}</div>`;
     }
 
-    function addMessage(msg) {
+    // Typewriter effect: reveals text character by character at ~60 chars/sec
+    // (~16ms per char) to mimic a fast typist. Only applied to bot/admin
+    // messages that have text; attachments and history messages are instant.
+    function typewriterReveal(div, fullHtml, timeEl, done) {
+      const plain = fullHtml; // already escaped HTML
+      let i = 0;
+      const cursor = document.createElement('span');
+      cursor.className = 'lcp-typewriter-cursor';
+      // Reveal char by char
+      const step = () => {
+        if (i >= plain.length) {
+          // Replace partial content with full HTML + time element
+          const roleEl = div.querySelector('.lcp-msg-role');
+          div.innerHTML = '';
+          if (roleEl) div.appendChild(roleEl);
+          const textNode = document.createElement('span');
+          textNode.innerHTML = plain;
+          div.appendChild(textNode);
+          div.appendChild(timeEl);
+          scrollBottom();
+          if (done) done();
+          return;
+        }
+        // Build visible slice — respect HTML entities (& ; sequences)
+        // but since content is already escapeHtml'd, entities use & sequences
+        let slice = plain.slice(0, i + 1);
+        // Avoid cutting mid-entity: advance past full &...; if needed
+        const ampIdx = slice.lastIndexOf('&');
+        if (ampIdx !== -1 && !slice.slice(ampIdx).includes(';')) {
+          i++;
+          setTimeout(step, 14);
+          return;
+        }
+        const roleEl = div.querySelector('.lcp-msg-role');
+        div.innerHTML = '';
+        if (roleEl) div.appendChild(roleEl);
+        const textNode = document.createElement('span');
+        textNode.innerHTML = slice;
+        div.appendChild(textNode);
+        div.appendChild(cursor);
+        scrollBottom();
+        i++;
+        setTimeout(step, 14);
+      };
+      step();
+    }
+
+    function addMessage(msg, opts = {}) {
       const div = document.createElement('div');
       div.classList.add('lcp-msg', msg.from);
       if (msg.id) div.dataset.messageId = String(msg.id);
+
+      const isAgent = msg.from === 'bot' || msg.from === 'admin';
+      const isHistory = !!opts.history;
+
+      // Role emoji label for bot and admin messages
+      if (isAgent) {
+        const roleEl = document.createElement('span');
+        roleEl.className = 'lcp-msg-role';
+        roleEl.textContent = msg.from === 'bot' ? '🤖 Asistente' : '👤 Admin';
+        div.appendChild(roleEl);
+      }
+
       const text = msg.text ? escapeHtml(msg.text) : '';
-      div.innerHTML = `${text}${attachmentHtml(msg.attachments)}<div class="lcp-msg-time">${formatTime(msg.ts)}</div>`;
-      messagesEl.insertBefore(div, typingEl);
-      scrollBottom();
+      const timeEl = document.createElement('div');
+      timeEl.className = 'lcp-msg-time';
+      timeEl.textContent = formatTime(msg.ts);
+
+      const hasAttachments = msg.attachments && msg.attachments.length > 0;
+
+      // Apply typewriter only to bot/admin text messages, not history or attachments
+      if (isAgent && text && !isHistory && !hasAttachments) {
+        messagesEl.insertBefore(div, typingEl);
+        scrollBottom();
+        typewriterReveal(div, text, timeEl, null);
+      } else {
+        if (text) {
+          const textSpan = document.createElement('span');
+          textSpan.innerHTML = text;
+          div.appendChild(textSpan);
+        }
+        if (hasAttachments) {
+          const attachDiv = document.createElement('div');
+          attachDiv.innerHTML = attachmentHtml(msg.attachments);
+          div.appendChild(attachDiv.firstChild || attachDiv);
+        }
+        div.appendChild(timeEl);
+        messagesEl.insertBefore(div, typingEl);
+        scrollBottom();
+      }
     }
 
     function showLocalError(message) {
@@ -769,7 +854,7 @@
       if (cfg?.primaryColor) applyTheme(cfg.primaryColor);
       if (name) { nameBanner.textContent = uiText.greeting(name); nameBanner.style.display = 'block'; }
       if (history && history.length) {
-        history.forEach(addMessage);
+        history.forEach(m => addMessage(m, { history: true }));
         const lastAgentMsg = [...history].reverse().find(m => m.from === 'admin' || m.from === 'bot');
         if (lastAgentMsg) emitRead(lastAgentMsg.ts);
       }
