@@ -37,7 +37,8 @@ function setupSockets(io, adminIo, deps) {
     createMsgRateLimiter,
     verifyAdminToken,
     listSessionsForAdmin,
-    getBot
+    getBot,
+    aiBot
   } = deps;
 
   io.on('connection', async (socket) => {
@@ -107,6 +108,7 @@ function setupSockets(io, adminIo, deps) {
         adminLastSeenTs: 0,
         userLastSeenTs: 0,
         awaitingName: true,
+        botSilenced: false,
         typingMsgId:  null,
       };
       sessions.set(sessionId, session);
@@ -250,7 +252,12 @@ function setupSockets(io, adminIo, deps) {
       if (!session.langDetected) {
         // Browser language is used initially, but the first real message can
         // correct it when the user writes in another language.
-        session.lang = await detectLang(text);
+        // Run detectLang and translate in parallel to reduce Telegram delivery latency.
+        const [detectedLang, translatedEarly] = await Promise.all([
+          detectLang(text),
+          translate(text, ADMIN_LANGUAGE),
+        ]);
+        session.lang = detectedLang;
         session.langDetected = true;
         try {
           await stmts.updateLang.run(session.lang, session.lastActive, sessionId);
@@ -258,9 +265,12 @@ function setupSockets(io, adminIo, deps) {
           logger.error({ err: dbError, sessionId }, 'Error BD en updateLang');
         }
         await syncSharedSession(session);
+        var textForAdmin = session.lang !== ADMIN_LANGUAGE ? translatedEarly : text;
       }
 
-      const textForAdmin = session.lang !== ADMIN_LANGUAGE ? await translate(text, ADMIN_LANGUAGE) : text;
+      if (typeof textForAdmin === 'undefined') {
+        var textForAdmin = session.lang !== ADMIN_LANGUAGE ? await translate(text, ADMIN_LANGUAGE) : text;
+      }
 
       const { isOffensive, isHighPriority } = features.sentiment
         ? analyzeSentiment(text, session.lang)
@@ -291,9 +301,46 @@ function setupSockets(io, adminIo, deps) {
       }
       await syncSharedSession(session);
       socket.emit('message', { from: 'user', text, ts: msgObj.ts });
+      await broadcastAdminMessage(session, msgObj);
+
+      // AI Bot intercept — attempt automated reply before notifying admin
+      if (!isHighPriority && aiBot?.isEnabled() && aiBot.shouldBotHandle(session)) {
+        try {
+          socket.emit('typing_start', { from: 'bot' });
+          socket.emit('typing', 'bot');
+          const botResult = await aiBot.getReply(session, textForAdmin ?? text);
+          socket.emit('typing_stop');
+          if (botResult?.reply && !botResult.escalate) {
+            // Translate bot reply to visitor language if different from KB language (es)
+            const KB_LANG = 'es';
+            const replyText = session.lang && session.lang !== KB_LANG
+              ? await translate(botResult.reply, session.lang).catch(() => botResult.reply)
+              : botResult.reply;
+            const botMsg = { from: 'bot', text: replyText, ts: Date.now(), lang: session.lang };
+            session.messages.push(botMsg);
+            try {
+              const inserted = await stmts.insertMessage.run({ session_id: sessionId, from_role: 'bot', text: botMsg.text, ts: botMsg.ts, lang: session.lang });
+              botMsg.id = getLastInsertId(inserted);
+            } catch (dbError) {
+              logger.error({ err: dbError, sessionId }, 'Error BD insertMessage (bot reply)');
+            }
+            io.to(sessionRoom(sessionId)).emit('message', botMsg);
+            await syncSharedSession(session);
+            await broadcastAdminMessage(session, botMsg);
+            await broadcastAdminSessionUpdate(session, { reason: 'bot_reply' });
+            if (features.botNotifyAdmin) {
+              await sendToAdmin(`🤖 <b>Bot respondió a ${escapeTelegramHtml(session.name || 'usuario')}</b>:
+${escapeTelegramHtml(botResult.reply.slice(0, 100))}${botResult.reply.length > 100 ? '…' : ''}`, {}, sessionId);
+            }
+            return; // do not forward to admin Telegram
+          }
+        } catch (botErr) {
+          logger.error({ err: botErr, sessionId }, 'AI bot error, falling back to Telegram');
+          socket.emit('typing_stop');
+        }
+      }
 
       await clusterState.setPendingReply(ADMIN_ID, sessionId);
-      await broadcastAdminMessage(session, msgObj);
 
       if (session.typingMsgId) {
         // Edit the existing typing preview in-place → single Telegram notification.

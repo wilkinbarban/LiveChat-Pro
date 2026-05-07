@@ -329,6 +329,16 @@ function buildEnv(config) {
     `UPLOAD_DIR=${quoteEnv(config.uploadDir)}`,
     `ALLOWED_IMAGE_TYPES=${quoteEnv(config.allowedImageTypes)}`,
     '',
+    '# Smart Bot',
+    `BOT_MODE=${quoteEnv(config.botMode)}`,
+    `OPENAI_API_KEY=${quoteEnv(config.openaiApiKey)}`,
+    `OPENAI_MODEL=${quoteEnv(config.openaiModel)}`,
+    `OPENAI_MAX_TOKENS=${quoteEnv(config.openaiMaxTokens)}`,
+    `BOT_SYSTEM_PROMPT=${quoteEnv(config.botSystemPrompt)}`,
+    `BOT_CONFIDENCE_THRESHOLD=${quoteEnv(config.botConfidenceThreshold)}`,
+    `BOT_CONTEXT_MESSAGES=${quoteEnv(config.botContextMessages)}`,
+    `BOT_NOTIFY_ADMIN=${quoteEnv(config.botNotifyAdmin)}`,
+    '',
     '# Redis (optional, recommended for multi-node)',
     `REDIS_URL=${quoteEnv(config.redisUrl)}`,
     `REDIS_KEY_PREFIX=${quoteEnv(config.redisKeyPrefix)}`,
@@ -645,6 +655,15 @@ async function startLocalServerInBackground() {
 
 function hasSystemd() {
   return commandExists('systemctl') && fs.existsSync('/run/systemd/system');
+}
+
+function isWsl() {
+  if (process.env.WSL_DISTRO_NAME || process.env.WSL_INTEROP) return true;
+  try {
+    return fs.readFileSync('/proc/version', 'utf8').toLowerCase().includes('microsoft');
+  } catch (error) {
+    return false;
+  }
 }
 
 function packageManagerCleanupCommand(osInfo) {
@@ -1058,11 +1077,59 @@ async function startDockerService(osInfo) {
   if (commandExists('service')) {
     return runShellQuiet(`${sudo}service docker start`, 'Starting Docker service');
   }
+  if (commandExists('dockerd')) {
+    return startDockerdFallback(osInfo);
+  }
   return {
     code: 1,
     logPath: '',
-    tail: `No supported service manager was detected on ${osInfo.prettyName}. Start Docker manually, then run setup.js again.`,
+    tail: dockerServiceManagerMissingMessage(osInfo),
   };
+}
+
+async function startDockerdFallback(osInfo) {
+  const logPath = path.join(os.tmpdir(), 'livechat-pro-dockerd.log');
+  const sudo = sudoPrefix();
+  const startCommand = `${sudo}sh -c ${shellQuote(`nohup dockerd > ${shellQuote(logPath)} 2>&1 < /dev/null &`)}`;
+  const start = await runShellQuiet(startCommand, 'Starting Docker daemon with dockerd');
+  if (start.code !== 0) return start;
+
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const info = await captureShell(`${sudoCommand('docker info >/dev/null 2>&1')}`);
+    if (info.code === 0) {
+      return { code: 0, logPath, tail: `dockerd started successfully. Log: ${logPath}` };
+    }
+    await sleep(1000);
+  }
+
+  return {
+    code: 1,
+    logPath,
+    tail: [
+      `dockerd was started in the background, but Docker did not become ready within 20 seconds.`,
+      `dockerd log: ${logPath}`,
+      tailFile(logPath, 18) || dockerServiceManagerMissingMessage(osInfo),
+    ].join('\n'),
+  };
+}
+
+function dockerServiceManagerMissingMessage(osInfo) {
+  const wslHint = isWsl()
+    ? ' On WSL, enable systemd, use Docker Desktop WSL integration, or start dockerd manually.'
+    : '';
+  return `No supported service manager was detected on ${osInfo.prettyName}.${wslHint} Start Docker manually, then run setup.js again.`;
+}
+
+function tailFile(filePath, maxLines) {
+  try {
+    return tailText(fs.readFileSync(filePath, 'utf8'), maxLines);
+  } catch (error) {
+    return '';
+  }
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 async function checkPortListening(port) {
@@ -1325,6 +1392,106 @@ async function main() {
     ? ''
     : await ask(`   API key for ${translationProviderOption.name} (Enter to leave pending): `) || defaults.TRANSLATION_API_KEY || '';
 
+  const smartBotOption = await choose('13. Smart bot mode', [
+    { key: '1', code: 'disabled', name: 'Disabled — no bot, all messages go directly to Telegram (default)' },
+    { key: '2', code: 'knowledge-base', name: 'Knowledge-base bot — answers from data/knowledge-base.json (no API needed)' },
+    { key: '3', code: 'ai', name: 'AI bot (OpenAI) — GPT-powered responses (requires API key)' },
+  ], defaults.BOT_MODE || 'disabled');
+  let botConfidenceThreshold = defaults.BOT_CONFIDENCE_THRESHOLD || '0.6';
+  let botNotifyAdmin = defaults.BOT_NOTIFY_ADMIN || 'false';
+  let openaiApiKey = defaults.OPENAI_API_KEY || '';
+  let openaiModel = defaults.OPENAI_MODEL || 'gpt-4o-mini';
+  let openaiMaxTokens = defaults.OPENAI_MAX_TOKENS || '300';
+  let botSystemPrompt = defaults.BOT_SYSTEM_PROMPT || "You are a friendly support assistant. Be brief and reply in the user's language.";
+  if (smartBotOption.code === 'knowledge-base') {
+    botConfidenceThreshold = await askRequired('   BOT_CONFIDENCE_THRESHOLD', botConfidenceThreshold, value => !Number.isNaN(Number(value)) && Number(value) >= 0 && Number(value) <= 1, 'Use a number between 0.0 and 1.0.');
+    botNotifyAdmin = String(await chooseYesNo('   Notify admin when bot replies?', botNotifyAdmin === 'true'));
+    const kbExample = path.join(ROOT, 'data', 'knowledge-base.json.example');
+    const kbTarget = path.join(ROOT, 'data', 'knowledge-base.json');
+    if (!fs.existsSync(kbTarget) && fs.existsSync(kbExample)) {
+      fs.mkdirSync(path.dirname(kbTarget), { recursive: true });
+      fs.copyFileSync(kbExample, kbTarget);
+      console.log(color('green', '✓ Created data/knowledge-base.json. Edit it to add your FAQ entries.'));
+    }
+
+    console.log('\n' + color('bright', 'Knowledge Base Training'));
+    console.log('  The kb-trainer script can populate your knowledge base automatically.');
+    console.log('  It supports URLs, local files, and optional AI enhancement (OpenRouter/OpenAI/Ollama).');
+    console.log('  You can run it now or later with: node kb-trainer/index.js --help\n');
+
+    const runTrainer = await chooseYesNo('Would you like to run the kb-trainer to populate your knowledge base now?', false);
+    if (runTrainer) {
+      const trainerProviderOption = await choose('AI provider for training (optional)', [
+        { key: '1',  code: 'none',      name: 'No AI — extract structure from content only (free, no key)' },
+        { key: '2',  code: 'openrouter',name: 'OpenRouter — free models available (recommended)' },
+        { key: '3',  code: 'groq',      name: 'Groq — ultra-fast, free tier (llama, mixtral)' },
+        { key: '4',  code: 'gemini',    name: 'Google Gemini — free quota (gemini-1.5-flash)' },
+        { key: '5',  code: 'openai',    name: 'OpenAI — GPT models (gpt-4o-mini, etc.)' },
+        { key: '6',  code: 'xai',       name: 'xAI — Grok models' },
+        { key: '7',  code: 'anthropic', name: 'Anthropic — Claude models' },
+        { key: '8',  code: 'mistral',   name: 'Mistral AI — Mistral models' },
+        { key: '9',  code: 'cohere',    name: 'Cohere — Command models' },
+        { key: '10', code: 'ollama',    name: 'Ollama — local models (no key, requires Ollama running)' },
+        { key: '11', code: 'custom',    name: 'Custom — any OpenAI-compatible endpoint (LM Studio, etc.)' },
+      ], 'none');
+
+      const noKeyProviders = ['none', 'ollama', 'custom'];
+      let trainerKey = '';
+      let trainerModel = '';
+      let trainerBaseUrl = '';
+
+      const providerDefaults = {
+        openrouter: 'meta-llama/llama-3.1-8b-instruct:free',
+        openai:     'gpt-4o-mini',
+        xai:        'grok-beta',
+        groq:       'llama-3.1-8b-instant',
+        anthropic:  'claude-3-haiku-20240307',
+        gemini:     'gemini-1.5-flash',
+        mistral:    'mistral-small-latest',
+        cohere:     'command-r',
+        ollama:     'llama3',
+        custom:     'local-model',
+      };
+
+      const prov = trainerProviderOption.code;
+      if (!noKeyProviders.includes(prov)) {
+        trainerKey = await askSecret(`   ${trainerProviderOption.name} API key`, '', null, '');
+      }
+      if (prov === 'custom') {
+        trainerBaseUrl = await ask('   Base URL (e.g. http://localhost:1234/v1): ');
+      }
+      if (prov !== 'none') {
+        const defModel = providerDefaults[prov] || '';
+        trainerModel = await ask(`   Model [${defModel}]: `) || defModel;
+      }
+
+      const trainerUrls = await ask('   URLs or file paths (comma-separated, Enter to skip): ');
+
+      if (trainerUrls.trim()) {
+        const trainerArgs = ['kb-trainer/index.js', '--mode', 'replace', '--lang', adminLanguageOption.code, '--urls', trainerUrls.trim()];
+        if (trainerProviderOption.code !== 'none') {
+          trainerArgs.push('--provider', trainerProviderOption.code);
+          if (trainerKey) trainerArgs.push('--key', trainerKey);
+          if (trainerModel) trainerArgs.push('--model', trainerModel);
+          if (trainerBaseUrl) trainerArgs.push('--base-url', trainerBaseUrl);
+        }
+        console.log(color('blue', '\nRunning kb-trainer...'));
+        const trainerCode = await runCommand('node', trainerArgs);
+        console.log(trainerCode === 0
+          ? color('green', '✓ Knowledge base populated successfully.')
+          : color('yellow', '⚠ kb-trainer finished with warnings. Check data/knowledge-base.json.'));
+      } else {
+        console.log(color('yellow', 'No URLs provided. Run the trainer later: node kb-trainer/index.js --help'));
+      }
+    }
+  } else if (smartBotOption.code === 'ai') {
+    openaiApiKey = await askSecret('   OPENAI_API_KEY', openaiApiKey, value => String(value).length > 10, 'OpenAI API key is required for AI mode.');
+    openaiModel = await askRequired('   OPENAI_MODEL', openaiModel, value => !!String(value).trim(), 'Model cannot be empty.');
+    openaiMaxTokens = await askRequired('   OPENAI_MAX_TOKENS', openaiMaxTokens, value => /^\d+$/.test(value) && Number(value) > 0, 'Use a positive integer.');
+    botSystemPrompt = await ask('   BOT_SYSTEM_PROMPT (Enter for default): ') || botSystemPrompt;
+    botNotifyAdmin = String(await chooseYesNo('   Notify admin when bot replies?', botNotifyAdmin === 'true'));
+  }
+
   const config = {
     telegramToken,
     telegramAdminId,
@@ -1358,6 +1525,14 @@ async function main() {
     maxUploadMb: defaults.MAX_UPLOAD_MB || '5',
     uploadDir: defaults.UPLOAD_DIR || 'data/uploads',
     allowedImageTypes: defaults.ALLOWED_IMAGE_TYPES || 'image/jpeg,image/png,image/webp,image/gif',
+    botMode: smartBotOption.code,
+    openaiApiKey,
+    openaiModel,
+    openaiMaxTokens,
+    botSystemPrompt,
+    botConfidenceThreshold,
+    botContextMessages: defaults.BOT_CONTEXT_MESSAGES || '6',
+    botNotifyAdmin,
     redisUrl: defaults.REDIS_URL || '',
     redisKeyPrefix: defaults.REDIS_KEY_PREFIX || 'lcp',
   };

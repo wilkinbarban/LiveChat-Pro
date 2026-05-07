@@ -132,6 +132,7 @@ function createConfig({ logger = console } = {}) {
       sentiment: (process.env.FEATURE_SENTIMENT || String(legacyConfig?.features?.sentimentAnalysis ?? true)) !== 'false',
       ghostTyping: (process.env.FEATURE_GHOST_TYPING || String(legacyConfig?.features?.ghostTyping ?? true)) !== 'false',
       geoLocation: (process.env.FEATURE_GEOLOCATION || String(legacyConfig?.features?.geoLocation ?? true)) !== 'false',
+      botNotifyAdmin: process.env.BOT_NOTIFY_ADMIN === 'true',
     },
   };
 }

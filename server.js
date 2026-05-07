@@ -39,6 +39,7 @@ const { createAdminRouter } = require('./src/routes/admin');
 const { createAttachmentRouter } = require('./src/routes/attachments');
 const { createHealthRouter } = require('./src/routes/health');
 const { analyzeSentiment } = require('./src/services/sentiment');
+const aiBot = require('./src/services/ai-bot');
 const { clearTranslationCache, closeTranslationCache } = translator;
 const {
   setupTelegramBot,
@@ -76,6 +77,19 @@ const TRUST_PROXY_HOPS = config.server.trustProxyHops;
 const corsOptions = config.server.corsOptions;
 const features = config.features;
 const ADMIN_LANGUAGE = config.admin.language;
+
+aiBot.init({
+  mode: process.env.BOT_MODE || 'disabled',
+  openaiKey: process.env.OPENAI_API_KEY || '',
+  model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+  maxTokens: parseInt(process.env.OPENAI_MAX_TOKENS, 10) || 300,
+  systemPrompt: process.env.BOT_SYSTEM_PROMPT || "You are a friendly support assistant. Be brief and reply in the user's language.",
+  confidenceThreshold: parseFloat(process.env.BOT_CONFIDENCE_THRESHOLD) || 0.6,
+  contextMessages: parseInt(process.env.BOT_CONTEXT_MESSAGES, 10) || 6,
+  notifyAdmin: process.env.BOT_NOTIFY_ADMIN === 'true',
+  kbPath: path.join(__dirname, 'data/knowledge-base.json'),
+  logger,
+});
 
 const WIDGET_MESSAGES = {
   es: {
@@ -379,6 +393,7 @@ setupSockets(io, adminIo, {
   verifyAdminToken,
   listSessionsForAdmin,
   getBot,
+  aiBot,
 });
 
 app.use(createAttachmentRouter({
@@ -483,6 +498,7 @@ async function start() {
         listSessionsForAdmin,
         sendAdminReplyToSession,
         findSessionIdByPrefix,
+        aiBot,
       });
       await launchTelegramBot(TELEGRAM_LAUNCH_TIMEOUT_MS);
       telegramReady = true;

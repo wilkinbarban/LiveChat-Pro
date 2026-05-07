@@ -23,6 +23,7 @@ function setupTelegramBot(deps) {
     listSessionsForAdmin,
     sendAdminReplyToSession,
     findSessionIdByPrefix,
+    aiBot,
   } = deps;
 
   bot = new Telegraf(token);
@@ -117,6 +118,34 @@ function setupTelegramBot(deps) {
     ctx.reply(`🧹 ${memCount} sesiones eliminadas de memoria, ${dbCount} de la base de datos.`);
   });
 
+
+  bot.command('bot', async (ctx) => {
+    if (ctx.from.id !== adminId) return;
+    const parts = ctx.message.text.split(' ');
+    const action = parts[1];
+    const prefix = parts[2];
+
+    if (!action || !['on', 'off'].includes(action)) {
+      return ctx.reply('Uso: /bot on [sessionId] | /bot off [sessionId]\n/bot on → reactiva el bot\n/bot off → silencia el bot');
+    }
+
+    const sid = prefix
+      ? await findSessionIdByPrefix(prefix)
+      : await clusterState.getPendingReply(adminId);
+    if (!sid) return ctx.reply('❓ Sesión no encontrada. Usa /usuarios para ver las activas.');
+
+    const session = await ensureSessionLoaded(sid);
+    if (!session) return ctx.reply('❓ Sesión no encontrada.');
+
+    session.botSilenced = (action === 'off');
+    try {
+      await stmts.updateBotSilenced?.run(action === 'off' ? 1 : 0, sid);
+    } catch (e) {
+      logger.error({ err: e, sessionId: sid }, 'Error updating bot_silenced via /bot command');
+    }
+    ctx.reply(`🤖 Bot ${action === 'on' ? 'activado ✅' : 'desactivado 🔇'} para sesión de <b>${escapeTelegramHtml(session.name || sid.slice(0,8))}</b>`, { parse_mode: 'HTML' });
+  });
+
   // A plain Telegram message is treated as an admin reply. If the admin replied
   // to a specific notification, that Telegram message id wins; otherwise the
   // latest pending session is used.
@@ -138,6 +167,17 @@ function setupTelegramBot(deps) {
     if (!result.ok) return ctx.reply(`⚠️ ${result.error}`);
 
     await clusterState.setPendingReply(adminId, sessionId);
+
+    // Silence AI bot for this session when human takes over
+    if (aiBot?.isEnabled?.()) {
+      session.botSilenced = true;
+      try {
+        await stmts.updateBotSilenced?.run(1, sessionId);
+      } catch (e) {
+        logger.error({ err: e, sessionId }, 'Error updating bot_silenced');
+      }
+    }
+
     ctx.reply(`✅ Enviado a ${session.name || 'usuario'}`);
   });
 

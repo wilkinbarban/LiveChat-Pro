@@ -619,3 +619,65 @@ Muestra estado general, sesiones en memoria, modo de estado (`memory` o `redis`)
 - [Guía de contribución](CONTRIBUTING.md)
 - [Política de seguridad](SECURITY.md)
 - [Licencia GPL](LICENSE)
+
+## Novedades en v1.0.2
+
+- Se agregó `kb-trainer/`, una CLI independiente para crear `data/knowledge-base.json` desde URLs y archivos locales.
+- El trainer ahora soporta 10 proveedores de IA más `none`: OpenRouter, Groq, Gemini, OpenAI, xAI, Anthropic, Mistral, Cohere, Ollama y endpoints custom compatibles con OpenAI.
+- Smart Bot mejora con coeficiente Dice, stemmer en español, desambiguación y protección de nombres propios en traducciones.
+- `setup.js` puede ejecutar kb-trainer al configurar el modo `knowledge-base`.
+- `.env.example` quedó completo en inglés y documenta cada variable.
+
+## 🤖 Smart Bot / AI
+
+LiveChat Pro incluye un bot inteligente opcional que responde automáticamente antes de escalar a un humano.
+
+| `BOT_MODE` | Comportamiento |
+|---|---|
+| `disabled` | Sin bot: todos los mensajes van a Telegram/admin (por defecto). |
+| `knowledge-base` | Responde desde `data/knowledge-base.json` usando búsqueda difusa y umbral de confianza. |
+| `ai` | Usa respuestas con IA compatible con OpenAI y contexto reciente de la conversación. |
+
+**Variables:** `BOT_MODE`, `OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_MAX_TOKENS`, `BOT_SYSTEM_PROMPT`, `BOT_CONFIDENCE_THRESHOLD`, `BOT_CONTEXT_MESSAGES`, `BOT_NOTIFY_ADMIN`.
+
+`BOT_CONFIDENCE_THRESHOLD` define qué tan seguro debe estar el bot de knowledge-base antes de responder. Valores altos escalan más; valores bajos responden más agresivamente. Si no está seguro, pasa a Telegram/admin. Si el admin responde, el bot se silencia en esa sesión. Comandos: `/bot on [sessionId]` y `/bot off [sessionId]`.
+
+## 🤖 Entrenamiento de Knowledge Base (`kb-trainer/`)
+
+`kb-trainer` crea o actualiza `data/knowledge-base.json` desde URLs y archivos locales. Puede funcionar sin IA o enriquecer las entradas con proveedores de IA.
+
+| Proveedor | Modelo default | Free tier |
+|---|---|---|
+| `none` | — | ✅ Sin API key |
+| `openrouter` | `meta-llama/llama-3.1-8b-instruct:free` | ✅ Modelos gratis |
+| `groq` | `llama-3.1-8b-instant` | ✅ Free tier |
+| `gemini` | `gemini-1.5-flash` | ✅ Cuota gratis |
+| `openai` | `gpt-4o-mini` | — |
+| `xai` | `grok-beta` | — |
+| `anthropic` | `claude-3-haiku-20240307` | — |
+| `mistral` | `mistral-small-latest` | — |
+| `cohere` | `command-r` | — |
+| `ollama` | `llama3` | ✅ Local, sin key |
+| `custom` | configurable | ✅ Cualquier endpoint compatible con OpenAI |
+
+**Free tier highlights:** `none` funciona sin key, OpenRouter ofrece modelos gratis, Groq tiene tier gratuito rápido, Gemini incluye cuota gratis y Ollama corre localmente.
+
+**Ejemplos de uso:**
+
+```bash
+node kb-trainer/index.js --provider none --urls "https://your-site.com/faq,docs/manual.md"
+node kb-trainer/index.js --provider openrouter --key sk-or-xxx --urls "https://your-site.com"
+node kb-trainer/index.js --provider groq --key gsk_xxx --model llama-3.1-8b-instant --urls "https://site.com"
+node kb-trainer/index.js --provider gemini --key AIza_xxx --model gemini-1.5-flash --urls "docs/faq.md"
+node kb-trainer/index.js --provider openai --key sk-xxx --model gpt-4o-mini --urls "docs/faq.md" --mode replace
+node kb-trainer/index.js --provider xai --key xai-xxx --model grok-beta --urls "docs/faq.md"
+node kb-trainer/index.js --provider anthropic --key sk-ant-xxx --model claude-3-haiku-20240307 --urls "docs/faq.md"
+node kb-trainer/index.js --provider mistral --key xxx --model mistral-small-latest --urls "docs/faq.md"
+node kb-trainer/index.js --provider cohere --key xxx --model command-r --urls "docs/faq.md"
+node kb-trainer/index.js --provider ollama --base-url http://localhost:11434/v1 --model llama3 --urls "docs/manual.md"
+node kb-trainer/index.js --provider custom --base-url http://localhost:1234/v1 --model local-model --urls "README.md"
+```
+
+**Opciones CLI:** `--provider`, `--key`, `--model`, `--base-url`, `--urls`, `--mode append|replace`, `--output`, `--lang`, `--dry-run`, `--help`.
+
+El JSON conserva la estructura: `version`, `language`, `fallback` y `entries` con `id`, `keywords`, `question`, `answer`, `source` y `category`. LiveChat Pro lo usa con `BOT_MODE=knowledge-base` para responder antes de escalar al administrador.

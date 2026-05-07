@@ -1,0 +1,129 @@
+/**
+ * LiveChat Pro Smart Bot service example.
+ *
+ * This file mirrors the production implementation and adds extensive JSDoc so
+ * integrators can understand each method, adapt the matching algorithm, or add
+ * extra AI providers without touching the runtime file first.
+ */
+'use strict';
+
+const fs = require('fs');
+
+class AiBot {
+  constructor() { this.config = {}; this.kb = null; this.openai = null; }
+
+  /**
+   * Initialize the singleton with runtime configuration.
+   * Loads the JSON knowledge base for knowledge-base/AI fallback modes and
+   * creates the OpenAI client when BOT_MODE=ai and an API key is available.
+   * @param {object} config Environment-derived bot settings.
+   */
+  init(config = {}) {
+    try {
+      this.config = { mode: 'disabled', model: 'gpt-4o-mini', maxTokens: 300, systemPrompt: "You are a friendly support assistant. Be brief and reply in the user's language.", confidenceThreshold: 0.6, contextMessages: 6, notifyAdmin: false, ...config };
+      if (this.config.mode === 'knowledge-base' || this.config.mode === 'ai') this.loadKnowledgeBase();
+      if (this.config.mode === 'ai' && this.config.openaiKey) {
+        try { const OpenAI = require('openai'); this.openai = new OpenAI({ apiKey: this.config.openaiKey }); }
+        catch (err) { this.logError(err, 'OpenAI package/client init failed'); }
+      }
+    } catch (err) { this.logError(err, 'AiBot init failed'); }
+  }
+
+  /** @returns {boolean} True when BOT_MODE is not disabled. */
+  isEnabled() { try { return this.config.mode && this.config.mode !== 'disabled'; } catch { return false; } }
+  /**
+   * Decide if the bot may answer this visitor session.
+   * Human takeover sets session.botSilenced=true, which disables automation.
+   * @param {object} session Runtime chat session.
+   * @returns {boolean}
+   */
+  shouldBotHandle(session) { try { return this.isEnabled() && !session?.botSilenced; } catch { return false; } }
+
+  /**
+   * Produce a bot reply. In knowledge-base mode it uses keyword scoring. In AI
+   * mode it sends a short chat-completions request to OpenAI and falls back to
+   * the knowledge base if OpenAI fails. This method never throws to callers.
+   * @param {object} session Runtime chat session with recent messages.
+   * @param {string} text Latest visitor message.
+   * @returns {Promise<{reply:string|null,confidence:number,escalate:boolean}>}
+   */
+  async getReply(session, text) {
+    try {
+      if (!this.isEnabled()) return { reply: null, confidence: 0, escalate: true };
+      if (this.config.mode === 'knowledge-base') return this.matchKnowledge(text);
+      if (this.config.mode === 'ai') {
+        try {
+          if (!this.openai) throw new Error('OpenAI client is not configured');
+          const completion = await this.openai.chat.completions.create({ model: this.config.model, messages: this.buildOpenAIContext(session, text), max_tokens: this.config.maxTokens });
+          const reply = completion?.choices?.[0]?.message?.content?.trim();
+          if (reply) return { reply, confidence: 0.9, escalate: false };
+        } catch (err) { this.logError(err, 'OpenAI reply failed'); }
+        const fallback = this.matchKnowledge(text);
+        return fallback?.reply && !fallback.escalate ? fallback : { reply: fallback.reply, confidence: fallback.confidence || 0, escalate: true };
+      }
+    } catch (err) { this.logError(err, 'AiBot getReply failed'); }
+    return { reply: null, confidence: 0, escalate: true };
+  }
+
+  /** Load and parse data/knowledge-base.json if present. */
+  loadKnowledgeBase() {
+    try {
+      const kbPath = this.config.kbPath;
+      if (kbPath && fs.existsSync(kbPath)) this.kb = JSON.parse(fs.readFileSync(kbPath, 'utf8'));
+      else this.kb = null;
+    } catch (err) { this.kb = null; this.logError(err, 'Knowledge base load failed'); }
+  }
+
+  /** Normalize text: lowercase, remove accents/punctuation, split tokens. */
+  normalize(text) { return String(text || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9\s]/gi, ' ').split(/\s+/).filter(Boolean); }
+
+  /**
+   * Match a message against FAQ entries. Score is based on the fraction of
+   * keywords present in the normalized visitor text, weighted by entry confidence.
+   */
+  matchKnowledge(text) {
+    try {
+      if (!this.kb?.entries?.length) return { reply: this.kb?.fallback || null, confidence: 0, escalate: true };
+      const tokens = new Set(this.normalize(text));
+      let best = null;
+      for (const entry of this.kb.entries) {
+        const keywords = Array.isArray(entry.keywords) ? entry.keywords : [];
+        if (!keywords.length) continue;
+        const present = keywords.filter(k => this.normalize(k).some(token => tokens.has(token))).length;
+        const score = present / keywords.length;
+        const confidence = Math.max(score, Number(entry.confidence) || 0) * score;
+        if (!best || confidence > best.confidence) best = { entry, confidence };
+      }
+      const threshold = Number(this.config.confidenceThreshold) || 0.6;
+      if (best && best.confidence >= threshold) return { reply: best.entry.answer, confidence: best.confidence, escalate: false };
+      return { reply: this.kb.fallback || null, confidence: best?.confidence || 0, escalate: true };
+    } catch (err) { this.logError(err, 'Knowledge match failed'); return { reply: null, confidence: 0, escalate: true }; }
+  }
+
+  /** Build OpenAI messages: system prompt, last N messages, latest user text. */
+  buildOpenAIContext(session, text) {
+    try {
+      const messages = [{ role: 'system', content: this.config.systemPrompt }];
+      const history = Array.isArray(session?.messages) ? session.messages.slice(-this.config.contextMessages) : [];
+      for (const msg of history) messages.push({ role: msg.from === 'user' ? 'user' : 'assistant', content: String(msg.text || '').slice(0, 2000) });
+      messages.push({ role: 'user', content: String(text || '').slice(0, 4000) });
+      return messages;
+    } catch (err) { this.logError(err, 'OpenAI context build failed'); return [{ role: 'user', content: String(text || '') }]; }
+  }
+
+  logError(err, msg) { const logger = this.config?.logger || console; logger.error?.({ err }, msg); }
+}
+
+module.exports = new AiBot();
+
+
+/*
+Provider extension notes
+------------------------
+Anthropic: add BOT_PROVIDER=anthropic, initialize @anthropic-ai/sdk in init(),
+then map buildOpenAIContext() messages into Anthropic's messages format.
+
+Ollama: add BOT_PROVIDER=ollama and POST to http://localhost:11434/api/chat
+with the same system/history/user structure. Keep the return contract identical:
+{ reply, confidence, escalate } so sockets/admin/Telegram do not change.
+*/

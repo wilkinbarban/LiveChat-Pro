@@ -1,6 +1,6 @@
 {
   "name": "livechat-pro",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Self-hosted educational live chat with Telegram integration",
   "license": "GPL-3.0-or-later",
   "main": "server.js",
@@ -30,7 +30,8 @@
     "socket.io": "^4.7.2",
     "sqlite": "^5.1.1",
     "sqlite3": "^6.0.1",
-    "telegraf": "^4.15.3"
+    "telegraf": "^4.15.3",
+    "openai": "^4.104.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"

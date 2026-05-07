@@ -29,6 +29,7 @@ function createSessionService(deps) {
     session.adminLastSeenTs = snapshot.adminLastSeenTs || session.adminLastSeenTs || 0;
     session.userLastSeenTs = snapshot.userLastSeenTs || session.userLastSeenTs || 0;
     session.awaitingName = typeof snapshot.awaitingName === 'boolean' ? snapshot.awaitingName : session.awaitingName;
+    session.botSilenced = typeof snapshot.botSilenced === 'boolean' ? snapshot.botSilenced : !!session.botSilenced;
     session.lastActive = snapshot.lastActive || session.lastActive;
     session.createdAt = snapshot.createdAt || session.createdAt;
     session.connected = typeof snapshot.connected === 'boolean' ? snapshot.connected : !!session.connected;
@@ -65,6 +66,7 @@ function createSessionService(deps) {
       adminLastSeenTs: row.admin_last_seen_ts || 0,
       userLastSeenTs: row.user_last_seen_ts || 0,
       awaitingName: !!row.awaiting_name,
+      botSilenced: !!row.bot_silenced,
       lastActive: row.last_active,
       createdAt: row.created_at,
       typingMsgId: null,
@@ -89,6 +91,7 @@ function createSessionService(deps) {
       admin_last_seen_ts: session.adminLastSeenTs || 0,
       user_last_seen_ts: session.userLastSeenTs || 0,
       awaiting_name: session.awaitingName ? 1 : 0,
+      bot_silenced: session.botSilenced ? 1 : 0,
       last_active: session.lastActive,
       created_at: session.createdAt || Date.now(),
     };
@@ -207,6 +210,7 @@ function createSessionService(deps) {
       unreadForUser: countUnreadForUser(session),
       banned: !!session.banned,
       awaitingName: !!session.awaitingName,
+      botSilenced: !!session.botSilenced,
       connected: !!session.connected,
       socketCount: session.socketCount || 0,
       lastActive: session.lastActive,
@@ -259,6 +263,7 @@ function createSessionService(deps) {
       unreadForUser: effectiveSession?.messages?.length ? countUnreadForUser(effectiveSession) : (row.unread_user_count || 0),
       banned: effectiveSession ? !!effectiveSession.banned : !!row.banned,
       awaitingName: effectiveSession ? !!effectiveSession.awaitingName : !!row.awaiting_name,
+      botSilenced: effectiveSession ? !!effectiveSession.botSilenced : !!row.bot_silenced,
       connected: !!effectiveSession?.connected,
       socketCount: effectiveSession?.socketCount || 0,
       lastActive: effectiveSession?.lastActive || row.last_active,

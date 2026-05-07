@@ -187,6 +187,24 @@ function createAdminRouter(deps) {
     return res.json({ ok: true, session: serializeSession(session) });
   });
 
+
+  router.post('/api/admin/sessions/:sessionId/bot', requireAdmin, requireCsrf, async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      const enabled = req.body?.enabled === true || req.body?.enabled === 'true';
+      const session = await ensureSessionLoaded(sessionId);
+      if (!session) return res.status(404).json({ error: 'Session not found' });
+      session.botSilenced = !enabled;
+      await stmts.updateBotSilenced?.run(session.botSilenced ? 1 : 0, sessionId);
+      await syncSharedSession(session);
+      broadcastAdminSessionUpdate(session, { reason: 'bot_toggle' });
+      res.json({ ok: true, botSilenced: session.botSilenced, session: serializeSession(session) });
+    } catch (err) {
+      logger.error({ err }, 'Error toggling bot for session');
+      res.status(500).json({ error: 'Internal error' });
+    }
+  });
+
   router.post('/api/admin/sessions/:sessionId/typing', requireAdmin, requireCsrf, async (req, res) => {
     const session = await ensureSessionLoaded(req.params.sessionId);
     if (!session) return res.status(404).json({ error: 'Sesión no encontrada' });

@@ -126,6 +126,7 @@ async function createDb() {
       admin_last_seen_ts INTEGER NOT NULL DEFAULT 0,
       user_last_seen_ts  INTEGER NOT NULL DEFAULT 0,
       awaiting_name INTEGER NOT NULL DEFAULT 1,
+      bot_silenced  INTEGER NOT NULL DEFAULT 0,
       last_active   INTEGER NOT NULL,
       created_at    INTEGER NOT NULL
     );
@@ -170,6 +171,7 @@ async function createDb() {
   // already exists, so each ALTER is intentionally isolated and ignored.
   try { await db.exec('ALTER TABLE sessions ADD COLUMN admin_last_seen_ts INTEGER NOT NULL DEFAULT 0'); } catch {}
   try { await db.exec('ALTER TABLE sessions ADD COLUMN user_last_seen_ts INTEGER NOT NULL DEFAULT 0'); } catch {}
+  try { await db.exec('ALTER TABLE sessions ADD COLUMN bot_silenced INTEGER NOT NULL DEFAULT 0'); } catch {}
   try { await db.exec('ALTER TABLE attachments ADD COLUMN access_token TEXT'); } catch {}
   try { await db.exec('ALTER TABLE attachments ADD COLUMN width INTEGER'); } catch {}
   try { await db.exec('ALTER TABLE attachments ADD COLUMN height INTEGER'); } catch {}
@@ -211,11 +213,11 @@ const stmts = {
     INSERT INTO sessions
       (session_id, name, lang, lang_detected, ip, geo_city, geo_country, geo_isp,
        user_agent, current_page, banned, priority, admin_last_seen_ts,
-       user_last_seen_ts, awaiting_name, last_active, created_at)
+       user_last_seen_ts, awaiting_name, bot_silenced, last_active, created_at)
     VALUES
       (@session_id, @name, @lang, @lang_detected, @ip, @geo_city, @geo_country, @geo_isp,
        @user_agent, @current_page, @banned, @priority, @admin_last_seen_ts,
-       @user_last_seen_ts, @awaiting_name, @last_active, @created_at)
+       @user_last_seen_ts, @awaiting_name, @bot_silenced, @last_active, @created_at)
     ON CONFLICT(session_id) DO UPDATE SET
       name          = excluded.name,
       lang          = excluded.lang,
@@ -225,6 +227,7 @@ const stmts = {
       admin_last_seen_ts = excluded.admin_last_seen_ts,
       user_last_seen_ts  = excluded.user_last_seen_ts,
       awaiting_name = excluded.awaiting_name,
+      bot_silenced = excluded.bot_silenced,
       last_active   = excluded.last_active
   `),
 
@@ -292,6 +295,10 @@ const stmts = {
 
   updatePriority: createStatement(
     'UPDATE sessions SET priority = 1, last_active = ? WHERE session_id = ?'
+  ),
+
+  updateBotSilenced: createStatement(
+    'UPDATE sessions SET bot_silenced = ? WHERE session_id = ?'
   ),
 
   markAdminSeen: createStatement(
