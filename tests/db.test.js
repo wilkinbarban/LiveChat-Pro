@@ -33,6 +33,7 @@ function makeSession(overrides = {}) {
     admin_last_seen_ts: 0,
     user_last_seen_ts: 0,
     awaiting_name: 1,
+    bot_silenced: 0,
     last_active: NOW,
     created_at: NOW,
     ...overrides,

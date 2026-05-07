@@ -374,6 +374,7 @@ describe('Sesiones admin', () => {
       admin_last_seen_ts: 0,
       user_last_seen_ts: 0,
       awaiting_name: 0,
+      bot_silenced: 0,
       last_active: now,
       created_at: now,
     });
@@ -425,6 +426,7 @@ describe('Sesiones admin', () => {
       admin_last_seen_ts: 0,
       user_last_seen_ts: 0,
       awaiting_name: 0,
+      bot_silenced: 0,
       last_active: now,
       created_at: now,
     });
@@ -506,6 +508,7 @@ describe('Sesiones admin', () => {
       admin_last_seen_ts: 0,
       user_last_seen_ts: 0,
       awaiting_name: 0,
+      bot_silenced: 0,
       last_active: now,
       created_at: now,
     });
@@ -546,6 +549,7 @@ describe('Sesiones admin', () => {
       admin_last_seen_ts: 0,
       user_last_seen_ts: 0,
       awaiting_name: 0,
+      bot_silenced: 0,
       last_active: now,
       created_at: now,
     });
@@ -592,6 +596,7 @@ describe('Adjuntos de imagen', () => {
       admin_last_seen_ts: 0,
       user_last_seen_ts: 0,
       awaiting_name: 0,
+      bot_silenced: 0,
       last_active: now,
       created_at: now,
     });

@@ -40,7 +40,7 @@ test('google_free usa el endpoint gratuito como proveedor por defecto', async ()
   let requestedUrl = '';
   axios.get = async (url, options) => {
     requestedUrl = url;
-    assert.equal(options.timeout, 4000);
+    assert.equal(options.timeout, 1500);
     return { data: [[['hola', 'hello', null, null]]] };
   };
 
@@ -76,7 +76,7 @@ test('google_cloud usa Translation API v2 con API key', async () => {
   axios.post = async (url, payload, options) => {
     assert.match(url, /translation\.googleapis\.com\/language\/translate\/v2\?key=cloud-key/);
     assert.deepEqual(payload, { q: 'hello', target: 'es', format: 'text' });
-    assert.equal(options.timeout, 6000);
+    assert.equal(options.timeout, 2000);
     return { data: { data: { translations: [{ translatedText: 'hola cloud' }] } } };
   };
 
