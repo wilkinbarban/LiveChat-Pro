@@ -43,7 +43,7 @@ function closeTranslationCache() {
 
 async function translateWithGoogleFree(text, targetLang) {
   const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(text)}`;
-  const { data } = await axios.get(url, { timeout: 4000 });
+  const { data } = await axios.get(url, { timeout: 1500 });
   return data[0].map(s => s[0]).join('');
 }
 
@@ -55,7 +55,7 @@ async function translateWithDeepL(text, targetLang, apiKey) {
     target_lang: targetLang.toUpperCase(),
   });
   const { data } = await axios.post(endpoint, params, {
-    timeout: 6000,
+    timeout: 2000,
     headers: {
       Authorization: `DeepL-Auth-Key ${apiKey}`,
       'Content-Type': 'application/x-www-form-urlencoded',
@@ -68,7 +68,7 @@ async function translateWithGoogleCloud(text, targetLang, apiKey) {
   const { data } = await axios.post(
     `https://translation.googleapis.com/language/translate/v2?key=${encodeURIComponent(apiKey)}`,
     { q: text, target: targetLang, format: 'text' },
-    { timeout: 6000 }
+    { timeout: 2000 }
   );
   return data?.data?.translations?.[0]?.translatedText || text;
 }
@@ -79,6 +79,68 @@ async function runTranslationAdapter(text, targetLang, config) {
   if (config.provider === 'deepl' && config.apiKey) return translateWithDeepL(text, targetLang, config.apiKey);
   if (config.provider === 'google_cloud' && config.apiKey) return translateWithGoogleCloud(text, targetLang, config.apiKey);
   return translateWithGoogleFree(text, targetLang);
+}
+
+// ── Proper-noun protection ──────────────────────────────────────────────────
+// Project names, person names, and place names that must never be translated.
+// Listed longest-first so partial names (e.g. 'LiveChat') don't shadow
+// longer ones ('LiveChat Pro') during regex matching.
+const PROTECTED_NAMES = [
+  // Projects
+  'LiveChat Pro',
+  'LiveChat',
+  'YouTube Downloader',
+  'PhotoDedup',
+  'Photo Dedup',
+  'Normalizador Audio',
+  'Normalizador',
+  // Person
+  'Wilkin Barbán',
+  'Wilkin Barban',
+  'Wilkin',
+  // Places
+  'Curitiba',
+  'Brasil',
+  'Brazil',
+  'Cuba',
+  // Brands / tools referenced in KB answers
+  'GitHub',
+  'Docker',
+  'Telegram',
+  'OpenAI',
+  'FFmpeg',
+  'PyQt6',
+  'SQLite',
+  'Redis',
+  'Wise',
+  'GPL-3.0',
+  'GPL',
+];
+
+// Build a single regex (longest match first to avoid partial overlaps).
+const PROTECTED_SORTED = [...PROTECTED_NAMES].sort((a, b) => b.length - a.length);
+const PROTECTED_RE = new RegExp(
+  PROTECTED_SORTED.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'),
+  'gi'
+);
+
+// Replace protected names with neutral placeholders before sending to the
+// translation API; restore canonical casing afterward.
+function protectNames(text) {
+  const map = [];
+  const masked = text.replace(PROTECTED_RE, match => {
+    const canonical = PROTECTED_SORTED.find(
+      n => n.toLowerCase() === match.toLowerCase()
+    ) || match;
+    const token = `__NP${map.length}__`;
+    map.push(canonical);
+    return token;
+  });
+  return { masked, map };
+}
+
+function restoreNames(text, map) {
+  return text.replace(/__NP(\d+)__/g, (_, i) => map[Number(i)] ?? _);
 }
 
 // Translation is best-effort: any provider failure returns the original text so
@@ -95,14 +157,21 @@ async function translate(text, targetLang, isEnabled = true) {
   const cached = translationCache.get(cacheKey);
   if (typeof cached === 'string') return cached;
 
+  const { masked, map } = protectNames(safeText);
+
+  async function runWithRestore(fn) {
+    const raw = await fn();
+    return restoreNames(raw, map);
+  }
+
   try {
-    const translated = await runTranslationAdapter(safeText, safeTargetLang, config);
+    const translated = await runWithRestore(() => runTranslationAdapter(masked, safeTargetLang, config));
     translationCache.set(cacheKey, translated);
     return translated;
   } catch {
     if (config.provider !== 'google_free') {
       try {
-        const translated = await translateWithGoogleFree(safeText, safeTargetLang);
+        const translated = await runWithRestore(() => translateWithGoogleFree(masked, safeTargetLang));
         translationCache.set(cacheKey, translated);
         return translated;
       } catch {}
@@ -113,7 +182,7 @@ async function translate(text, targetLang, isEnabled = true) {
 
 async function detectLangWithGoogleFree(text) {
   const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=${encodeURIComponent(text)}`;
-  const { data } = await axios.get(url, { timeout: 4000 });
+  const { data } = await axios.get(url, { timeout: 1500 });
   return data[2] || 'es';
 }
 
@@ -121,7 +190,7 @@ async function detectLangWithGoogleCloud(text, apiKey) {
   const { data } = await axios.post(
     `https://translation.googleapis.com/language/translate/v2/detect?key=${encodeURIComponent(apiKey)}`,
     { q: text },
-    { timeout: 6000 }
+    { timeout: 2000 }
   );
   return data?.data?.detections?.[0]?.[0]?.language || 'es';
 }
