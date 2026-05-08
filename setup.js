@@ -666,6 +666,39 @@ function isWsl() {
   }
 }
 
+function runtimeEnvironment(osInfo = parseOsRelease()) {
+  const wsl = isWsl();
+  const systemd = hasSystemd();
+  const openRc = commandExists('rc-service');
+  const service = commandExists('service');
+  let kind = 'linux-custom';
+
+  if (wsl && systemd) kind = 'wsl-systemd';
+  else if (wsl) kind = 'wsl-no-systemd';
+  else if (systemd) kind = 'linux-systemd';
+  else if (openRc) kind = 'linux-openrc';
+
+  return {
+    osInfo,
+    isWsl: wsl,
+    hasSystemd: systemd,
+    hasOpenRc: openRc,
+    hasService: service,
+    kind,
+  };
+}
+
+function runtimeLabel(runtime) {
+  const labels = {
+    'wsl-systemd': 'WSL with systemd',
+    'wsl-no-systemd': 'WSL without systemd',
+    'linux-systemd': 'Linux with systemd',
+    'linux-openrc': 'Linux with OpenRC',
+    'linux-custom': 'Linux without a supported service manager',
+  };
+  return labels[runtime.kind] || runtime.kind;
+}
+
 function packageManagerCleanupCommand(osInfo) {
   const sudo = sudoPrefix();
   const id = osInfo.id;
@@ -735,6 +768,35 @@ function repairSuggestion(osInfo) {
   return 'Repair the package manager manually, then run the LiveChat Pro install command again.';
 }
 
+function dockerRepairSuggestion(osInfo) {
+  if (isWsl()) {
+    return [
+      'Docker is installed, but the daemon is not available from this WSL distro.',
+      'Recommended WSL options:',
+      '  1. Open Docker Desktop on Windows and enable Settings > Resources > WSL integration for this distro.',
+      '  2. Verify inside WSL: docker info && docker compose version.',
+      '  3. Run node setup.js again and choose Docker, or choose local Node mode.',
+      '',
+      'Alternative WSL option with systemd:',
+      '  sudo sh -c \'printf "[boot]\\nsystemd=true\\n" > /etc/wsl.conf\'',
+      '  wsl.exe --shutdown',
+      '  Reopen the distro, then run: sudo systemctl enable --now docker',
+      '',
+      'If you do not want Docker in WSL, choose local mode and start with Node/npm.',
+    ].join('\n');
+  }
+
+  return [
+    'Run:',
+    '  sudo systemctl enable --now docker',
+    '  sudo docker info',
+    'If this server does not use systemd, start Docker with the distro service manager.',
+    'Then run the LiveChat Pro install command again.',
+    '',
+    repairSuggestion(osInfo),
+  ].join('\n');
+}
+
 function printManagedFailure(title, result, osInfo) {
   console.log(color('red', `${title} failed.`));
   if (result && result.logPath) console.log(color('yellow', `Full log: ${result.logPath}`));
@@ -743,6 +805,16 @@ function printManagedFailure(title, result, osInfo) {
     console.log(result.tail);
   }
   console.log(color('yellow', repairSuggestion(osInfo)));
+}
+
+function printDockerFailure(title, result, osInfo) {
+  console.log(color('red', `${title} failed.`));
+  if (result && result.logPath) console.log(color('yellow', `Full log: ${result.logPath}`));
+  if (result && result.tail) {
+    console.log(color('yellow', 'Last log lines:'));
+    console.log(result.tail);
+  }
+  console.log(color('yellow', dockerRepairSuggestion(osInfo)));
 }
 
 async function runManagedSystemTask(label, command, osInfo) {
@@ -928,10 +1000,10 @@ async function ensureLatestNpm(osInfo) {
 
   const latest = await captureShell('npm view npm version 2>/dev/null');
   if (latest.code !== 0 || !latest.stdout) {
-    console.log(color('red', 'Could not check the latest npm version from the npm registry.'));
+    console.log(color('yellow', 'Could not check the latest npm version from the npm registry. Continuing with the installed npm version.'));
     if (latest.stderr) console.log(color('yellow', latest.stderr));
-    console.log(color('yellow', repairSuggestion(osInfo)));
-    return false;
+    console.log(color('green', `✓ npm is available: ${before.stdout}`));
+    return true;
   }
 
   if (compareVersions(before.stdout, latest.stdout) >= 0) {
@@ -943,15 +1015,20 @@ async function ensureLatestNpm(osInfo) {
   if (!(await ensureSudoAccess())) return false;
   const result = await runShellQuiet(`${sudoCommand('npm install -g npm@latest --no-fund --no-audit')}`, 'Updating npm to latest');
   if (result.code !== 0) {
-    printManagedFailure('Updating npm to latest', result, osInfo);
-    return false;
+    console.log(color('yellow', 'npm could not be updated automatically. Continuing with the installed npm version.'));
+    if (result && result.logPath) console.log(color('yellow', `Full log: ${result.logPath}`));
+    if (result && result.tail) {
+      console.log(color('yellow', 'Last log lines:'));
+      console.log(result.tail);
+    }
+    console.log(color('green', `✓ npm is available: ${before.stdout}`));
+    return true;
   }
 
   const after = await captureShell('npm --version 2>/dev/null');
   if (after.code !== 0 || !after.stdout || compareVersions(after.stdout, latest.stdout) < 0) {
-    console.log(color('red', `npm was not updated to the expected latest version (${latest.stdout}).`));
-    console.log(color('yellow', repairSuggestion(osInfo)));
-    return false;
+    console.log(color('yellow', `npm was not updated to the expected latest version (${latest.stdout}). Continuing with ${before.stdout}.`));
+    return true;
   }
 
   console.log(color('green', `✓ npm updated and verified: ${after.stdout}`));
@@ -1006,6 +1083,7 @@ async function ensureSystemNode(osInfo) {
 async function ensureDocker(osInfo) {
   // Docker is required for the recommended VPS profile. Validating it here makes
   // the final deployment instructions actionable.
+  const runtime = runtimeEnvironment(osInfo);
   if (commandExists('docker')) {
     const dockerVersion = await captureShell('docker --version');
     const composeVersion = await captureShell('docker compose version');
@@ -1016,6 +1094,12 @@ async function ensureDocker(osInfo) {
     }
     console.log(color('green', `✓ Docker Compose detected: ${composeVersion.stdout}`));
     return ensureDockerDaemon(osInfo);
+  }
+
+  if (runtime.isWsl && !runtime.hasSystemd) {
+    console.log(color('yellow', `Docker was not found in ${runtimeLabel(runtime)}.`));
+    console.log(color('yellow', dockerRepairSuggestion(osInfo)));
+    return false;
   }
 
   console.log(color('yellow', 'Docker is not installed. Docker Engine will be installed from the official repository when the distro is supported.'));
@@ -1035,7 +1119,7 @@ async function ensureDocker(osInfo) {
   console.log(ok
     ? color('green', `✓ Docker installed and verified: ${dockerVersion.stdout}; ${composeVersion.stdout}`)
     : color('red', 'Docker was installed, but verification failed.'));
-  if (!ok) console.log(color('yellow', repairSuggestion(osInfo)));
+  if (!ok) console.log(color('yellow', dockerRepairSuggestion(osInfo)));
   return ok;
 }
 
@@ -1051,7 +1135,7 @@ async function ensureDockerDaemon(osInfo) {
   console.log(color('yellow', 'Docker is installed, but the daemon is not running. Starting Docker service.'));
   const service = await startDockerService(osInfo);
   if (service.code !== 0) {
-    printManagedFailure('Starting Docker service', service, osInfo);
+    printDockerFailure('Starting Docker service', service, osInfo);
     return false;
   }
 
@@ -1062,19 +1146,27 @@ async function ensureDockerDaemon(osInfo) {
   }
 
   console.log(color('red', 'Docker service was started, but the daemon still did not answer to docker info.'));
-  console.log(color('yellow', repairSuggestion(osInfo)));
+  console.log(color('yellow', dockerRepairSuggestion(osInfo)));
   return false;
 }
 
 async function startDockerService(osInfo) {
   const sudo = sudoPrefix();
-  if (hasSystemd()) {
+  const runtime = runtimeEnvironment(osInfo);
+  if (runtime.hasSystemd) {
     return runShellQuiet(`${sudo}systemctl enable --now docker`, 'Starting Docker service');
   }
-  if (commandExists('rc-service')) {
+  if (runtime.isWsl) {
+    return {
+      code: 1,
+      logPath: '',
+      tail: dockerServiceManagerMissingMessage(osInfo),
+    };
+  }
+  if (runtime.hasOpenRc) {
     return runShellQuiet(`${sudo}rc-update add docker default || true; ${sudo}rc-service docker start`, 'Starting Docker service');
   }
-  if (commandExists('service')) {
+  if (runtime.hasService) {
     return runShellQuiet(`${sudo}service docker start`, 'Starting Docker service');
   }
   if (commandExists('dockerd')) {
@@ -1114,10 +1206,13 @@ async function startDockerdFallback(osInfo) {
 }
 
 function dockerServiceManagerMissingMessage(osInfo) {
-  const wslHint = isWsl()
-    ? ' On WSL, enable systemd, use Docker Desktop WSL integration, or start dockerd manually.'
-    : '';
-  return `No supported service manager was detected on ${osInfo.prettyName}.${wslHint} Start Docker manually, then run setup.js again.`;
+  if (isWsl()) {
+    return [
+      `Docker cannot be started with Linux init scripts inside this WSL distro (${osInfo.prettyName}).`,
+      'Use Docker Desktop WSL integration, enable systemd in WSL, or choose local Node mode.',
+    ].join('\n');
+  }
+  return `No supported service manager was detected on ${osInfo.prettyName}. Start Docker manually, then run setup.js again.`;
 }
 
 function tailFile(filePath, maxLines) {
@@ -1141,6 +1236,12 @@ async function checkPortListening(port) {
 
 async function openFirewallPorts() {
   // Firewall opening is best-effort and limited to common Linux firewalls.
+  if (isWsl()) {
+    console.log('\n' + color('bright', 'Firewall and public ports'));
+    console.log(color('yellow', 'WSL detected. Skipping Linux firewall changes; expose ports through Windows/Docker Desktop if needed.'));
+    return;
+  }
+
   console.log('\n' + color('bright', 'Firewall and public ports'));
   const publicPort = 8080;
   const publicPortRule = `${publicPort}/tcp`;
@@ -1176,16 +1277,14 @@ async function preflightSystem() {
     return;
   }
 
-  console.log(color('bright', 'VPS environment validation'));
+  console.log(color('bright', 'Base environment validation'));
   const osInfo = parseOsRelease();
+  const runtime = runtimeEnvironment(osInfo);
   console.log(color('blue', `Detected system: ${osInfo.prettyName}`));
+  console.log(color('blue', `Detected runtime: ${runtimeLabel(runtime)}`));
   if (!(await ensureSystemNode(osInfo))) {
     throw new Error('Node.js preparation failed. Fix the package manager issue above and run the LiveChat Pro install command again.');
   }
-  if (!(await ensureDocker(osInfo))) {
-    throw new Error('Docker preparation failed. Fix the package manager issue above and run the LiveChat Pro install command again.');
-  }
-  await openFirewallPorts();
   console.log(fs.existsSync(path.join(ROOT, 'package-lock.json'))
     ? color('green', '✓ package-lock.json found.')
     : color('yellow', '⚠ package-lock.json was not found; npm ci will not be reproducible.'));
@@ -1559,11 +1658,14 @@ async function main() {
     if (!(await ensureDocker(osInfo))) {
       startupSucceeded = false;
       console.log(color('yellow', 'Docker is not ready. The .env file was generated, but the application was not started.'));
-    } else if (await chooseYesNo('Build and start now with Docker?', true)) {
-      const dockerCommand = sudoArgs('docker', ['compose', 'up', '-d', '--build']);
-      const code = await runCommand(dockerCommand.command, dockerCommand.args);
-      startupSucceeded = code === 0;
-      console.log(startupSucceeded ? color('green', '✓ Docker started successfully.') : color('red', 'Docker exited with errors. Review the output above.'));
+    } else {
+      if (deploymentProfile === 'vps-docker') await openFirewallPorts();
+      if (await chooseYesNo('Build and start now with Docker?', true)) {
+        const dockerCommand = sudoArgs('docker', ['compose', 'up', '-d', '--build']);
+        const code = await runCommand(dockerCommand.command, dockerCommand.args);
+        startupSucceeded = code === 0;
+        console.log(startupSucceeded ? color('green', '✓ Docker started successfully.') : color('red', 'Docker exited with errors. Review the output above.'));
+      }
     }
   } else if (mode === 'local') {
     finalCommand = localStartCommand();

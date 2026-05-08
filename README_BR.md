@@ -33,7 +33,7 @@ Para VPS público:
 - Bot do Telegram criado com [@BotFather](https://t.me/BotFather)
 - Seu ID numérico do Telegram
 
-`setup.js` valida o Node.js do sistema antes de continuar. O comando `node` precisa existir primeiro para que o instalador possa rodar; se essa versão inicial for menor que v24 ou não incluir `npm`, o instalador tenta atualizar para Node.js 24 nas distribuições suportadas. No Ubuntu/Debian ele remove pacotes antigos `nodejs`/`npm`, adiciona o repositório NodeSource 24.x, instala `nodejs` e depois verifica `node --version` e `npm --version`. Também valida Docker/Compose e pode instalar Docker em distribuições suportadas.
+`setup.js` valida o Node.js do sistema antes de continuar. O comando `node` precisa existir primeiro para que o instalador possa rodar; se essa versão inicial for menor que v24 ou não incluir `npm`, o instalador tenta atualizar para Node.js 24 nas distribuições suportadas. No Ubuntu/Debian ele remove pacotes antigos `nodejs`/`npm`, adiciona o repositório NodeSource 24.x, instala `nodejs` e depois verifica `node --version` e `npm --version`. Docker/Compose é validado somente quando você escolhe o modo de inicialização com Docker.
 
 O projeto utiliza apenas o Node.js do sistema.
 
@@ -151,6 +151,33 @@ node setup.js
 ```
 
 Se seu usuário não tem permissões sudo, entre como root ou adicione o usuário ao grupo sudo/wheel antes de instalar Node.js, Docker ou abrir o firewall.
+
+## WSL no Windows
+
+No WSL você pode executar o LiveChat Pro com Node local ou com Docker. A opção mais estável para Docker é o Docker Desktop com integração WSL:
+
+```bash
+docker info
+docker compose version
+```
+
+Se esses comandos funcionam dentro da distro WSL, execute `node setup.js` e escolha o modo Docker. Se falharem, abra o Docker Desktop no Windows e ative `Settings > Resources > WSL integration` para sua distro.
+
+Se preferir Docker Engine dentro do WSL, habilite systemd:
+
+```bash
+sudo sh -c 'printf "[boot]\nsystemd=true\n" > /etc/wsl.conf'
+wsl.exe --shutdown
+```
+
+Depois reabra a distro e use:
+
+```bash
+sudo systemctl enable --now docker
+docker info
+```
+
+WSL sem systemd não usa os scripts clássicos de `/etc/init.d/docker`; se Docker não estiver disponível, escolha o modo local com Node/npm.
 
 ## Docker
 
