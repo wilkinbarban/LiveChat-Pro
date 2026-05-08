@@ -1505,7 +1505,7 @@ async function main() {
   if (smartBotOption.code === 'knowledge-base') {
     botConfidenceThreshold = await askRequired('   BOT_CONFIDENCE_THRESHOLD', botConfidenceThreshold, value => !Number.isNaN(Number(value)) && Number(value) >= 0 && Number(value) <= 1, 'Use a number between 0.0 and 1.0.');
     botNotifyAdmin = String(await chooseYesNo('   Notify admin when bot replies?', botNotifyAdmin === 'true'));
-    const kbExample = path.join(ROOT, 'data', 'knowledge-base.json.example');
+    const kbExample = path.join(ROOT, 'knowledge-base.json.example');
     const kbTarget = path.join(ROOT, 'data', 'knowledge-base.json');
     if (!fs.existsSync(kbTarget) && fs.existsSync(kbExample)) {
       fs.mkdirSync(path.dirname(kbTarget), { recursive: true });

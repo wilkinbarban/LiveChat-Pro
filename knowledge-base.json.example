@@ -1,0 +1,173 @@
+{
+  "version": "1.0",
+  "language": "en",
+  "description": "Example knowledge base for LiveChat Pro. Copy this file to data/knowledge-base.json or let setup.js create it when you select BOT_MODE=knowledge-base.",
+  "usage": {
+    "botMode": "Set BOT_MODE=knowledge-base in .env to answer visitors from this file before escalating to an admin.",
+    "matching": "Each entry should include clear keywords that visitors are likely to type. Short, specific keywords usually work better than long sentences.",
+    "fallback": "The fallback message is used when the bot cannot find a confident answer.",
+    "customization": "Replace the example answers with your real business, product, support, shipping, billing, and contact information."
+  },
+  "entryFields": {
+    "id": "Stable unique identifier. Use lowercase words separated by hyphens.",
+    "keywords": "Words or short phrases used to match a visitor message.",
+    "question": "Canonical question this entry answers.",
+    "answer": "Short answer sent to the visitor when this entry matches.",
+    "category": "Optional grouping such as support, billing, shipping, account, or sales.",
+    "source": "Optional note about where the answer came from.",
+    "confidence": "Optional confidence hint between 0 and 1."
+  },
+  "fallback": "Sorry, I do not have a confident answer for that yet. A human agent will contact you shortly.",
+  "entries": [
+    {
+      "id": "business-hours",
+      "keywords": [
+        "hours",
+        "open",
+        "opening",
+        "schedule",
+        "when"
+      ],
+      "question": "What are your business hours?",
+      "answer": "We are available Monday to Friday from 9:00 to 18:00.",
+      "category": "support",
+      "source": "Example business policy",
+      "confidence": 0.9
+    },
+    {
+      "id": "pricing",
+      "keywords": [
+        "price",
+        "cost",
+        "pricing",
+        "plan",
+        "subscription"
+      ],
+      "question": "How much does the service cost?",
+      "answer": "Plans start at $9/month. Check the pricing page for the full comparison.",
+      "category": "billing",
+      "source": "Example pricing page",
+      "confidence": 0.85
+    },
+    {
+      "id": "contact",
+      "keywords": [
+        "contact",
+        "email",
+        "phone",
+        "call",
+        "reach"
+      ],
+      "question": "How can I contact you?",
+      "answer": "You can contact us through this chat or by email at support@example.com.",
+      "category": "support",
+      "source": "Example contact policy",
+      "confidence": 0.85
+    },
+    {
+      "id": "shipping",
+      "keywords": [
+        "shipping",
+        "delivery",
+        "ship",
+        "send",
+        "tracking"
+      ],
+      "question": "Do you offer shipping?",
+      "answer": "Yes. Shipping options and delivery times depend on your location and are confirmed at checkout.",
+      "category": "shipping",
+      "source": "Example shipping policy",
+      "confidence": 0.8
+    },
+    {
+      "id": "support",
+      "keywords": [
+        "support",
+        "help",
+        "issue",
+        "problem",
+        "error"
+      ],
+      "question": "How can I get support?",
+      "answer": "Tell us what happened and include screenshots if possible. A support agent will help you shortly.",
+      "category": "support",
+      "source": "Example support workflow",
+      "confidence": 0.85
+    },
+    {
+      "id": "returns",
+      "keywords": [
+        "return",
+        "refund",
+        "exchange",
+        "policy",
+        "cancel"
+      ],
+      "question": "What is your return policy?",
+      "answer": "Returns are accepted within 14 days when the product is unused and in its original condition.",
+      "category": "sales",
+      "source": "Example return policy",
+      "confidence": 0.82
+    },
+    {
+      "id": "languages",
+      "keywords": [
+        "language",
+        "english",
+        "spanish",
+        "portuguese",
+        "idioma"
+      ],
+      "question": "Which languages do you support?",
+      "answer": "We can help in English, Spanish and Portuguese.",
+      "category": "support",
+      "source": "Example language coverage",
+      "confidence": 0.8
+    },
+    {
+      "id": "account",
+      "keywords": [
+        "account",
+        "login",
+        "password",
+        "register",
+        "profile"
+      ],
+      "question": "How do I manage my account?",
+      "answer": "Use the account area to update your profile, reset your password, or manage your subscription.",
+      "category": "account",
+      "source": "Example account help",
+      "confidence": 0.78
+    },
+    {
+      "id": "payment-methods",
+      "keywords": [
+        "payment",
+        "card",
+        "paypal",
+        "bank",
+        "methods"
+      ],
+      "question": "Which payment methods are accepted?",
+      "answer": "We accept major credit/debit cards and PayPal. Bank transfer may be available for annual plans.",
+      "category": "billing",
+      "source": "Example billing policy",
+      "confidence": 0.82
+    },
+    {
+      "id": "response-time",
+      "keywords": [
+        "response",
+        "reply",
+        "wait",
+        "time",
+        "soon"
+      ],
+      "question": "How long does it take to get a reply?",
+      "answer": "The bot replies instantly when it knows the answer. Human agents usually respond during business hours.",
+      "category": "support",
+      "source": "Example SLA",
+      "confidence": 0.84
+    }
+  ]
+}
