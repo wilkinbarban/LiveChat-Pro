@@ -721,6 +721,7 @@ LiveChat Pro includes an optional smart bot that answers visitors automatically 
 **Usage examples:**
 
 ```bash
+node kb-trainer/index.js --interactive
 node kb-trainer/index.js --provider none --urls "https://your-site.com/faq,docs/manual.md"
 node kb-trainer/index.js --provider openrouter --key sk-or-xxx --urls "https://your-site.com"
 node kb-trainer/index.js --provider groq --key gsk_xxx --model llama-3.1-8b-instant --urls "https://site.com"
@@ -734,6 +735,8 @@ node kb-trainer/index.js --provider ollama --base-url http://localhost:11434/v1 
 node kb-trainer/index.js --provider custom --base-url http://localhost:1234/v1 --model local-model --urls "README.md"
 ```
 
-**CLI options:** `--provider`, `--key`, `--model`, `--base-url`, `--urls`, `--mode append|replace`, `--output`, `--lang`, `--dry-run`, `--help`.
+Use `--interactive` for a guided flow like the one launched from `setup.js`. It asks for provider, key, model, language, write mode, output file, sources and dry-run preference.
+
+**CLI options:** `--interactive`, `--provider`, `--key`, `--model`, `--base-url`, `--urls`, `--mode append|replace`, `--output`, `--lang`, `--dry-run`, `--help`.
 
 The output keeps the knowledge-base structure: `version`, `language`, `fallback`, and `entries` with `id`, `keywords`, `question`, `answer`, `source`, and `category`. LiveChat Pro uses these entries when `BOT_MODE=knowledge-base` to answer visitors before escalating to the admin.

@@ -1,6 +1,6 @@
 # LiveChat Pro KB Trainer
 
-`kb-trainer` builds or updates `data/knowledge-base.json` from URLs and local files. It works without AI using structured extraction, or with OpenRouter, OpenAI, or Ollama for richer questions and keyword variants.
+`kb-trainer` builds or updates `data/knowledge-base.json` from URLs and local files. It works without AI using structured extraction, or with OpenRouter, OpenAI, Ollama and other providers for richer questions and keyword variants.
 
 ## Requirements
 
@@ -13,6 +13,16 @@
 ```bash
 node kb-trainer/index.js --provider none --urls "README.md,docs/manual.md" --mode append --lang es
 ```
+
+## Interactive mode
+
+Use the guided assistant if you prefer the same option flow shown by `setup.js`:
+
+```bash
+node kb-trainer/index.js --interactive
+```
+
+The assistant asks for the AI provider, API key when needed, model, language, write mode, output file, source URLs/files and dry-run preference. The classic flag-based usage remains available.
 
 ## With OpenRouter
 
@@ -36,9 +46,11 @@ node kb-trainer/index.js --provider ollama --model llama3 --urls "docs/manual.md
 
 ## CLI options
 
-- `--provider openrouter|openai|ollama|none` default `none`
-- `--key` API key for OpenRouter/OpenAI
+- `--interactive`, `-i` starts the guided assistant
+- `--provider openrouter|groq|gemini|openai|xai|anthropic|mistral|cohere|ollama|custom|none` default `none`
+- `--key` API key for providers that need one
 - `--model` model name; defaults per provider
+- `--base-url` custom base URL for `custom`, optional for `ollama`
 - `--urls` comma-separated URLs or file paths
 - `--mode append|replace` default `append`
 - `--output` default `data/knowledge-base.json`

@@ -1,10 +1,37 @@
 #!/usr/bin/env node
 const fs = require('fs');
 const path = require('path');
+const readline = require('readline');
 const { fetchSource } = require('./fetcher');
 const { parseWithoutAI } = require('./parser');
 const { callAI, PROVIDERS } = require('./ai-client');
 const { validateEntries, mergeKnowledgeBase } = require('./validator');
+
+const SCRIPTED_INPUT = process.stdin.isTTY ? null : fs.readFileSync(0, 'utf8').split(/\r?\n/);
+let rl = SCRIPTED_INPUT ? null : readline.createInterface({ input: process.stdin, output: process.stdout });
+
+const PROVIDER_OPTIONS = [
+  { key: '1', code: 'none', name: 'No AI - extract structure from content only (free, no key)' },
+  { key: '2', code: 'openrouter', name: 'OpenRouter - free models available' },
+  { key: '3', code: 'groq', name: 'Groq - ultra-fast, free tier' },
+  { key: '4', code: 'gemini', name: 'Google Gemini - free quota' },
+  { key: '5', code: 'openai', name: 'OpenAI - GPT models' },
+  { key: '6', code: 'xai', name: 'xAI - Grok models' },
+  { key: '7', code: 'anthropic', name: 'Anthropic - Claude models' },
+  { key: '8', code: 'mistral', name: 'Mistral AI - Mistral models' },
+  { key: '9', code: 'cohere', name: 'Cohere - Command models' },
+  { key: '10', code: 'ollama', name: 'Ollama - local models (no key)' },
+  { key: '11', code: 'custom', name: 'Custom - any OpenAI-compatible endpoint' },
+];
+
+const LANGUAGE_OPTIONS = [
+  { key: '1', code: 'es', name: 'Spanish' },
+  { key: '2', code: 'en', name: 'English' },
+  { key: '3', code: 'pt', name: 'Portuguese' },
+  { key: '4', code: 'fr', name: 'French' },
+  { key: '5', code: 'de', name: 'German' },
+  { key: '6', code: 'it', name: 'Italian' },
+];
 
 function help() {
   const providerList = Object.entries(PROVIDERS)
@@ -16,6 +43,7 @@ Usage:
   node kb-trainer/index.js [options]
 
 Options:
+  --interactive Run a guided prompt flow
   --provider    AI provider to use (default: none)
   --key         API key for the chosen provider
   --model       Model override (each provider has a default)
@@ -38,6 +66,7 @@ Free-tier highlights:
   ollama      any local model (llama3, deepseek-r1, qwen2, mistral...)
 
 Examples:
+  node kb-trainer/index.js --interactive
   node kb-trainer/index.js --provider none --urls "README.md,docs/faq.md"
   node kb-trainer/index.js --provider openrouter --key sk-or-xxx --urls "https://site.com/faq"
   node kb-trainer/index.js --provider groq --key gsk_xxx --model llama-3.1-8b-instant --urls "https://site.com"
@@ -56,15 +85,118 @@ function parseArgs(argv) {
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === '--help') args.help = true;
+    else if (arg === '--interactive' || arg === '-i') args.interactive = true;
     else if (arg === '--dry-run') args.dryRun = true;
     else if (arg.startsWith('--')) { const key = arg.slice(2); args[key.replace(/-([a-z])/g, (_, c) => c.toUpperCase())] = argv[++i]; }
   }
   return args;
 }
 
-async function main() {
-  const args = parseArgs(process.argv.slice(2));
-  if (args.help) return help();
+const ask = question => {
+  if (SCRIPTED_INPUT) {
+    process.stdout.write(question);
+    return Promise.resolve((SCRIPTED_INPUT.shift() || '').trim());
+  }
+  if (!rl) rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  return new Promise(resolve => rl.question(question, answer => resolve(answer.trim())));
+};
+
+async function choose(label, options, currentValue) {
+  console.log(`\n${label}`);
+  for (const option of options) {
+    const marker = option.code === currentValue || option.value === currentValue ? '  <- current' : '';
+    const value = option.value ? ` (${option.value})` : option.code ? ` (${option.code})` : '';
+    console.log(`   [${option.key}] ${option.name}${value}${marker}`);
+  }
+  const answer = await ask('   Choose an option: ');
+  return options.find(option => option.key === answer)
+    || options.find(option => option.code === currentValue || option.value === currentValue)
+    || options[0];
+}
+
+async function askRequired(label, current, validator, helpText) {
+  while (true) {
+    const suffix = current ? ` [${current}]` : '';
+    const value = await ask(`${label}${suffix}: `) || current || '';
+    if (!validator || validator(value)) return value;
+    console.log(`  Invalid value. ${helpText}`);
+  }
+}
+
+async function chooseYesNo(label, defaultValue = true) {
+  const hint = defaultValue ? 'Y/n' : 'y/N';
+  const answer = (await ask(`${label} [${hint}]: `)).toLowerCase();
+  if (!answer) return defaultValue;
+  return ['s', 'si', 'sí', 'y', 'yes'].includes(answer);
+}
+
+function maskSecret(value) {
+  if (!value) return '';
+  return `${String(value).slice(0, 8)}...`;
+}
+
+async function askSecret(label, current, validator, helpText) {
+  while (true) {
+    const suffix = current ? ` [${maskSecret(current)}]` : '';
+    const value = await ask(`${label}${suffix}: `) || current || '';
+    if (!validator || validator(value)) return value;
+    console.log(`  Invalid value. ${helpText}`);
+  }
+}
+
+function closeReadline() {
+  if (rl) rl.close();
+  rl = null;
+}
+
+async function interactiveArgs() {
+  console.log('LiveChat Pro Knowledge Base Trainer');
+  console.log('This assistant creates or updates data/knowledge-base.json from URLs and local files.');
+
+  const providerOption = await choose('AI provider for training', PROVIDER_OPTIONS, 'none');
+  const provider = providerOption.code;
+  const providerDef = PROVIDERS[provider];
+  const noKeyProviders = ['none', 'ollama', 'custom'];
+  let key = '';
+  let model = '';
+  let baseUrl = '';
+
+  if (!noKeyProviders.includes(provider)) {
+    key = await askSecret(`${providerDef.name} API key`, '', value => String(value).length > 8, 'API key is required for this provider.');
+  }
+  if (provider === 'custom') {
+    baseUrl = await askRequired('Base URL', 'http://localhost:1234/v1', value => /^https?:\/\//i.test(value), 'Use a URL such as http://localhost:1234/v1.');
+  } else if (provider === 'ollama') {
+    baseUrl = await ask('Base URL [http://localhost:11434]: ') || '';
+  }
+  if (provider !== 'none') {
+    const defaultModel = providerDef.defaultModel || '';
+    model = await ask(`Model [${defaultModel}]: `) || defaultModel;
+  }
+
+  const languageOption = await choose('Target language for generated questions', LANGUAGE_OPTIONS, 'es');
+  const modeOption = await choose('Write mode', [
+    { key: '1', value: 'append', name: 'Append to existing knowledge base' },
+    { key: '2', value: 'replace', name: 'Replace the existing knowledge base' },
+  ], 'replace');
+  const output = await askRequired('Output file', 'data/knowledge-base.json', value => !!String(value).trim(), 'Output path cannot be empty.');
+  const urls = await askRequired('URLs or local file paths (comma-separated)', '', value => !!String(value).trim(), 'Provide at least one URL or file path.');
+  const dryRun = await chooseYesNo('Dry run only, without writing the file?', false);
+
+  return {
+    provider,
+    key,
+    model,
+    baseUrl,
+    urls,
+    mode: modeOption.value,
+    output,
+    lang: languageOption.code,
+    dryRun,
+  };
+}
+
+async function runTrainer(args) {
   if (args.provider !== 'none' && !PROVIDERS[args.provider]) throw new Error(`Proveedor inválido: "${args.provider}". Usa --help para ver la lista.`);
   if (!['append', 'replace'].includes(args.mode)) throw new Error('Invalid --mode');
   const sources = String(args.urls || '').split(',').map(s => s.trim()).filter(Boolean);
@@ -126,4 +258,17 @@ async function main() {
   }
 }
 
-main().catch(error => { console.error(`Error: ${error.message}`); process.exit(1); });
+async function main() {
+  let args = parseArgs(process.argv.slice(2));
+  if (args.help) return help();
+  if (args.interactive) args = await interactiveArgs();
+  return runTrainer(args);
+}
+
+main()
+  .then(closeReadline)
+  .catch(error => {
+    closeReadline();
+    console.error(`Error: ${error.message}`);
+    process.exit(1);
+  });

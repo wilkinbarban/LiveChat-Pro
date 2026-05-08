@@ -1516,7 +1516,7 @@ async function main() {
     console.log('\n' + color('bright', 'Knowledge Base Training'));
     console.log('  The kb-trainer script can populate your knowledge base automatically.');
     console.log('  It supports URLs, local files, and optional AI enhancement (OpenRouter/OpenAI/Ollama).');
-    console.log('  You can run it now or later with: node kb-trainer/index.js --help\n');
+    console.log('  You can run it now or later with: node kb-trainer/index.js --interactive\n');
 
     const runTrainer = await chooseYesNo('Would you like to run the kb-trainer to populate your knowledge base now?', false);
     if (runTrainer) {
@@ -1580,7 +1580,7 @@ async function main() {
           ? color('green', '✓ Knowledge base populated successfully.')
           : color('yellow', '⚠ kb-trainer finished with warnings. Check data/knowledge-base.json.'));
       } else {
-        console.log(color('yellow', 'No URLs provided. Run the trainer later: node kb-trainer/index.js --help'));
+        console.log(color('yellow', 'No URLs provided. Run the trainer later: node kb-trainer/index.js --interactive'));
       }
     }
   } else if (smartBotOption.code === 'ai') {

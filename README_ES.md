@@ -692,6 +692,7 @@ LiveChat Pro incluye un bot inteligente opcional que responde automáticamente a
 **Ejemplos de uso:**
 
 ```bash
+node kb-trainer/index.js --interactive
 node kb-trainer/index.js --provider none --urls "https://your-site.com/faq,docs/manual.md"
 node kb-trainer/index.js --provider openrouter --key sk-or-xxx --urls "https://your-site.com"
 node kb-trainer/index.js --provider groq --key gsk_xxx --model llama-3.1-8b-instant --urls "https://site.com"
@@ -705,6 +706,8 @@ node kb-trainer/index.js --provider ollama --base-url http://localhost:11434/v1 
 node kb-trainer/index.js --provider custom --base-url http://localhost:1234/v1 --model local-model --urls "README.md"
 ```
 
-**Opciones CLI:** `--provider`, `--key`, `--model`, `--base-url`, `--urls`, `--mode append|replace`, `--output`, `--lang`, `--dry-run`, `--help`.
+Usa `--interactive` para un flujo guiado como el que lanza `setup.js`. Pregunta proveedor, key, modelo, idioma, modo de escritura, archivo de salida, fuentes y preferencia de dry-run.
+
+**Opciones CLI:** `--interactive`, `--provider`, `--key`, `--model`, `--base-url`, `--urls`, `--mode append|replace`, `--output`, `--lang`, `--dry-run`, `--help`.
 
 El JSON conserva la estructura: `version`, `language`, `fallback` y `entries` con `id`, `keywords`, `question`, `answer`, `source` y `category`. LiveChat Pro lo usa con `BOT_MODE=knowledge-base` para responder antes de escalar al administrador.
