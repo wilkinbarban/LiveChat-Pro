@@ -813,7 +813,7 @@ function getFixedEntries(lang) {
   // Asegura que cada entrada tenga el prefijo lcp-bot- para identificación
   return langEntries.map(entry => ({
     ...entry,
-    id: entry.id.startsWith('lcp-bot-') ? entry.id : `lcp-bot-${entry.id}`,
+    id: entry.id.startsWith('lcp-') ? entry.id : `lcp-bot-${entry.id}`,
   }));
 }
 
@@ -821,6 +821,583 @@ function getFixedEntries(lang) {
  * Prefijo de ID exclusivo para entradas fijas.
  * Usado por mergeKnowledgeBase para protegerlas de sobrescritura.
  */
-const FIXED_ID_PREFIX = 'lcp-bot-';
+const FIXED_ID_PREFIX = 'lcp-';
 
 module.exports = { getFixedEntries, FIXED_ID_PREFIX };
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  ENTRADAS DEL CREADOR — se añaden al final del objeto FIXED_ENTRIES
+//  por idioma, usando spread en el array existente de cada lengua.
+//  Se inyectan en mergeKnowledgeBase igual que las entradas del bot.
+// ─────────────────────────────────────────────────────────────────────────────
+// Parche: ampliamos FIXED_ENTRIES con las entradas del creador
+(function addCreatorEntries() {
+  const creator = {
+    /* ============================================================
+       ESPAÑOL — creador
+    ============================================================ */
+    es: [
+      {
+        id: 'lcp-creator-quien-es',
+        keywords: ['quién', 'creó', 'fundador', 'hizo', 'desarrolló', 'programó', 'diseñó', 'detrás', 'responsable', 'dueño', 'wilkin', 'barban', 'rosabal', 'creador', 'idea', 'persona'],
+        question: '¿Quién creó este proyecto? ¿Quién está detrás de todo esto? ¿Quién es Wilkin Barbán Rosabal?',
+        answer: 'Este proyecto fue creado por Wilkin Barbán Rosabal, un desarrollador de software de origen cubano radicado en Curitiba, Brasil. Es el fundador, desarrollador principal y responsable de LiveChat Pro. Wilkin combina formación universitaria en informática con una sólida trayectoria autodidacta para construir herramientas reales que resuelven problemas concretos.',
+        category: 'sobre el creador',
+        source: 'livechat-pro-fixed',
+        confidence: 0.98,
+      },
+      {
+        id: 'lcp-creator-perfil',
+        keywords: ['quién', 'es', 'perfil', 'trayectoria', 'historia', 'cubano', 'brasil', 'curitiba', 'refugiado', 'adaptación', 'evolución', 'origen', 'vive', 'país'],
+        question: '¿Quién es el creador? ¿De dónde es? ¿Dónde vive?',
+        answer: 'Wilkin es un desarrollador cubano que actualmente vive en Curitiba, Brasil. Su trayectoria es una historia de adaptación constante: pasó de la gestión logística profesional a la creación de soluciones digitales complejas. Cree firmemente que la tecnología es el mejor lenguaje para aportar valor en cualquier entorno, y eso se refleja en cada proyecto que construye.',
+        category: 'sobre el creador',
+        source: 'livechat-pro-fixed',
+        confidence: 0.98,
+      },
+      {
+        id: 'lcp-creator-formacion',
+        keywords: ['estudió', 'formación', 'título', 'carrera', 'universidad', 'ingeniero', 'informática', 'académico', 'certificaciones', 'preparado', 'estudios', 'técnico'],
+        question: '¿Qué estudió el creador? ¿Tiene título universitario? ¿Es ingeniero?',
+        answer: 'Wilkin tiene licenciatura en Informática, lo que le da una base académica sólida en ciencias de la computación. Complementa esa formación con un perfil fuertemente autodidacta: aprende nuevas tecnologías de manera práctica, construyendo proyectos reales. No se queda en la teoría; su portafolio demuestra que domina lo que estudia.',
+        category: 'sobre el creador',
+        source: 'livechat-pro-fixed',
+        confidence: 0.98,
+      },
+      {
+        id: 'lcp-creator-experiencia',
+        keywords: ['experiencia', 'años', 'áreas', 'sabe', 'hace', 'profesional', 'habilidades', 'conocimientos', 'técnico', 'avanzado', 'competencias', 'domina'],
+        question: '¿Qué experiencia tiene el creador? ¿Qué sabe hacer? ¿En qué áreas trabaja?',
+        answer: 'Wilkin tiene experiencia en desarrollo de software, automatización de procesos, administración de sistemas Linux, contenedores Docker, APIs REST, bases de datos SQLite y Redis, inteligencia artificial aplicada, desarrollo web (Node.js, Express, JavaScript, HTML/CSS) y aplicaciones de escritorio en Python con PyQt6. Ha aplicado todos estos conocimientos en proyectos reales y funcionales publicados en GitHub.',
+        category: 'sobre el creador',
+        source: 'livechat-pro-fixed',
+        confidence: 0.98,
+      },
+      {
+        id: 'lcp-creator-stack-tecnico',
+        keywords: ['stack', 'tecnologías', 'herramientas', 'python', 'node', 'javascript', 'docker', 'linux', 'ffmpeg', 'sqlite', 'redis', 'apis', 'socket', 'ollama', 'openai', 'llm', 'automatización'],
+        question: '¿Qué tecnologías usa el creador? ¿Qué stack domina?',
+        answer: 'El stack principal de Wilkin incluye Python y PyQt6 para aplicaciones de escritorio, Node.js con Express y Socket.IO para backend web en tiempo real, JavaScript/HTML/CSS para frontend, Docker para despliegue, Linux como entorno de servidor, SQLite y Redis para persistencia, APIs REST e integraciones como Telegram. En IA trabaja con Ollama, modelos locales (Llama, Gemma, DeepSeek), OpenAI y proveedores compatibles. FFmpeg para procesamiento multimedia.',
+        category: 'sobre el creador',
+        source: 'livechat-pro-fixed',
+        confidence: 0.98,
+      },
+      {
+        id: 'lcp-creator-ia-experiencia',
+        keywords: ['inteligencia', 'artificial', 'IA', 'machine', 'learning', 'LLM', 'modelos', 'embeddings', 'RAG', 'ollama', 'openai', 'bots', 'automatización', 'avanzado', 'moderno'],
+        question: '¿Tiene experiencia en IA? ¿Trabaja con inteligencia artificial? ¿Sabe trabajar con modelos LLM?',
+        answer: 'Sí. Wilkin trabaja con IA de forma aplicada: ha integrado sistemas de base de conocimiento con matching semántico, embeddings conceptuales y pipelines RAG en proyectos como LiveChat Pro. Conoce y usa modelos locales vía Ollama (Llama, Gemma, DeepSeek) así como APIs de OpenAI, Groq, Anthropic y otros. Su enfoque es siempre práctico: la IA como herramienta para resolver problemas reales, no como concepto teórico.',
+        category: 'sobre el creador',
+        source: 'livechat-pro-fixed',
+        confidence: 0.98,
+      },
+      {
+        id: 'lcp-creator-proyectos',
+        keywords: ['proyectos', 'aplicaciones', 'creó', 'desarrolló', 'construyó', 'portfolio', 'portafolio', 'ejemplos', 'trabajo', 'real', 'funcional', 'github'],
+        question: '¿Qué proyectos ha desarrollado? ¿Qué aplicaciones ha creado?',
+        answer: 'Wilkin ha desarrollado cuatro proyectos principales publicados en GitHub: YouTube Downloader (descargador de video/audio para Windows con cola concurrente), Normalizador de Audio (normalización LUFS por lotes con FFmpeg para colecciones de video), Photo Dedup (detector de fotos duplicadas con análisis hash, visual e IA para Windows) y LiveChat Pro (chat en vivo auto-hospedado con widget embebible, integración Telegram y panel admin). Todos son de código abierto y tienen instaladores para usuarios finales.',
+        category: 'sobre el creador',
+        source: 'livechat-pro-fixed',
+        confidence: 0.98,
+      },
+      {
+        id: 'lcp-creator-servicios',
+        keywords: ['servicios', 'ofrece', 'freelance', 'trabaja', 'clientes', 'personalizado', 'contratar', 'ayuda', 'soluciones', 'empresas', 'negocio', 'automatizar'],
+        question: '¿Qué servicios ofrece el creador? ¿Hace trabajos personalizados? ¿Trabaja como freelancer?',
+        answer: 'Wilkin ofrece servicios freelance en tres áreas: (1) Automatización y Scripts — herramientas Python a medida, bots, integraciones de APIs, pipelines multimedia con FFmpeg y apps de escritorio; (2) Servicios especializados — localización de software, traducción técnica español↔portugués, internacionalización de apps; (3) Maquetación y publicación en Amazon KDP — eBooks y libros impresos con SEO optimizado. Está disponible para proyectos puntuales y colaboraciones a largo plazo.',
+        category: 'sobre el creador',
+        source: 'livechat-pro-fixed',
+        confidence: 0.98,
+      },
+      {
+        id: 'lcp-creator-idiomas',
+        keywords: ['idiomas', 'habla', 'español', 'portugués', 'inglés', 'lengua', 'internacional', 'comunicación', 'multilenguaje'],
+        question: '¿Habla varios idiomas? ¿Habla español, portugués e inglés?',
+        answer: 'Wilkin habla español como lengua nativa, portugués con fluidez (vive en Brasil), e inglés técnico con buena capacidad de lectura y escritura. Esta combinación le permite trabajar con clientes y colaboradores de América Latina, Brasil y el mundo anglosajón, y explica por qué todos sus proyectos incluyen soporte multilenguaje desde el primer día.',
+        category: 'sobre el creador',
+        source: 'livechat-pro-fixed',
+        confidence: 0.98,
+      },
+      {
+        id: 'lcp-creator-contacto',
+        keywords: ['contactar', 'contacto', 'github', 'linkedin', 'email', 'correo', 'redes', 'portafolio', 'escribir', 'hablar', 'contratar', 'wise', 'pagos', 'telegram'],
+        question: '¿Cómo puedo contactar al creador? ¿Tiene GitHub? ¿Tiene portafolio?',
+        answer: 'Puedes encontrar a Wilkin en GitHub como @wilkinbarban, donde están publicados todos sus proyectos de código abierto. También tiene LinkedIn y un portafolio profesional web donde se detallan sus proyectos y servicios freelance. Para colaboraciones y pagos internacionales usa Wise. Si quieres hablar directamente sobre un proyecto o contratación, su portafolio tiene los canales de contacto activos.',
+        category: 'sobre el creador',
+        source: 'livechat-pro-fixed',
+        confidence: 0.97,
+      },
+      {
+        id: 'lcp-creator-filosofia',
+        keywords: ['filosofía', 'valores', 'forma', 'trabaja', 'diferente', 'metodología', 'enfoque', 'visión', 'principios', 'mentalidad', 'producto', 'calidad'],
+        question: '¿Qué filosofía tiene para desarrollar? ¿Qué lo diferencia de otros desarrolladores?',
+        answer: 'La filosofía de Wilkin se resume en tres principios: detectar procesos repetitivos y convertirlos en sistemas; diseñar herramientas simples, mantenibles y útiles desde el primer día; e iterar con datos reales, documentación clara y mentalidad de producto. No crea software por crear: cada proyecto nace de una necesidad real. Prefiere herramientas que funcionen desde el día uno y mejoren con el tiempo, sobre soluciones sobrediseñadas que nunca terminan.',
+        category: 'sobre el creador',
+        source: 'livechat-pro-fixed',
+        confidence: 0.98,
+      },
+      {
+        id: 'lcp-creator-motivacion',
+        keywords: ['motivó', 'motivación', 'por', 'qué', 'creó', 'comenzó', 'surgió', 'idea', 'original', 'inspiró', 'historia', 'proyecto', 'origen', 'razón'],
+        question: '¿Qué lo motivó a crear este sistema? ¿Cómo surgió el proyecto?',
+        answer: 'LiveChat Pro nació de una necesidad real: muchos negocios pequeños necesitan soporte de chat directo en su web pero no quieren depender de plataformas costosas ni perder control sobre sus datos. Wilkin lo construyó como una solución auto-hospedada, abierta y flexible. Como en todos sus proyectos, la idea original vino de su propio día a día: si el problema era real para él, probablemente lo era para otros.',
+        category: 'sobre el creador',
+        source: 'livechat-pro-fixed',
+        confidence: 0.98,
+      },
+      {
+        id: 'lcp-creator-forma-trabajar',
+        keywords: ['trabaja', 'solo', 'equipo', 'remoto', 'activo', 'desarrolla', 'mantiene', 'actualiza', 'mejora', 'compromiso', 'responsable', 'serio', 'confiable', 'dedicado'],
+        question: '¿El creador trabaja solo? ¿Sigue activo en el desarrollo? ¿Es confiable?',
+        answer: 'Wilkin trabaja principalmente de forma independiente y remota. Es él quien diseña, desarrolla, prueba y mantiene sus proyectos. Está activo en el desarrollo: LiveChat Pro ya suma múltiples versiones con mejoras continuas, documentación detallada y tests automatizados. Su compromiso con el proyecto se mide por hechos concretos: código publicado, releases etiquetadas y documentación en tres idiomas.',
+        category: 'sobre el creador',
+        source: 'livechat-pro-fixed',
+        confidence: 0.98,
+      },
+      {
+        id: 'lcp-creator-autodidacta',
+        keywords: ['autodidacta', 'aprendió', 'solo', 'teoría', 'práctica', 'experiencia', 'real', 'comprobable', 'sabe', 'hace', 'programador', 'profesional', 'avanzado'],
+        question: '¿Es autodidacta? ¿Tiene experiencia real o solo teoría? ¿Sabe lo que hace?',
+        answer: 'Wilkin combina formación universitaria en informática con un perfil marcadamente autodidacta. Su experiencia es 100% comprobable: tiene aplicaciones publicadas, disponibles para descargar y con código abierto en GitHub. No habla de tecnología en abstracto: la usa, la despliega y la mantiene. El mejor indicador de que sabe lo que hace es que sus proyectos funcionan en producción y los usa gente real.',
+        category: 'sobre el creador',
+        source: 'livechat-pro-fixed',
+        confidence: 0.98,
+      },
+      {
+        id: 'lcp-creator-clientes-negocios',
+        keywords: ['clientes', 'negocios', 'empresas', 'ayuda', 'soluciones', 'personalizadas', 'pequeño', 'grande', 'comercial', 'empresa', 'negocio', 'atención', 'cliente'],
+        question: '¿Puede ayudar a negocios? ¿Trabaja con clientes? ¿Desarrolla software para empresas?',
+        answer: 'Sí. Wilkin tiene experiencia desarrollando soluciones para negocios reales: desde herramientas de productividad y automatización de procesos hasta sistemas de chat al cliente como LiveChat Pro. Sus servicios freelance están orientados tanto a proyectos puntuales como a colaboraciones a largo plazo. Puede adaptarse a negocios pequeños con presupuesto limitado y a proyectos más grandes que requieren arquitectura escalable.',
+        category: 'sobre el creador',
+        source: 'livechat-pro-fixed',
+        confidence: 0.97,
+      },
+      {
+        id: 'lcp-creator-infraestructura',
+        keywords: ['servidor', 'VPS', 'cloud', 'docker', 'linux', 'despliegue', 'infraestructura', 'devops', 'escalable', 'arquitectura', 'producción', 'sistemos'],
+        question: '¿Sabe desplegar servidores? ¿Tiene experiencia en DevOps? ¿Puede crear infraestructura completa?',
+        answer: 'Sí. Wilkin administra sus propios servidores VPS en Linux, usa Docker Compose para despliegues reproducibles, configura Nginx con HTTPS y certificados SSL, y gestiona redes, puertos y firewalls. LiveChat Pro mismo corre en su VPS con Docker, Redis y Telegram integrados. Su experiencia no es teórica: ha construido y mantiene infraestructura real en producción.',
+        category: 'sobre el creador',
+        source: 'livechat-pro-fixed',
+        confidence: 0.98,
+      },
+      {
+        id: 'lcp-creator-vision',
+        keywords: ['visión', 'objetivos', 'planes', 'futuro', 'quiere', 'lograr', 'meta', 'aportar', 'crecer', 'expandir', 'impacto', 'misión', 'construir'],
+        question: '¿Cuál es la visión del creador? ¿Qué quiere lograr? ¿Qué futuro tiene el proyecto?',
+        answer: 'La visión de Wilkin es construir herramientas de software que sean genuinamente útiles: simples para quien las usa, sólidas por dentro y abiertas para quien quiera mejorarlas. Para LiveChat Pro, el objetivo es seguir añadiendo funcionalidades inteligentes (bot con IA, multilenguaje, métricas avanzadas) manteniendo la simplicidad de despliegue y el control total del usuario sobre sus datos. El proyecto está en crecimiento activo.',
+        category: 'sobre el creador',
+        source: 'livechat-pro-fixed',
+        confidence: 0.97,
+      },
+      {
+        id: 'lcp-creator-confianza',
+        keywords: ['confiar', 'confianza', 'garantías', 'serio', 'profesional', 'comprometido', 'experiencia', 'comprobable', 'proyectos', 'funcionando', 'real', 'credibilidad'],
+        question: '¿Por qué confiar en el creador? ¿Tiene experiencia comprobable?',
+        answer: 'La confianza en Wilkin se basa en hechos concretos: cuatro proyectos publicados y funcionales en GitHub, documentación en tres idiomas, tests automatizados, versiones etiquetadas y código abierto que cualquiera puede auditar. No es un perfil de promesas: es un portfolio de cosas construidas y en uso. LiveChat Pro mismo es el mejor ejemplo de lo que puede hacer.',
+        category: 'sobre el creador',
+        source: 'livechat-pro-fixed',
+        confidence: 0.98,
+      },
+      {
+        id: 'lcp-creator-trato-clientes',
+        keywords: ['trato', 'clientes', 'escucha', 'usuarios', 'colaboración', 'fácil', 'trabajar', 'comunicación', 'mejoras', 'feedback', 'abierto', 'humano'],
+        question: '¿Cómo trata a los clientes? ¿Es fácil trabajar con él? ¿Escucha a los usuarios?',
+        answer: 'Wilkin tiene una comunicación directa, sin tecnicismos innecesarios, y está abierto a colaboraciones y mejoras. En sus proyectos deja explícito que acepta contribuciones, correcciones y sugerencias. Su forma de trabajar es pragmática: primero entiende el problema real, luego propone una solución ejecutable. No complica lo que puede ser simple.',
+        category: 'sobre el creador',
+        source: 'livechat-pro-fixed',
+        confidence: 0.97,
+      },
+      {
+        id: 'lcp-creator-habilidades-avanzadas',
+        keywords: ['arquitectura', 'software', 'escalable', 'embeddings', 'RAG', 'vectorial', 'APIs', 'complejas', 'DevOps', 'plataformas', 'completas', 'modernas', 'integración'],
+        question: '¿Sabe de arquitectura de software? ¿Tiene experiencia con sistemas escalables y RAG?',
+        answer: 'Sí. En LiveChat Pro Wilkin implementó una arquitectura completa: API REST con Express, websockets en tiempo real con Socket.IO, bot con sistema RAG de base de conocimiento (matching semántico con coeficiente Dice, stemming, normalización), Redis para estado compartido en múltiples nodos, SQLite para persistencia, Docker Compose para orquestación y Nginx para proxy HTTPS. Es arquitectura real, no ejemplos de tutorial.',
+        category: 'sobre el creador',
+        source: 'livechat-pro-fixed',
+        confidence: 0.98,
+      },
+      {
+        id: 'lcp-creator-productividad',
+        keywords: ['productividad', 'automatizar', 'tareas', 'manuales', 'procesos', 'repetitivos', 'pipelines', 'herramientas', 'ahorro', 'tiempo', 'eficiencia', 'multimedia'],
+        question: '¿Puede ayudar con automatización? ¿Tiene experiencia automatizando procesos?',
+        answer: 'La automatización es la especialidad central de Wilkin. Ha construido herramientas que automatizan descargas de YouTube con gestión de colas, normalización masiva de audio/video en lotes con paralelismo y aceleración GPU, detección y eliminación de fotos duplicadas con IA, y respuesta automática de chat al cliente. Si tienes un proceso repetitivo que consume tiempo, probablemente puede convertirlo en un sistema.',
+        category: 'sobre el creador',
+        source: 'livechat-pro-fixed',
+        confidence: 0.98,
+      },
+      {
+        id: 'lcp-creator-codigo-abierto',
+        keywords: ['código', 'abierto', 'open', 'source', 'github', 'repositorio', 'ver', 'auditar', 'transparente', 'contribuir', 'colaborar', 'ver', 'proyectos'],
+        question: '¿Dónde puedo ver sus proyectos? ¿Tiene código abierto en GitHub?',
+        answer: 'Todos los proyectos de Wilkin son de código abierto y están publicados en GitHub bajo el usuario @wilkinbarban. Puedes ver el código fuente, el historial de commits, los releases y la documentación de LiveChat Pro, YouTube Downloader, Normalizador de Audio y Photo Dedup. El código es auditable, las licencias son claras y las contribuciones son bienvenidas.',
+        category: 'sobre el creador',
+        source: 'livechat-pro-fixed',
+        confidence: 0.98,
+      },
+    ],
+
+    /* ============================================================
+       ENGLISH — creator
+    ============================================================ */
+    en: [
+      {
+        id: 'lcp-creator-who-is',
+        keywords: ['who', 'created', 'founded', 'built', 'developed', 'behind', 'responsible', 'owner', 'wilkin', 'barban', 'rosabal', 'creator', 'idea', 'person', 'programmed'],
+        question: 'Who created this project? Who is Wilkin Barbán Rosabal?',
+        answer: 'This project was created by Wilkin Barbán Rosabal, a Cuban software developer based in Curitiba, Brazil. He is the founder, lead developer, and person responsible for LiveChat Pro. Wilkin combines a university degree in Computer Science with a strong self-taught background to build real tools that solve concrete problems.',
+        category: 'about the creator',
+        source: 'livechat-pro-fixed',
+        confidence: 0.98,
+      },
+      {
+        id: 'lcp-creator-profile',
+        keywords: ['who', 'is', 'profile', 'background', 'history', 'cuban', 'brazil', 'curitiba', 'origin', 'lives', 'country', 'adaptation'],
+        question: "Who is the creator? Where is he from? Where does he live?",
+        answer: "Wilkin is a Cuban developer currently based in Curitiba, Brazil. His path is a story of constant adaptation: from professional logistics management to building complex digital solutions. He firmly believes technology is the best language for creating value in any environment.",
+        category: 'about the creator',
+        source: 'livechat-pro-fixed',
+        confidence: 0.98,
+      },
+      {
+        id: 'lcp-creator-education',
+        keywords: ['studied', 'degree', 'university', 'education', 'computer', 'science', 'self-taught', 'training', 'academic', 'prepared'],
+        question: 'What did the creator study? Does he have a university degree?',
+        answer: "Wilkin holds a Bachelor's degree in Computer Science, providing solid academic foundations. He complements that with a strongly self-taught profile: he learns new technologies by building real projects. His portfolio demonstrates that he masters what he studies.",
+        category: 'about the creator',
+        source: 'livechat-pro-fixed',
+        confidence: 0.98,
+      },
+      {
+        id: 'lcp-creator-experience',
+        keywords: ['experience', 'years', 'areas', 'knows', 'professional', 'skills', 'knowledge', 'technical', 'advanced', 'competencies', 'real'],
+        question: 'What experience does the creator have? What does he know how to do?',
+        answer: 'Wilkin has experience in software development, process automation, Linux system administration, Docker containers, REST APIs, SQLite and Redis databases, applied AI, web development (Node.js, Express, JavaScript, HTML/CSS) and Python desktop applications with PyQt6. All these skills are applied in real functional projects published on GitHub.',
+        category: 'about the creator',
+        source: 'livechat-pro-fixed',
+        confidence: 0.98,
+      },
+      {
+        id: 'lcp-creator-tech-stack',
+        keywords: ['stack', 'technologies', 'tools', 'python', 'node', 'javascript', 'docker', 'linux', 'ffmpeg', 'sqlite', 'redis', 'apis', 'socket', 'ollama', 'openai', 'automation'],
+        question: 'What technologies does the creator use? What stack does he master?',
+        answer: "Wilkin's main stack includes Python and PyQt6 for desktop apps, Node.js with Express and Socket.IO for real-time web backend, JavaScript/HTML/CSS for frontend, Docker for deployment, Linux as server environment, SQLite and Redis for persistence, REST APIs and integrations like Telegram. In AI he works with Ollama, local models (Llama, Gemma, DeepSeek), OpenAI and compatible providers. FFmpeg for multimedia processing.",
+        category: 'about the creator',
+        source: 'livechat-pro-fixed',
+        confidence: 0.98,
+      },
+      {
+        id: 'lcp-creator-ai-experience',
+        keywords: ['AI', 'machine', 'learning', 'LLM', 'models', 'embeddings', 'RAG', 'ollama', 'openai', 'bots', 'automation', 'advanced', 'modern', 'intelligence'],
+        question: 'Does the creator have AI experience? Does he work with LLM models?',
+        answer: 'Yes. Wilkin applies AI practically: he has integrated knowledge-base systems with semantic matching, conceptual embeddings and RAG pipelines in LiveChat Pro. He knows and uses local models via Ollama (Llama, Gemma, DeepSeek) as well as OpenAI, Groq, Anthropic and other APIs. His focus is always practical: AI as a tool for real problems, not as abstract theory.',
+        category: 'about the creator',
+        source: 'livechat-pro-fixed',
+        confidence: 0.98,
+      },
+      {
+        id: 'lcp-creator-projects',
+        keywords: ['projects', 'applications', 'created', 'developed', 'built', 'portfolio', 'examples', 'work', 'real', 'functional', 'github'],
+        question: 'What projects has the creator developed?',
+        answer: 'Wilkin has developed four main projects published on GitHub: YouTube Downloader (video/audio downloader for Windows with concurrent queue), Audio Normalizer (batch LUFS normalization with FFmpeg for video collections), Photo Dedup (duplicate photo detector with hash, visual and AI analysis for Windows) and LiveChat Pro (self-hosted live chat with embeddable widget, Telegram integration and admin panel). All are open-source with end-user installers.',
+        category: 'about the creator',
+        source: 'livechat-pro-fixed',
+        confidence: 0.98,
+      },
+      {
+        id: 'lcp-creator-services',
+        keywords: ['services', 'offers', 'freelance', 'works', 'clients', 'custom', 'hire', 'help', 'solutions', 'businesses', 'company', 'automation'],
+        question: 'What services does the creator offer? Does he work freelance?',
+        answer: 'Wilkin offers freelance services in three areas: (1) Automation & Scripts — custom Python tools, bots, API integrations, FFmpeg multimedia pipelines and desktop apps; (2) Specialized Services — software localization, technical Spanish↔Portuguese translation, app internationalization; (3) Amazon KDP Layout & Publishing — eBooks and print books with SEO optimization. Available for both one-off projects and long-term collaboration.',
+        category: 'about the creator',
+        source: 'livechat-pro-fixed',
+        confidence: 0.98,
+      },
+      {
+        id: 'lcp-creator-contact',
+        keywords: ['contact', 'github', 'linkedin', 'email', 'networks', 'portfolio', 'write', 'talk', 'hire', 'wise', 'payments'],
+        question: 'How can I contact the creator? Does he have GitHub? Does he have a portfolio?',
+        answer: 'You can find Wilkin on GitHub as @wilkinbarban, where all his open-source projects are published. He also has a professional web portfolio with details about his projects and freelance services. For international payments he uses Wise. His portfolio has all active contact channels if you want to discuss a project or collaboration.',
+        category: 'about the creator',
+        source: 'livechat-pro-fixed',
+        confidence: 0.97,
+      },
+      {
+        id: 'lcp-creator-philosophy',
+        keywords: ['philosophy', 'values', 'working', 'different', 'methodology', 'approach', 'vision', 'principles', 'mindset', 'product', 'quality', 'differentiates'],
+        question: 'What is his development philosophy? What makes him different?',
+        answer: "Wilkin's philosophy is summarized in three principles: spot repetitive processes and turn them into systems; design simple, maintainable tools useful from day one; iterate with real data, clear documentation and a product mindset. He doesn't build software just to build it: every project starts from a real need. He prefers tools that work from day one and improve over time.",
+        category: 'about the creator',
+        source: 'livechat-pro-fixed',
+        confidence: 0.98,
+      },
+      {
+        id: 'lcp-creator-trust',
+        keywords: ['trust', 'guarantees', 'serious', 'professional', 'committed', 'experience', 'verifiable', 'projects', 'working', 'reliable', 'credibility'],
+        question: 'Why should I trust the creator? Does he have verifiable experience?',
+        answer: "Trust in Wilkin is based on concrete facts: four published and functional projects on GitHub, documentation in three languages, automated tests, tagged releases and open-source code anyone can audit. His portfolio consists of things actually built and in use. LiveChat Pro itself is the best example of what he can do.",
+        category: 'about the creator',
+        source: 'livechat-pro-fixed',
+        confidence: 0.98,
+      },
+      {
+        id: 'lcp-creator-vision',
+        keywords: ['vision', 'goals', 'plans', 'future', 'achieve', 'contribute', 'grow', 'expand', 'impact', 'mission', 'build', 'objectives'],
+        question: "What is the creator's vision? What does he want to achieve?",
+        answer: "Wilkin's vision is to build software tools that are genuinely useful: simple for users, solid on the inside and open for others to improve. For LiveChat Pro, the goal is to keep adding intelligent features (AI bot, multilingual support, advanced metrics) while maintaining deployment simplicity and full user data control. The project is actively growing.",
+        category: 'about the creator',
+        source: 'livechat-pro-fixed',
+        confidence: 0.97,
+      },
+      {
+        id: 'lcp-creator-open-source',
+        keywords: ['open', 'source', 'github', 'repository', 'code', 'audit', 'transparent', 'contribute', 'collaborate', 'projects', 'view'],
+        question: "Where can I see his projects? Does he have open-source code on GitHub?",
+        answer: 'All of Wilkin\'s projects are open-source and published on GitHub under @wilkinbarban. You can view the source code, commit history, releases and documentation for LiveChat Pro, YouTube Downloader, Audio Normalizer and Photo Dedup. The code is auditable, licenses are clear and contributions are welcome.',
+        category: 'about the creator',
+        source: 'livechat-pro-fixed',
+        confidence: 0.98,
+      },
+      {
+        id: 'lcp-creator-languages',
+        keywords: ['languages', 'speaks', 'Spanish', 'Portuguese', 'English', 'international', 'communication', 'multilingual'],
+        question: 'Does he speak multiple languages? Spanish, Portuguese and English?',
+        answer: 'Wilkin speaks Spanish as his native language, Portuguese fluently (he lives in Brazil), and technical English with good reading and writing ability. This combination lets him work with clients from Latin America, Brazil and the English-speaking world, which is why all his projects include multilingual support from day one.',
+        category: 'about the creator',
+        source: 'livechat-pro-fixed',
+        confidence: 0.98,
+      },
+    ],
+
+    /* ============================================================
+       PORTUGUÊS — criador
+    ============================================================ */
+    pt: [
+      {
+        id: 'lcp-creator-quem-e',
+        keywords: ['quem', 'criou', 'fundador', 'fez', 'desenvolveu', 'programou', 'projetou', 'por', 'trás', 'responsável', 'dono', 'wilkin', 'barban', 'rosabal', 'criador', 'ideia', 'pessoa'],
+        question: 'Quem criou este projeto? Quem é Wilkin Barbán Rosabal?',
+        answer: 'Este projeto foi criado por Wilkin Barbán Rosabal, um desenvolvedor de software de origem cubana radicado em Curitiba, Brasil. É o fundador, desenvolvedor principal e responsável pelo LiveChat Pro. Wilkin combina graduação em Informática com uma sólida trajetória autodidata para construir ferramentas reais que resolvem problemas concretos.',
+        category: 'sobre o criador',
+        source: 'livechat-pro-fixed',
+        confidence: 0.98,
+      },
+      {
+        id: 'lcp-creator-perfil',
+        keywords: ['quem', 'é', 'perfil', 'trajetória', 'história', 'cubano', 'brasil', 'curitiba', 'refugiado', 'adaptação', 'evolução', 'origem', 'vive', 'país'],
+        question: 'Quem é o criador? De onde é? Onde mora?',
+        answer: 'Wilkin é um desenvolvedor cubano que atualmente mora em Curitiba, Brasil. Sua trajetória é uma história de adaptação constante: passou da gestão logística profissional para a criação de soluções digitais complexas. Acredita firmemente que a tecnologia é a melhor linguagem para criar valor em qualquer ambiente.',
+        category: 'sobre o criador',
+        source: 'livechat-pro-fixed',
+        confidence: 0.98,
+      },
+      {
+        id: 'lcp-creator-formacao',
+        keywords: ['estudou', 'formação', 'título', 'faculdade', 'universidade', 'engenheiro', 'informática', 'acadêmico', 'certificações', 'preparado', 'estudos', 'técnico'],
+        question: 'O que o criador estudou? Tem formação universitária?',
+        answer: 'Wilkin tem graduação em Informática, com base acadêmica sólida em ciências da computação. Complementa essa formação com um perfil fortemente autodidata: aprende novas tecnologias de forma prática, construindo projetos reais. Seu portfólio demonstra que domina o que estuda.',
+        category: 'sobre o criador',
+        source: 'livechat-pro-fixed',
+        confidence: 0.98,
+      },
+      {
+        id: 'lcp-creator-experiencia',
+        keywords: ['experiência', 'anos', 'áreas', 'sabe', 'faz', 'profissional', 'habilidades', 'conhecimentos', 'técnico', 'avançado', 'competências', 'domina'],
+        question: 'Que experiência tem o criador? O que ele sabe fazer?',
+        answer: 'Wilkin tem experiência em desenvolvimento de software, automação de processos, administração de sistemas Linux, contêineres Docker, APIs REST, bancos de dados SQLite e Redis, IA aplicada, desenvolvimento web (Node.js, Express, JavaScript, HTML/CSS) e aplicações desktop em Python com PyQt6. Todos esses conhecimentos foram aplicados em projetos reais e funcionais publicados no GitHub.',
+        category: 'sobre o criador',
+        source: 'livechat-pro-fixed',
+        confidence: 0.98,
+      },
+      {
+        id: 'lcp-creator-stack-tecnico',
+        keywords: ['stack', 'tecnologias', 'ferramentas', 'python', 'node', 'javascript', 'docker', 'linux', 'ffmpeg', 'sqlite', 'redis', 'apis', 'socket', 'ollama', 'openai', 'automação'],
+        question: 'Que tecnologias usa o criador? Qual é seu stack?',
+        answer: 'O stack principal de Wilkin inclui Python e PyQt6 para apps desktop, Node.js com Express e Socket.IO para backend web em tempo real, JavaScript/HTML/CSS para frontend, Docker para implantação, Linux como ambiente de servidor, SQLite e Redis para persistência, APIs REST e integrações como Telegram. Em IA trabalha com Ollama, modelos locais (Llama, Gemma, DeepSeek), OpenAI e provedores compatíveis. FFmpeg para processamento multimídia.',
+        category: 'sobre o criador',
+        source: 'livechat-pro-fixed',
+        confidence: 0.98,
+      },
+      {
+        id: 'lcp-creator-projetos',
+        keywords: ['projetos', 'aplicações', 'criou', 'desenvolveu', 'construiu', 'portfólio', 'exemplos', 'trabalho', 'real', 'funcional', 'github'],
+        question: 'Que projetos o criador desenvolveu?',
+        answer: 'Wilkin desenvolveu quatro projetos principais publicados no GitHub: YouTube Downloader (downloader de vídeo/áudio para Windows com fila concorrente), Normalizador de Áudio (normalização LUFS em lote com FFmpeg para coleções de vídeo), Photo Dedup (detector de fotos duplicadas com análise hash, visual e IA para Windows) e LiveChat Pro (chat ao vivo auto-hospedado com widget incorporável, integração Telegram e painel admin). Todos são open source com instaladores para usuários finais.',
+        category: 'sobre o criador',
+        source: 'livechat-pro-fixed',
+        confidence: 0.98,
+      },
+      {
+        id: 'lcp-creator-servicos',
+        keywords: ['serviços', 'oferece', 'freelance', 'trabalha', 'clientes', 'personalizado', 'contratar', 'ajuda', 'soluções', 'empresas', 'negócio', 'automatizar'],
+        question: 'Que serviços o criador oferece? Ele trabalha como freelancer?',
+        answer: 'Wilkin oferece serviços freelance em três áreas: (1) Automação e Scripts — ferramentas Python sob medida, bots, integrações de APIs, pipelines multimídia com FFmpeg e apps desktop; (2) Serviços especializados — localização de software, tradução técnica espanhol↔português, internacionalização de apps; (3) Diagramação e publicação na Amazon KDP — eBooks e livros impressos com SEO otimizado. Disponível para projetos pontuais e colaborações de longo prazo.',
+        category: 'sobre o criador',
+        source: 'livechat-pro-fixed',
+        confidence: 0.98,
+      },
+      {
+        id: 'lcp-creator-contato',
+        keywords: ['contato', 'github', 'linkedin', 'email', 'redes', 'portfólio', 'escrever', 'falar', 'contratar', 'wise', 'pagamentos', 'pix'],
+        question: 'Como posso entrar em contato com o criador? Tem GitHub? Tem portfólio?',
+        answer: 'Você pode encontrar Wilkin no GitHub como @wilkinbarban, onde todos os seus projetos open source estão publicados. Ele também tem um portfólio profissional web com detalhes sobre seus projetos e serviços freelance. Para pagamentos internacionais usa Wise; para Brasil aceita PIX. Seu portfólio tem todos os canais de contato ativos.',
+        category: 'sobre o criador',
+        source: 'livechat-pro-fixed',
+        confidence: 0.97,
+      },
+      {
+        id: 'lcp-creator-filosofia',
+        keywords: ['filosofia', 'valores', 'forma', 'trabalha', 'diferente', 'metodologia', 'abordagem', 'visão', 'princípios', 'mentalidade', 'produto', 'qualidade'],
+        question: 'Qual é a filosofia de desenvolvimento dele? O que o diferencia?',
+        answer: 'A filosofia de Wilkin se resume em três princípios: detectar processos repetitivos e transformá-los em sistemas; projetar ferramentas simples, sustentáveis e úteis desde o primeiro dia; e iterar com dados reais, documentação clara e mentalidade de produto. Ele não cria software por criar: cada projeto nasce de uma necessidade real.',
+        category: 'sobre o criador',
+        source: 'livechat-pro-fixed',
+        confidence: 0.98,
+      },
+      {
+        id: 'lcp-creator-confianca',
+        keywords: ['confiar', 'confiança', 'garantias', 'sério', 'profissional', 'comprometido', 'experiência', 'comprovável', 'projetos', 'funcionando', 'real', 'credibilidade'],
+        question: 'Por que confiar no criador? Ele tem experiência comprovável?',
+        answer: 'A confiança em Wilkin se baseia em fatos concretos: quatro projetos publicados e funcionais no GitHub, documentação em três idiomas, testes automatizados, releases marcadas e código aberto que qualquer um pode auditar. Seu portfólio é feito de coisas construídas e em uso. O próprio LiveChat Pro é o melhor exemplo do que ele pode fazer.',
+        category: 'sobre o criador',
+        source: 'livechat-pro-fixed',
+        confidence: 0.98,
+      },
+      {
+        id: 'lcp-creator-visao',
+        keywords: ['visão', 'objetivos', 'planos', 'futuro', 'quer', 'alcançar', 'meta', 'contribuir', 'crescer', 'expandir', 'impacto', 'missão', 'construir'],
+        question: 'Qual é a visão do criador? O que ele quer alcançar?',
+        answer: 'A visão de Wilkin é construir ferramentas de software genuinamente úteis: simples para quem usa, sólidas por dentro e abertas para quem queira melhorá-las. Para o LiveChat Pro, o objetivo é continuar adicionando funcionalidades inteligentes (bot com IA, multilíngue, métricas avançadas) mantendo a simplicidade de implantação e o controle total do usuário sobre seus dados.',
+        category: 'sobre o criador',
+        source: 'livechat-pro-fixed',
+        confidence: 0.97,
+      },
+      {
+        id: 'lcp-creator-idiomas',
+        keywords: ['idiomas', 'fala', 'espanhol', 'português', 'inglês', 'língua', 'internacional', 'comunicação', 'multilíngue'],
+        question: 'Ele fala vários idiomas? Fala espanhol, português e inglês?',
+        answer: 'Wilkin fala espanhol como língua nativa, português com fluência (mora no Brasil) e inglês técnico com boa capacidade de leitura e escrita. Essa combinação permite trabalhar com clientes da América Latina, Brasil e do mundo anglófono, e explica por que todos os seus projetos incluem suporte multilíngue desde o primeiro dia.',
+        category: 'sobre o criador',
+        source: 'livechat-pro-fixed',
+        confidence: 0.98,
+      },
+      {
+        id: 'lcp-creator-codigo-aberto',
+        keywords: ['código', 'aberto', 'open', 'source', 'github', 'repositório', 'ver', 'auditar', 'transparente', 'contribuir', 'colaborar', 'projetos'],
+        question: 'Onde posso ver seus projetos? Tem código aberto no GitHub?',
+        answer: 'Todos os projetos de Wilkin são open source e publicados no GitHub sob o usuário @wilkinbarban. Você pode ver o código-fonte, histórico de commits, releases e documentação do LiveChat Pro, YouTube Downloader, Normalizador de Áudio e Photo Dedup. O código é auditável, as licenças são claras e contribuições são bem-vindas.',
+        category: 'sobre o criador',
+        source: 'livechat-pro-fixed',
+        confidence: 0.98,
+      },
+    ],
+
+    /* ============================================================
+       FRANÇAIS — créateur
+    ============================================================ */
+    fr: [
+      {
+        id: 'lcp-creator-qui-est',
+        keywords: ['qui', 'a', 'créé', 'fondateur', 'développé', 'derrière', 'responsable', 'wilkin', 'barban', 'créateur', 'idée', 'personne'],
+        question: 'Qui a créé ce projet ? Qui est Wilkin Barbán Rosabal ?',
+        answer: "Ce projet a été créé par Wilkin Barbán Rosabal, un développeur de logiciels d'origine cubaine basé à Curitiba, au Brésil. Il est le fondateur et développeur principal de LiveChat Pro. Il combine une licence en Informatique avec un profil autodidacte solide pour construire des outils concrets.",
+        category: 'sur le créateur',
+        source: 'livechat-pro-fixed',
+        confidence: 0.98,
+      },
+      {
+        id: 'lcp-creator-competences',
+        keywords: ['compétences', 'technologie', 'stack', 'python', 'node', 'docker', 'linux', 'expérience', 'projets', 'automatisation', 'IA'],
+        question: 'Quelles sont ses compétences ? Quelle technologie utilise-t-il ?',
+        answer: 'Wilkin maîtrise Python, Node.js, Docker, Linux, les APIs REST, SQLite, Socket.IO et les modèles IA (Ollama, OpenAI). Il a développé quatre projets open source publiés sur GitHub : YouTube Downloader, Normaliseur Audio, Photo Dedup et LiveChat Pro — tous fonctionnels avec installateurs inclus.',
+        category: 'sur le créateur',
+        source: 'livechat-pro-fixed',
+        confidence: 0.98,
+      },
+      {
+        id: 'lcp-creator-contact-fr',
+        keywords: ['contacter', 'github', 'email', 'linkedin', 'portfolio', 'embaucher', 'freelance'],
+        question: 'Comment contacter le créateur ? A-t-il un GitHub ou un portfolio ?',
+        answer: "Vous pouvez trouver Wilkin sur GitHub sous @wilkinbarban, où tous ses projets open source sont publiés. Il dispose d'un portfolio professionnel web et est disponible pour des projets freelance. Pour les paiements internationaux, il utilise Wise.",
+        category: 'sur le créateur',
+        source: 'livechat-pro-fixed',
+        confidence: 0.97,
+      },
+    ],
+
+    /* ============================================================
+       DEUTSCH — Ersteller
+    ============================================================ */
+    de: [
+      {
+        id: 'lcp-creator-wer-ist',
+        keywords: ['wer', 'hat', 'erstellt', 'gegründet', 'entwickelt', 'dahinter', 'verantwortlich', 'wilkin', 'barban', 'ersteller', 'idee', 'person'],
+        question: 'Wer hat dieses Projekt erstellt? Wer ist Wilkin Barbán Rosabal?',
+        answer: 'Dieses Projekt wurde von Wilkin Barbán Rosabal entwickelt, einem kubanischen Softwareentwickler mit Wohnsitz in Curitiba, Brasilien. Er ist der Gründer und Hauptentwickler von LiveChat Pro und verbindet ein Informatikstudium mit einem soliden selbst erlernten Profil.',
+        category: 'über den Ersteller',
+        source: 'livechat-pro-fixed',
+        confidence: 0.98,
+      },
+      {
+        id: 'lcp-creator-faehigkeiten',
+        keywords: ['Fähigkeiten', 'Technologie', 'Stack', 'Python', 'Node', 'Docker', 'Linux', 'Erfahrung', 'Projekte', 'Automatisierung', 'KI'],
+        question: 'Welche Fähigkeiten hat er? Welche Technologien nutzt er?',
+        answer: 'Wilkin beherrscht Python, Node.js, Docker, Linux, REST-APIs, SQLite, Socket.IO und KI-Modelle (Ollama, OpenAI). Er hat vier Open-Source-Projekte auf GitHub veröffentlicht: YouTube Downloader, Audio Normalizer, Photo Dedup und LiveChat Pro — alle funktional mit Installationsprogrammen.',
+        category: 'über den Ersteller',
+        source: 'livechat-pro-fixed',
+        confidence: 0.98,
+      },
+      {
+        id: 'lcp-creator-kontakt-de',
+        keywords: ['Kontakt', 'GitHub', 'Email', 'LinkedIn', 'Portfolio', 'einstellen', 'Freelance'],
+        question: 'Wie kann ich den Ersteller kontaktieren?',
+        answer: 'Wilkin ist auf GitHub als @wilkinbarban zu finden, wo alle seine Open-Source-Projekte veröffentlicht sind. Er hat ein professionelles Webportfolio und ist für Freelance-Projekte verfügbar. Für internationale Zahlungen nutzt er Wise.',
+        category: 'über den Ersteller',
+        source: 'livechat-pro-fixed',
+        confidence: 0.97,
+      },
+    ],
+
+    /* ============================================================
+       ITALIANO — creatore
+    ============================================================ */
+    it: [
+      {
+        id: 'lcp-creator-chi-e',
+        keywords: ['chi', 'ha', 'creato', 'fondatore', 'sviluppato', 'dietro', 'responsabile', 'wilkin', 'barban', 'creatore', 'idea', 'persona'],
+        question: 'Chi ha creato questo progetto? Chi è Wilkin Barbán Rosabal?',
+        answer: 'Questo progetto è stato creato da Wilkin Barbán Rosabal, un sviluppatore di software di origine cubana residente a Curitiba, Brasile. È il fondatore e sviluppatore principale di LiveChat Pro, con laurea in Informatica e un solido profilo autodidatta.',
+        category: 'sul creatore',
+        source: 'livechat-pro-fixed',
+        confidence: 0.98,
+      },
+      {
+        id: 'lcp-creator-competenze',
+        keywords: ['competenze', 'tecnologia', 'stack', 'python', 'node', 'docker', 'linux', 'esperienza', 'progetti', 'automazione', 'IA'],
+        question: 'Quali sono le sue competenze? Che tecnologie usa?',
+        answer: 'Wilkin padroneggia Python, Node.js, Docker, Linux, API REST, SQLite, Socket.IO e modelli IA (Ollama, OpenAI). Ha sviluppato quattro progetti open source su GitHub: YouTube Downloader, Normalizzatore Audio, Photo Dedup e LiveChat Pro — tutti funzionali con installer inclusi.',
+        category: 'sul creatore',
+        source: 'livechat-pro-fixed',
+        confidence: 0.98,
+      },
+      {
+        id: 'lcp-creator-contatto-it',
+        keywords: ['contattare', 'github', 'email', 'linkedin', 'portfolio', 'assumere', 'freelance'],
+        question: 'Come posso contattare il creatore?',
+        answer: 'Wilkin è su GitHub come @wilkinbarban, dove tutti i suoi progetti open source sono pubblicati. Ha un portafoglio professionale web ed è disponibile per progetti freelance. Per i pagamenti internazionali usa Wise.',
+        category: 'sul creatore',
+        source: 'livechat-pro-fixed',
+        confidence: 0.97,
+      },
+    ],
+  };
+
+  // Inyectar las entradas del creador en el objeto FIXED_ENTRIES existente
+  for (const lang of Object.keys(creator)) {
+    if (FIXED_ENTRIES[lang]) {
+      FIXED_ENTRIES[lang].push(...creator[lang]);
+    } else {
+      FIXED_ENTRIES[lang] = creator[lang];
+    }
+  }
+}());

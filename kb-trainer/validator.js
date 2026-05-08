@@ -50,13 +50,13 @@ function validateEntries(entries, { warn = console.warn } = {}) {
  * mergeKnowledgeBase
  *
  * Combina entradas existentes con nuevas, anteponiendo siempre las entradas
- * fijas de autoconocimiento del bot (prefijo 'lcp-bot-') al inicio del JSON.
+ * fijas de autoconocimiento del bot (prefijo 'lcp-') al inicio del JSON.
  *
  * Reglas de las entradas fijas:
  * - Siempre al principio del array entries.
  * - No son sobreescritas ni reemplazadas por el entrenamiento normal.
  * - Se generan en el idioma activo del entrenamiento (language).
- * - El entrenamiento normal no puede duplicar ni modificar IDs con prefijo lcp-bot-.
+ * - El entrenamiento normal no puede duplicar ni modificar IDs con prefijo lcp-bot- o lcp-creator-.
  */
 function mergeKnowledgeBase(existing, newEntries, { mode = 'append', language = 'es' } = {}) {
   const base = mode === 'replace' ? {} : (existing && typeof existing === 'object' ? existing : {});
