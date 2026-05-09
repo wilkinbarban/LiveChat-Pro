@@ -634,7 +634,7 @@ describe('Adjuntos de imagen', () => {
     assert.equal(r.json?.message?.attachments?.length, 1);
   });
 
-  it('GET /api/attachments/:id exige token, cookie o sesión válida', async () => {
+  it('GET /api/attachments/:id exige token o cookie válida', async () => {
     const created = await multipartRequest(`/api/chat/${sessionId}/attachments`, {
       file: pngFile,
       cookie: { header: `lchat_sid=${sessionId}` },
@@ -647,6 +647,9 @@ describe('Adjuntos de imagen', () => {
 
     const wrongToken = await request(`${bareUrl}?token=incorrecto`);
     assert.equal(wrongToken.status, 404);
+
+    const sidOnly = await request(`${bareUrl}?sid=${sessionId}`);
+    assert.equal(sidOnly.status, 404);
 
     const allowed = await request(url);
     assert.equal(allowed.status, 200);

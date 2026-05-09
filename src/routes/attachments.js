@@ -35,12 +35,11 @@ function runUpload(upload) {
   };
 }
 
-// Attachment reads are allowed for admins, tokenized links, the owning visitor
-// cookie, or a session id query used by constrained widget contexts.
+// Attachment reads are allowed for admins, tokenized links or the owning visitor
+// cookie. Session ids are not accepted as bearer credentials.
 function canReadAttachment(req, attachment, { verifyAdminToken, adminCookieName }) {
   if (verifyAdminToken(req.cookies?.[adminCookieName])) return true;
   if (attachment.access_token && String(req.query?.token || '') === attachment.access_token) return true;
-  if (String(req.query?.sid || '') === attachment.session_id) return true;
   return req.cookies?.lchat_sid === attachment.session_id;
 }
 
