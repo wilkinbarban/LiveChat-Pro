@@ -1,6 +1,6 @@
 # LiveChat Pro KB Trainer
 
-`kb-trainer` builds or updates `data/knowledge-base.json` from URLs and local files. It works without AI using structured extraction, or with OpenRouter, OpenAI, Ollama and other providers for richer questions and keyword variants.
+`kb-trainer` builds or updates the trainable knowledge base in `kb-trainer/knowledge-base.json` from URLs and local files. It works without AI using structured extraction, or with OpenRouter, OpenAI, Ollama and other providers for richer questions and keyword variants.
 
 ## Requirements
 
@@ -53,21 +53,18 @@ node kb-trainer/index.js --provider ollama --model llama3 --urls "docs/manual.md
 - `--base-url` custom base URL for `custom`, optional for `ollama`
 - `--urls` comma-separated URLs or file paths
 - `--mode append|replace` default `append`
-- `--output` default `data/knowledge-base.json`
+- `--output` default `kb-trainer/knowledge-base.json`
 - `--lang` target language for questions/keywords, default `es`
 - `--dry-run` prints JSON without writing
 - `--help` shows help
 
 ## Knowledge base format
 
-The trainer preserves the LiveChat Pro format:
+The default trainable file is keyed by language. `kb-trainer/build.js` merges it with protected fixed entries and writes the runtime file at `data/knowledge-base.json`:
 
 ```json
 {
-  "version": "2.0",
-  "language": "es",
-  "fallback": "...",
-  "entries": [
+  "es": [
     {
       "id": "unique-id",
       "keywords": ["precio", "plan"],
@@ -76,7 +73,8 @@ The trainer preserves the LiveChat Pro format:
       "source": "README.md",
       "category": "precios y pagos"
     }
-  ]
+  ],
+  "en": []
 }
 ```
 

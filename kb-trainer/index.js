@@ -7,7 +7,9 @@ const { parseWithoutAI } = require('./parser');
 const { callAI, PROVIDERS } = require('./ai-client');
 const { validateEntries, mergeKnowledgeBase } = require('./validator');
 
-const SCRIPTED_INPUT = process.stdin.isTTY ? null : fs.readFileSync(0, 'utf8').split(/\r?\n/);
+const SCRIPTED_INPUT = !process.stdin.isTTY && process.argv.includes('--interactive')
+  ? fs.readFileSync(0, 'utf8').split(/\r?\n/)
+  : null;
 let rl = SCRIPTED_INPUT ? null : readline.createInterface({ input: process.stdin, output: process.stdout });
 
 const PROVIDER_OPTIONS = [
@@ -50,7 +52,7 @@ Options:
   --base-url    Custom base URL (required for --provider custom, optional for ollama)
   --urls        Comma-separated URLs or local file paths
   --mode        append|replace  (default: append)
-  --output      Path to knowledge-base.json  (default: data/knowledge-base.json)
+  --output      Path to trainable knowledge-base.json  (default: kb-trainer/knowledge-base.json)
   --lang        Target language for questions (default: es)
   --dry-run     Print result without writing to file
   --help        Show this help
@@ -81,7 +83,7 @@ Examples:
 }
 
 function parseArgs(argv) {
-  const args = { provider: 'none', mode: 'append', output: 'data/knowledge-base.json', lang: 'es', dryRun: false };
+  const args = { provider: 'none', mode: 'append', output: 'kb-trainer/knowledge-base.json', lang: 'es', dryRun: false };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === '--help') args.help = true;
@@ -149,9 +151,30 @@ function closeReadline() {
   rl = null;
 }
 
+function isLanguageMap(value) {
+  return value && typeof value === 'object' && !Array.isArray(value) &&
+    LANGUAGE_OPTIONS.some(option => Array.isArray(value[option.code]));
+}
+
+function mergeTrainableKnowledgeBase(existing, entries, { mode = 'append', language = 'es' } = {}) {
+  const output = isLanguageMap(existing) ? { ...existing } : {};
+  const current = mode === 'append'
+    ? validateEntries(output[language] || existing?.entries || [], { warn: () => {} })
+    : [];
+  const byId = new Map(current.map(entry => [entry.id, entry]));
+  for (const entry of validateEntries(entries)) byId.set(entry.id, entry);
+  output[language] = [...byId.values()];
+  return output;
+}
+
+function shouldWriteTrainableFormat(outputPath, existing) {
+  const normalized = path.normalize(outputPath);
+  return isLanguageMap(existing) || normalized.endsWith(path.normalize('kb-trainer/knowledge-base.json'));
+}
+
 async function interactiveArgs() {
   console.log('LiveChat Pro Knowledge Base Trainer');
-  console.log('This assistant creates or updates data/knowledge-base.json from URLs and local files.');
+  console.log('This assistant creates or updates the trainable KB. It must never edit fixed-entries.js; use kb-trainer/build.js to merge protected fixed entries with trainable entries for production.');
 
   const providerOption = await choose('AI provider for training', PROVIDER_OPTIONS, 'none');
   const provider = providerOption.code;
@@ -179,7 +202,7 @@ async function interactiveArgs() {
     { key: '1', value: 'append', name: 'Append to existing knowledge base' },
     { key: '2', value: 'replace', name: 'Replace the existing knowledge base' },
   ], 'replace');
-  const output = await askRequired('Output file', 'data/knowledge-base.json', value => !!String(value).trim(), 'Output path cannot be empty.');
+  const output = await askRequired('Output file', 'kb-trainer/knowledge-base.json', value => !!String(value).trim(), 'Output path cannot be empty.');
   const urls = await askRequired('URLs or local file paths (comma-separated)', '', value => !!String(value).trim(), 'Provide at least one URL or file path.');
   const dryRun = await chooseYesNo('Dry run only, without writing the file?', false);
 
@@ -238,17 +261,23 @@ async function runTrainer(args) {
   }
 
   entries = validateEntries(entries);
+  // Training writes only the trainable KB. Protected entries live in fixed-entries.js
+  // and are merged into production by kb-trainer/build.js.
   const outputPath = path.resolve(process.cwd(), args.output);
   let existing = {};
-  if (args.mode === 'append' && fs.existsSync(outputPath)) existing = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
-  const kb = mergeKnowledgeBase(existing, entries, { mode: args.mode, language: args.lang });
+  if (fs.existsSync(outputPath)) existing = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
+  const writeTrainable = shouldWriteTrainableFormat(outputPath, existing);
+  const kb = writeTrainable
+    ? mergeTrainableKnowledgeBase(existing, entries, { mode: args.mode, language: args.lang })
+    : mergeKnowledgeBase(args.mode === 'append' ? existing : {}, entries, { mode: args.mode, language: args.lang });
 
   if (args.dryRun) {
     console.log(JSON.stringify(kb, null, 2));
   } else {
     fs.mkdirSync(path.dirname(outputPath), { recursive: true });
     fs.writeFileSync(outputPath, `${JSON.stringify(kb, null, 2)}\n`);
-    console.log(`✓ Wrote ${kb.entries.length} entries to ${path.relative(process.cwd(), outputPath)}`);
+    const count = writeTrainable ? (kb[args.lang] || []).length : kb.entries.length;
+    console.log(`✓ Wrote ${count} entries to ${path.relative(process.cwd(), outputPath)}`);
   }
 
   if (errors.length) {
