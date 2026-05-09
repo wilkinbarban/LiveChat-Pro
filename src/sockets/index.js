@@ -66,8 +66,8 @@ function setupSockets(io, adminIo, deps) {
     let sessionId = cookieMap['lchat_sid'] || socket.handshake.auth?.sessionId;
     const widgetLang = sanitizeLanguage(socket.handshake.auth?.lang);
     // browserLang is the resolved bot-response language (from navigator, never overwritten by text detection).
-    // Unsupported langs already fall back to 'en' inside sanitizeLanguage/normalizeWidgetLang.
-    const browserLang = widgetLang || 'en';
+    // Unsupported langs already fall back to 'es' inside sanitizeLanguage/normalizeWidgetLang.
+    const browserLang = widgetLang || 'es';
 
     // Only accept v4 UUIDs from clients; otherwise issue a fresh id to prevent
     // arbitrary room names or path-like values from becoming session identifiers.

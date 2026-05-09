@@ -26,6 +26,7 @@ Thumbs.db
 # Editor y asistentes locales
 .vscode/
 .codex
+*.bak*
 
 # Docker overrides locales
 docker-compose.override.yml
