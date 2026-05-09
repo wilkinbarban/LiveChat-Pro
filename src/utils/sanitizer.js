@@ -9,7 +9,7 @@ const MAX_LANG_LEN = 8;
 // matching the project defaults.
 function normalizeWidgetLang(lang) {
   const baseLang = typeof lang === 'string' ? lang.toLowerCase().split('-')[0] : '';
-  return ['es', 'en', 'pt', 'fr', 'de'].includes(baseLang) ? baseLang : 'es';
+  return ['es', 'en', 'pt', 'fr', 'de', 'it'].includes(baseLang) ? baseLang : 'es';
 }
 
 // Shared text sanitizer for visitor/admin input. It removes control characters
