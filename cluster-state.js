@@ -18,6 +18,7 @@ class ClusterState {
     this.pendingReply = new Map();
     this.bannedSessions = new Set();
     this.telegramMessageSessions = new Map();
+    this.localPresence = new Map();
   }
 
   // Keep every Redis key namespaced so multiple deployments can share a Redis
@@ -51,6 +52,7 @@ class ClusterState {
       currentPage: session.currentPage || '/',
       banned: !!session.banned,
       priority: !!session.priority,
+      botSilenced: !!session.botSilenced,
       adminLastSeenTs: session.adminLastSeenTs || 0,
       userLastSeenTs: session.userLastSeenTs || 0,
       awaitingName: !!session.awaitingName,
@@ -181,7 +183,11 @@ class ClusterState {
   // Presence is a reference count rather than a boolean because one visitor can
   // open the widget in multiple tabs or reconnect while an old socket is closing.
   async incrementPresence(sessionId) {
-    if (!this.stateClient) return 1;
+    if (!this.stateClient) {
+      const count = (this.localPresence.get(sessionId) || 0) + 1;
+      this.localPresence.set(sessionId, count);
+      return count;
+    }
     const presenceKey = this.presenceKey(sessionId);
     const count = await this.stateClient.incr(presenceKey);
     await this.stateClient.expire(presenceKey, 48 * 60 * 60);
@@ -189,7 +195,12 @@ class ClusterState {
   }
 
   async decrementPresence(sessionId) {
-    if (!this.stateClient) return 0;
+    if (!this.stateClient) {
+      const count = Math.max(0, (this.localPresence.get(sessionId) || 0) - 1);
+      if (count > 0) this.localPresence.set(sessionId, count);
+      else this.localPresence.delete(sessionId);
+      return count;
+    }
     const presenceKey = this.presenceKey(sessionId);
     const count = await this.stateClient.decr(presenceKey);
     if (count <= 0) {
@@ -201,7 +212,7 @@ class ClusterState {
   }
 
   async getPresence(sessionId) {
-    if (!this.stateClient) return 0;
+    if (!this.stateClient) return this.localPresence.get(sessionId) || 0;
     const value = await this.stateClient.get(this.presenceKey(sessionId));
     return Math.max(0, Number.parseInt(value || '0', 10) || 0);
   }
@@ -221,6 +232,7 @@ class ClusterState {
   }
 
   async deleteSession(sessionId) {
+    this.localPresence.delete(sessionId);
     if (!this.stateClient) return;
     await this.stateClient.multi()
       .del(this.sessionKey(sessionId))
