@@ -28,6 +28,8 @@ function setupSockets(io, adminIo, deps) {
     broadcastAdminSessionUpdate,
     broadcastAdminMessage,
     getWidgetMessage,
+    HELP_COMMANDS = {},
+    HELP_TOPICS = {},
     translateForAdmin,
     translate,
     detectLang,
@@ -63,6 +65,9 @@ function setupSockets(io, adminIo, deps) {
     const cookieMap = parseCookies(cookies);
     let sessionId = cookieMap['lchat_sid'] || socket.handshake.auth?.sessionId;
     const widgetLang = sanitizeLanguage(socket.handshake.auth?.lang);
+    // browserLang is the resolved bot-response language (from navigator, never overwritten by text detection).
+    // Unsupported langs already fall back to 'en' inside sanitizeLanguage/normalizeWidgetLang.
+    const browserLang = widgetLang || 'en';
 
     // Only accept v4 UUIDs from clients; otherwise issue a fresh id to prevent
     // arbitrary room names or path-like values from becoming session identifiers.
@@ -95,7 +100,8 @@ function setupSockets(io, adminIo, deps) {
         socketCount:  1,
         name:         null,
         lang:         widgetLang,
-        langDetected: true,
+        browserLang:  browserLang,
+        langDetected: false,
         ip:           clientIp,
         geo,
         userAgent,
@@ -131,12 +137,8 @@ function setupSockets(io, adminIo, deps) {
         session.geo = await getGeoInfo(clientIp, features.geoLocation);
         session.userAgent = userAgent || session.userAgent;
       }
-      let browserLangApplied = false;
-      if (!session.langDetected) {
-        session.lang = widgetLang;
-        session.langDetected = true;
-        browserLangApplied = true;
-      }
+      // Always refresh browserLang from the current connection — navigator lang may have changed.
+      if (browserLang) session.browserLang = browserLang;
       try {
         if (refreshNetworkInfo) {
           await stmts.updateNetworkInfo.run(
@@ -151,7 +153,6 @@ function setupSockets(io, adminIo, deps) {
         } else {
           await stmts.updateLastActive.run(session.lastActive, sessionId);
         }
-        if (browserLangApplied) await stmts.updateLang.run(session.lang, session.lastActive, sessionId);
       } catch (dbError) {
         logger.error({ err: dbError, sessionId }, 'Error BD en updateLastActive (reconnect)');
       }
@@ -218,6 +219,26 @@ function setupSockets(io, adminIo, deps) {
 
       session.lastActive = Date.now();
 
+      const sessionLang = session.browserLang || session.lang || 'en';
+      const helpCmd = HELP_COMMANDS[sessionLang] || HELP_COMMANDS.es || '/ayuda';
+      const isHelpCommand = text.trim().toLowerCase() === helpCmd.toLowerCase();
+
+      if (isHelpCommand) {
+        const helpText = HELP_TOPICS[sessionLang] || HELP_TOPICS.es;
+        const helpMsg = { from: 'bot', text: helpText, ts: Date.now(), lang: sessionLang };
+        try {
+          const inserted = await stmts.insertMessage.run({ session_id: sessionId, from_role: 'bot', text: helpMsg.text, ts: helpMsg.ts, lang: sessionLang });
+          helpMsg.id = getLastInsertId(inserted);
+        } catch (dbError) {
+          logger.error({ err: dbError, sessionId }, 'Error BD insertMessage (help command)');
+        }
+        session.messages.push(helpMsg);
+        socket.emit('message', helpMsg);
+        await syncSharedSession(session);
+        await broadcastAdminMessage(session, helpMsg);
+        return;
+      }
+
       // A real message supersedes the transient Telegram typing preview.
       // Instead of deleting and creating a new message, we edit the existing one
       // so Telegram shows a single notification that transitions from ✍️ to 💬.
@@ -234,14 +255,16 @@ function setupSockets(io, adminIo, deps) {
         }
         await syncSharedSession(session);
         socket.emit('name_set', { name });
-        const botMsg = { from: 'bot', text: getWidgetMessage(session.lang, 'named', name), ts: Date.now(), lang: session.lang };
-        socket.emit('message', botMsg);
+        const botLang = session.browserLang || session.lang;
+        const botMsg = { from: 'bot', text: getWidgetMessage(botLang, 'named', name), ts: Date.now(), lang: botLang };
         try {
-          const inserted = await stmts.insertMessage.run({ session_id: sessionId, from_role: 'bot', text: botMsg.text, ts: botMsg.ts, lang: session.lang });
+          const inserted = await stmts.insertMessage.run({ session_id: sessionId, from_role: 'bot', text: botMsg.text, ts: botMsg.ts, lang: botLang });
           botMsg.id = getLastInsertId(inserted);
         } catch (dbError) {
           logger.error({ err: dbError, sessionId }, 'Error BD en insertMessage (bot welcome)');
         }
+        session.messages.push(botMsg);
+        socket.emit('message', botMsg);
         await clusterState.setPendingReply(ADMIN_ID, sessionId);
         await sendToAdmin(`🆕 <b>Nueva sesión iniciada</b>\n\n${sessionCard(session)}`, {}, sessionId);
         broadcastAdminSessionUpdate(session, { reason: 'named' });
@@ -308,15 +331,11 @@ function setupSockets(io, adminIo, deps) {
         try {
           socket.emit('typing_start', { from: 'bot' });
           socket.emit('typing', 'bot');
-          const botResult = await aiBot.getReply(session, textForAdmin ?? text);
+          const botResult = await aiBot.getReply(session, text);
           socket.emit('typing_stop');
           if (botResult?.reply && !botResult.escalate) {
-            // Translate bot reply to visitor language if different from KB language (es)
-            const KB_LANG = 'es';
-            const replyText = session.lang && session.lang !== KB_LANG
-              ? await translate(botResult.reply, session.lang).catch(() => botResult.reply)
-              : botResult.reply;
-            const botMsg = { from: 'bot', text: replyText, ts: Date.now(), lang: session.lang };
+            // Bot already responds in the detected visitor language — no translation needed.
+            const botMsg = { from: 'bot', text: botResult.reply, ts: Date.now(), lang: botResult.language || session.lang };
             session.messages.push(botMsg);
             try {
               const inserted = await stmts.insertMessage.run({ session_id: sessionId, from_role: 'bot', text: botMsg.text, ts: botMsg.ts, lang: session.lang });
@@ -333,6 +352,31 @@ function setupSockets(io, adminIo, deps) {
 ${escapeTelegramHtml(botResult.reply.slice(0, 100))}${botResult.reply.length > 100 ? '…' : ''}`, {}, sessionId);
             }
             return; // do not forward to admin Telegram
+          }
+
+          // Bot could not answer — notify visitor in their language before escalating to admin.
+          if (botResult?.escalate) {
+            const detectedLang = session.browserLang || botResult.language || session.lang || 'en';
+            const ESCALATE_MESSAGES = {
+              es: '🤔 No entiendo bien tu pregunta. La voy a pasar al administrador del proyecto para que te responda personalmente.',
+              en: "🤔 I'm not sure I understand your question. I'll forward it to the project administrator so they can reply to you directly.",
+              pt: '🤔 Não entendi bem a sua pergunta. Vou encaminhá-la ao administrador do projeto para que ele responda pessoalmente.',
+              fr: "🤔 Je ne suis pas sûr de comprendre votre question. Je vais la transmettre à l'administrateur du projet pour qu'il vous réponde directement.",
+              de: '🤔 Ich bin mir nicht sicher, ob ich Ihre Frage verstehe. Ich leite sie an den Projektadministrator weiter, damit er Ihnen persönlich antwortet.',
+              it: "🤔 Non sono sicuro di capire la tua domanda. La passerò all'amministratore del progetto affinché ti risponda direttamente.",
+            };
+            const escalateText = ESCALATE_MESSAGES[detectedLang] || ESCALATE_MESSAGES['es'];
+            const escalateMsg = { from: 'bot', text: escalateText, ts: Date.now(), lang: detectedLang };
+            session.messages.push(escalateMsg);
+            try {
+              const inserted = await stmts.insertMessage.run({ session_id: sessionId, from_role: 'bot', text: escalateMsg.text, ts: escalateMsg.ts, lang: detectedLang });
+              escalateMsg.id = getLastInsertId(inserted);
+            } catch (dbError) {
+              logger.error({ err: dbError, sessionId }, 'Error BD insertMessage (escalate notify)');
+            }
+            io.to(sessionRoom(sessionId)).emit('message', escalateMsg);
+            await syncSharedSession(session);
+            await broadcastAdminMessage(session, escalateMsg);
           }
         } catch (botErr) {
           logger.error({ err: botErr, sessionId }, 'AI bot error, falling back to Telegram');

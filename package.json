@@ -8,7 +8,7 @@
     "start": "node server.js",
     "setup": "node setup.js",
     "dev": "nodemon server.js",
-    "test": "node --test tests/db.test.js tests/api.test.js tests/attachments.test.js tests/sentiment.test.js tests/translator-adapters.test.js tests/widget-responsive.test.js",
+    "test": "node --test tests/db.test.js tests/api.test.js tests/attachments.test.js tests/ai-bot.test.js tests/sentiment.test.js tests/translator-adapters.test.js tests/widget-responsive.test.js",
     "test:db": "node --test tests/db.test.js",
     "test:api": "node --test tests/api.test.js"
   },

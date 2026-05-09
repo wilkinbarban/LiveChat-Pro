@@ -1,6 +1,28 @@
 'use strict';
 
 const fs = require('fs');
+const path = require('path');
+const { getFixedEntries } = require('../../kb-trainer/fixed-entries');
+
+
+const SUPPORTED_LANGS = ['es', 'en', 'pt', 'fr', 'de', 'it'];
+const FALLBACK_MESSAGES = {
+  es: 'No tengo una respuesta específica para eso. He notificado al administrador y te responderá pronto.',
+  en: "I don't have a specific answer for that. I've notified the administrator and they'll reply soon.",
+  pt: 'Não tenho uma resposta específica para isso. Notifiquei o administrador e ele responderá em breve.',
+  fr: "Je n'ai pas de réponse spécifique à cela. J'ai notifié l'administrateur qui vous répondra bientôt.",
+  de: 'Ich habe keine spezifische Antwort darauf. Ich habe den Administrator benachrichtigt, der Ihnen bald antworten wird.',
+  it: "Non ho una risposta specifica per questo. Ho notificato l'amministratore che risponderà presto.",
+};
+
+const LANGUAGE_HINTS = {
+  es: ['que', 'como', 'donde', 'quien', 'instalar', 'requisitos', 'funciones', 'proyecto', 'ayuda', 'hola'],
+  en: ['what', 'how', 'where', 'who', 'install', 'requirements', 'features', 'project', 'help', 'hello'],
+  pt: ['que', 'como', 'onde', 'quem', 'instalar', 'requisitos', 'funções', 'projeto', 'ajuda', 'olá', 'voce', 'você'],
+  fr: ['quoi', 'comment', 'où', 'qui', 'installer', 'exigences', 'fonctionnalités', 'projet', 'aide', 'bonjour'],
+  de: ['was', 'wie', 'wo', 'wer', 'installieren', 'anforderungen', 'funktionen', 'projekt', 'hilfe', 'hallo'],
+  it: ['cosa', 'come', 'dove', 'chi', 'installare', 'requisiti', 'funzioni', 'progetto', 'aiuto', 'ciao'],
+};
 
 // ── Spanish stemmer ──────────────────────────────────────────────────────────
 // Strips common verb/noun inflection endings so "instalo", "instala",
@@ -243,72 +265,110 @@ class AiBot {
     return this.tokenize(text).map(stem);
   }
 
+  detectLanguage(text) {
+    const raw = String(text || '').toLowerCase();
+    const normalized = this.normalizeStr(text);
+    const tokens = new Set(normalized.split(' ').filter(Boolean));
+    if (tokens.has('does') || tokens.has('speak') || tokens.has('several') || tokens.has('charge') || tokens.has('hire') || tokens.has('support')) return 'en';
+    if (/[ãõç]/i.test(raw) || raw.startsWith('o que ') || raw.startsWith('como ') || tokens.has('voce') || tokens.has('voces') || tokens.has('obrigado') || tokens.has('obrigada') || tokens.has('ele') || tokens.has('quais') || tokens.has('cobram') || (tokens.has('posso') && !tokens.has('assumere')) || tokens.has('atendimento') || tokens.has('frequencia') || tokens.has('formacao')) return 'pt';
+    if (/[ìò]/i.test(raw) || tokens.has('ciao') || tokens.has('grazie') || tokens.has('cos') || tokens.has('che') || tokens.has('parla') || tokens.has('lingue') || tokens.has('ogni') || tokens.has('dove') || tokens.has('costa') || tokens.has('viene') || tokens.has('sviluppatore') || tokens.has('assistenza')) return 'it';
+    if (/[âæêëîïôœùûüÿ]/i.test(raw) || /[’']/.test(raw) || tokens.has('bonjour') || tokens.has('merci') || tokens.has('parle') || tokens.has('peux') || tokens.has('quelle') || tokens.has('quelles') || tokens.has('quels') || tokens.has('propose') || tokens.has('assistance') || tokens.has('facturent')) return 'fr';
+    if (/[äöüß]/i.test(raw) || tokens.has('und') || tokens.has('der') || tokens.has('ich') || tokens.has('wirst') || tokens.has('welche') || tokens.has('entwickler') || tokens.has('supportzeiten') || tokens.has('spricht')) return 'de';
+    let best = { lang: 'es', score: 0 };
+    for (const [lang, hints] of Object.entries(LANGUAGE_HINTS)) {
+      const score = hints.reduce((sum, hint) => sum + (tokens.has(this.normalizeStr(hint)) ? 1 : 0), 0);
+      const adjusted = score;
+      if (adjusted > best.score) best = { lang, score: adjusted };
+    }
+    return SUPPORTED_LANGS.includes(best.lang) ? best.lang : 'es';
+  }
+
+  entriesForLanguage(entries, lang) {
+    const list = Array.isArray(entries) ? entries : [];
+    const localized = list.filter(e => !e.language || e.language === lang);
+    return localized.length ? localized : list;
+  }
+
+  matchEntries(text, entries, session, { allowDisambiguation = false } = {}) {
+    const queryTokens   = this.tokenize(text);
+    const queryStemmed  = queryTokens.map(stem);
+    const querySet      = new Set(queryTokens);
+    const queryStemSet  = new Set(queryStemmed);
+    const normalizedText = queryTokens.join(' ');
+
+    const detectedProject = detectProject(normalizedText);
+    const detectedIntent  = detectIntent(queryStemmed);
+    let best = null;
+
+    for (const entry of entries) {
+      const keywords = Array.isArray(entry.keywords) ? [...entry.keywords, entry.question].filter(Boolean) : [entry.question].filter(Boolean);
+      if (!keywords.length) continue;
+
+      let topScore = 0;
+      for (const kw of keywords) {
+        const kwTokens  = this.tokenize(kw);
+        const kwStemmed = kwTokens.map(stem);
+        if (!kwTokens.length) continue;
+        const exactHits = kwTokens.filter(t => querySet.has(t)).length;
+        const stemHits  = kwStemmed.filter(t => queryStemSet.has(t)).length;
+        const hits = Math.max(exactHits, stemHits);
+        const dice = (hits * 2) / (kwTokens.length + queryTokens.length);
+        if (dice > topScore) topScore = dice;
+      }
+
+      let boost = 1.0;
+      if (detectedProject && ENTRY_PROJECT[entry.id] === detectedProject) boost *= 1.40;
+      if (detectedIntent  && (ENTRY_INTENTS[entry.id] || []).includes(detectedIntent)) boost *= 1.30;
+
+      const entryConf  = Number(entry.confidence) || 0.8;
+      const confidence = topScore > 0 ? Math.min(0.99, topScore * entryConf * boost) : 0;
+      if (!best || confidence > best.confidence) best = { entry, confidence };
+    }
+
+    const threshold = Number(this.config.confidenceThreshold) || 0.6;
+    if (best && best.confidence >= threshold) {
+      return { reply: best.entry.answer, confidence: best.confidence, escalate: false, source: best.entry.source || 'knowledge-base', entryId: best.entry.id };
+    }
+
+    if (allowDisambiguation && detectedIntent && !detectedProject && DISAMBIGUATION[detectedIntent]) {
+      if (session) session.botContext = { pendingIntent: detectedIntent, expiresAt: Date.now() + 120_000 };
+      return { reply: DISAMBIGUATION[detectedIntent], confidence: 0.85, escalate: false, source: 'disambiguation' };
+    }
+    return { reply: null, confidence: best?.confidence || 0, escalate: true };
+  }
+
   matchKnowledge(text, session) {
     try {
-      if (!this.kb?.entries?.length) return { reply: this.kb?.fallback || null, confidence: 0, escalate: true };
-
-      const queryTokens   = this.tokenize(text);
-      const queryStemmed  = queryTokens.map(stem);
-      const querySet      = new Set(queryTokens);
-      const queryStemSet  = new Set(queryStemmed);
-      const normalizedText = queryTokens.join(' ');
-
-      // Detect project + intent present in the query
-      const detectedProject = detectProject(normalizedText);
-      const detectedIntent  = detectIntent(queryStemmed);
-
-      let best = null;
-
-      for (const entry of this.kb.entries) {
-        const keywords = Array.isArray(entry.keywords) ? entry.keywords : [];
-        if (!keywords.length) continue;
-
-        let topScore = 0;
-        for (const kw of keywords) {
-          const kwTokens  = this.tokenize(kw);
-          const kwStemmed = kwTokens.map(stem);
-          if (!kwTokens.length) continue;
-
-          // Exact token overlap
-          const exactHits = kwTokens.filter(t => querySet.has(t)).length;
-          // Stemmed token overlap (catches conjugation variants)
-          const stemHits  = kwStemmed.filter(t => queryStemSet.has(t)).length;
-          const hits = Math.max(exactHits, stemHits);
-
-          // Dice coefficient: 2|A∩B| / (|A|+|B|)
-          // Bidirectional — penalises single-word keywords matching long queries.
-          const dice = (hits * 2) / (kwTokens.length + queryTokens.length);
-          if (dice > topScore) topScore = dice;
-        }
-
-        // Boost when entry project/intent aligns with what was detected in query.
-        let boost = 1.0;
-        if (detectedProject && ENTRY_PROJECT[entry.id] === detectedProject) boost *= 1.40;
-        if (detectedIntent  && (ENTRY_INTENTS[entry.id] || []).includes(detectedIntent)) boost *= 1.30;
-
-        const entryConf  = Number(entry.confidence) || 0.8;
-        const confidence = topScore > 0 ? Math.min(0.99, topScore * entryConf * boost) : 0;
-        if (!best || confidence > best.confidence) best = { entry, confidence };
-      }
-
-      // Disambiguation: intent clear but project unknown → ALWAYS ask which project,
-      // even if some entry scored above threshold (avoids random project bias).
-      if (detectedIntent && !detectedProject && DISAMBIGUATION[detectedIntent]) {
-        if (session) {
-          session.botContext = { pendingIntent: detectedIntent, expiresAt: Date.now() + 120_000 };
-        }
-        return { reply: DISAMBIGUATION[detectedIntent], confidence: 0.85, escalate: false };
-      }
-
+      // Prefer the browser language for bot replies; fall back to the detected
+      // conversation language and finally to text hints.
+      const preferredLang = session?.browserLang || session?.lang;
+      const lang = (preferredLang && ['es','en','pt','fr','de','it'].includes(preferredLang)) ? preferredLang : this.detectLanguage(text);
       const threshold = Number(this.config.confidenceThreshold) || 0.6;
-      if (best && best.confidence >= threshold) {
-        return { reply: best.entry.answer, confidence: best.confidence, escalate: false };
+
+      // Priority 1: protected bot/creator entries, selected by detected visitor language.
+      const fixedEntries = getFixedEntries(lang);
+      const normalizedQuery = this.normalizeStr(text);
+      const identityEntry = fixedEntries.find(e => e.id === 'lcp-bot-identidad' || e.id === 'lcp-bot-identity');
+      if (identityEntry && /(quien eres|who are you|quem es|quem voce|qui es tu|wer bist|chi sei)/.test(normalizedQuery)) {
+        return { reply: identityEntry.answer, confidence: 0.98, escalate: false, language: lang, source: 'fixed-entries', entryId: identityEntry.id };
+      }
+      const fixedMatch = this.matchEntries(text, fixedEntries, session, { allowDisambiguation: false });
+      if (fixedMatch.confidence >= threshold) return { ...fixedMatch, language: lang, source: 'fixed-entries' };
+
+      if (!this.kb?.entries?.length) {
+        return { reply: FALLBACK_MESSAGES[lang], confidence: 0, escalate: true, language: lang };
       }
 
-      return { reply: this.kb.fallback || null, confidence: best?.confidence || 0, escalate: true };
+      // Priority 2: active production KB, filtered to the visitor language when available.
+      const kbEntries = this.entriesForLanguage(this.kb.entries, lang);
+      const kbMatch = this.matchEntries(text, kbEntries, session, { allowDisambiguation: true });
+      if (kbMatch.confidence >= threshold || !kbMatch.escalate) return { ...kbMatch, language: lang };
+
+      // No visitor translation here. Admin/Telegram translation is handled by the normal escalation pipeline.
+      return { reply: FALLBACK_MESSAGES[lang], confidence: kbMatch.confidence || fixedMatch.confidence || 0, escalate: true, language: lang };
     } catch (err) {
       this.logError(err, 'Knowledge match failed');
-      return { reply: null, confidence: 0, escalate: true };
+      return { reply: FALLBACK_MESSAGES.es, confidence: 0, escalate: true, language: 'es' };
     }
   }
 
