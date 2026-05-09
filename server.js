@@ -91,26 +91,246 @@ aiBot.init({
   logger,
 });
 
+const HELP_COMMANDS = {
+  es: '/ayuda',
+  en: '/help',
+  pt: '/ajuda',
+  fr: '/aide',
+  de: '/hilfe',
+  it: '/aiuto',
+};
+
+const HELP_TOPICS = {
+  es: `📚 *Guía de preguntas que puedo responder:*
+
+👤 *Sobre el creador:*
+• ¿Quién es Wilkin Barbán?
+• ¿Qué estudió? ¿Cuál es su formación?
+• ¿De dónde es? ¿Dónde vive?
+• ¿Habla varios idiomas?
+• ¿Qué lo motivó a crear esto?
+
+🤖 *Sobre el bot y el sistema:*
+• ¿Qué eres? ¿Eres un bot o una persona?
+• ¿Qué puedes hacer?
+• ¿Cómo funciona el bot?
+• ¿Cada cuánto se actualiza?
+
+💼 *Proyectos disponibles:*
+• ¿Qué es LiveChat Pro?
+• ¿Cómo instalo LiveChat Pro?
+• ¿Qué es PhotoDedup?
+• ¿Qué es Normalizador Audio?
+• ¿Qué es YouTube Downloader?
+• ¿Cómo instalo cada proyecto?
+• ¿Qué tecnologías usan?
+
+🛠️ *Servicios y contacto:*
+• ¿Qué servicios ofrece el desarrollador?
+• ¿Cuánto cobran?
+• ¿Cómo puedo contratar?
+• ¿Dónde están los proyectos en GitHub?
+• ¿Cuál es el horario de atención?
+
+_Escribe tu pregunta con tus propias palabras — haré lo posible por responder 😊_`,
+  en: `📚 *Guide to questions I can answer:*
+
+👤 *About the creator:*
+• Who is Wilkin Barbán?
+• What did he study? What is his background?
+• Where is he from? Where does he live?
+• Does he speak several languages?
+• What motivated him to create this?
+
+🤖 *About the bot and the system:*
+• What are you? Are you a bot or a person?
+• What can you do?
+• How does the bot work?
+• How often are you updated?
+
+💼 *Available projects:*
+• What is LiveChat Pro?
+• How do I install LiveChat Pro?
+• What is PhotoDedup?
+• What is Normalizador Audio?
+• What is YouTube Downloader?
+• How do I install each project?
+• What technologies do they use?
+
+🛠️ *Services and contact:*
+• What services does the developer offer?
+• How much do they charge?
+• How can I hire them?
+• Where are the projects on GitHub?
+• What are the support hours?
+
+_Write your question in your own words — I’ll do my best to answer 😊_`,
+  pt: `📚 *Guia de perguntas que posso responder:*
+
+👤 *Sobre o criador:*
+• Quem é Wilkin Barbán?
+• O que ele estudou? Qual é a formação dele?
+• De onde ele é? Onde mora?
+• Ele fala vários idiomas?
+• O que o motivou a criar isto?
+
+🤖 *Sobre o bot e o sistema:*
+• O que você é? É um bot ou uma pessoa?
+• O que você pode fazer?
+• Como o bot funciona?
+• Com que frequência é atualizado?
+
+💼 *Projetos disponíveis:*
+• O que é LiveChat Pro?
+• Como instalo o LiveChat Pro?
+• O que é PhotoDedup?
+• O que é Normalizador Audio?
+• O que é YouTube Downloader?
+• Como instalo cada projeto?
+• Quais tecnologias eles usam?
+
+🛠️ *Serviços e contato:*
+• Quais serviços o desenvolvedor oferece?
+• Quanto cobram?
+• Como posso contratar?
+• Onde estão os projetos no GitHub?
+• Qual é o horário de atendimento?
+
+_Escreva sua pergunta com suas próprias palavras — farei o possível para responder 😊_`,
+  fr: `📚 *Guide des questions auxquelles je peux répondre :*
+
+👤 *À propos du créateur :*
+• Qui est Wilkin Barbán ?
+• Qu’a-t-il étudié ? Quelle est sa formation ?
+• D’où vient-il ? Où vit-il ?
+• Parle-t-il plusieurs langues ?
+• Qu’est-ce qui l’a motivé à créer ceci ?
+
+🤖 *À propos du bot et du système :*
+• Qu’es-tu ? Es-tu un bot ou une personne ?
+• Que peux-tu faire ?
+• Comment fonctionne le bot ?
+• À quelle fréquence es-tu mis à jour ?
+
+💼 *Projets disponibles :*
+• Qu’est-ce que LiveChat Pro ?
+• Comment installer LiveChat Pro ?
+• Qu’est-ce que PhotoDedup ?
+• Qu’est-ce que Normalizador Audio ?
+• Qu’est-ce que YouTube Downloader ?
+• Comment installer chaque projet ?
+• Quelles technologies utilisent-ils ?
+
+🛠️ *Services et contact :*
+• Quels services propose le développeur ?
+• Combien facturent-ils ?
+• Comment puis-je engager ses services ?
+• Où sont les projets sur GitHub ?
+• Quels sont les horaires d’assistance ?
+
+_Écrivez votre question avec vos propres mots — je ferai de mon mieux pour répondre 😊_`,
+  de: `📚 *Leitfaden zu Fragen, die ich beantworten kann:*
+
+👤 *Über den Ersteller:*
+• Wer ist Wilkin Barbán?
+• Was hat er studiert? Welche Ausbildung hat er?
+• Woher kommt er? Wo lebt er?
+• Spricht er mehrere Sprachen?
+• Was hat ihn motiviert, das hier zu erstellen?
+
+🤖 *Über den Bot und das System:*
+• Was bist du? Bist du ein Bot oder eine Person?
+• Was kannst du tun?
+• Wie funktioniert der Bot?
+• Wie oft wirst du aktualisiert?
+
+💼 *Verfügbare Projekte:*
+• Was ist LiveChat Pro?
+• Wie installiere ich LiveChat Pro?
+• Was ist PhotoDedup?
+• Was ist Normalizador Audio?
+• Was ist YouTube Downloader?
+• Wie installiere ich jedes Projekt?
+• Welche Technologien verwenden sie?
+
+🛠️ *Services und Kontakt:*
+• Welche Services bietet der Entwickler an?
+• Wie viel kostet es?
+• Wie kann ich ihn beauftragen?
+• Wo sind die Projekte auf GitHub?
+• Wie sind die Supportzeiten?
+
+_Schreib deine Frage in deinen eigenen Worten — ich gebe mein Bestes, sie zu beantworten 😊_`,
+  it: `📚 *Guida alle domande a cui posso rispondere:*
+
+👤 *Sul creatore:*
+• Chi è Wilkin Barbán?
+• Cosa ha studiato? Qual è la sua formazione?
+• Da dove viene? Dove vive?
+• Parla più lingue?
+• Cosa lo ha motivato a creare questo?
+
+🤖 *Sul bot e sul sistema:*
+• Cosa sei? Sei un bot o una persona?
+• Cosa puoi fare?
+• Come funziona il bot?
+• Ogni quanto vieni aggiornato?
+
+💼 *Progetti disponibili:*
+• Cos’è LiveChat Pro?
+• Come installo LiveChat Pro?
+• Cos’è PhotoDedup?
+• Cos’è Normalizador Audio?
+• Cos’è YouTube Downloader?
+• Come installo ogni progetto?
+• Che tecnologie usano?
+
+🛠️ *Servizi e contatto:*
+• Quali servizi offre lo sviluppatore?
+• Quanto costa?
+• Come posso assumere i suoi servizi?
+• Dove sono i progetti su GitHub?
+• Quali sono gli orari di assistenza?
+
+_Scrivi la tua domanda con parole tue — farò del mio meglio per rispondere 😊_`,
+};
+
 const WIDGET_MESSAGES = {
   es: {
     welcome: '¡Hola! Qué gusto tenerte por aquí. ¿Cómo te gustaría que te llamemos?',
-    named: name => `¡Encantado, ${name}! Cuéntanos, ¿en qué podemos ayudarte hoy?`,
+    named: name => `¡Encantado, ${name}! Cuéntanos, ¿en qué podemos ayudarte hoy?
+
+💡 Escribe /ayuda para ver una guía de preguntas que puedo responder.`,
   },
   en: {
     welcome: 'Hi! It is great to have you here. What name would you like us to use?',
-    named: name => `Nice to meet you, ${name}! Tell us, how can we help you today?`,
+    named: name => `Nice to meet you, ${name}! Tell us, how can we help you today?
+
+💡 Type /help to see a guide of questions I can answer.`,
   },
   pt: {
     welcome: 'Olá! Que bom ter você por aqui. Como você gostaria que chamássemos você?',
-    named: name => `Prazer, ${name}! Conte para nós, como podemos ajudar hoje?`,
+    named: name => `Prazer, ${name}! Conte para nós, como podemos ajudar hoje?
+
+💡 Digite /ajuda para ver um guia de perguntas que posso responder.`,
   },
   fr: {
     welcome: 'Bonjour ! Ravi de vous accueillir ici. Quel nom souhaitez-vous utiliser ?',
-    named: name => `Enchanté, ${name} ! Comment pouvons-nous vous aider aujourd’hui ?`,
+    named: name => `Enchanté, ${name} ! Comment pouvons-nous vous aider aujourd'hui ?
+
+💡 Tapez /aide pour voir un guide des questions auxquelles je peux répondre.`,
   },
   de: {
     welcome: 'Hallo! Schön, dass du hier bist. Wie sollen wir dich nennen?',
-    named: name => `Freut mich, ${name}! Wie können wir heute helfen?`,
+    named: name => `Freut mich, ${name}! Wie können wir heute helfen?
+
+💡 Tippe /hilfe für eine Übersicht der Fragen, die ich beantworten kann.`,
+  },
+  it: {
+    welcome: 'Ciao! Che piacere averti qui. Come vorresti che ti chiamassimo?',
+    named: name => `Piacere, ${name}! Come possiamo aiutarti oggi?
+
+💡 Scrivi /aiuto per vedere una guida alle domande a cui posso rispondere.`,
   },
 };
 
@@ -382,6 +602,8 @@ setupSockets(io, adminIo, {
   broadcastAdminSessionUpdate,
   broadcastAdminMessage,
   getWidgetMessage,
+  HELP_COMMANDS,
+  HELP_TOPICS,
   attachmentService,
   translateForAdmin,
   translate,
@@ -543,6 +765,9 @@ module.exports = {
   translateForAdmin,
   clearTranslationCache,
   closeTranslationCache,
+  HELP_COMMANDS,
+  HELP_TOPICS,
+  WIDGET_MESSAGES,
   clusterState,
   resolveTelegramReplySessionId,
   security: {

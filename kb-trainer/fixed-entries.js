@@ -1970,3 +1970,96 @@ module.exports = { getFixedEntries, FIXED_ID_PREFIX };
     }
   }
 }());
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  PARCHE AUDITORÍA /ayuda — alias exactos de las preguntas listadas en ayuda
+// ─────────────────────────────────────────────────────────────────────────────
+(function patchHelpTopicAliases() {
+  const aliases = {
+    es: {
+      'lcp-creator-quien-es': ['¿Quién es Wilkin Barbán?'],
+      'lcp-creator-formacion': ['¿Qué estudió? ¿Cuál es su formación?'],
+      'lcp-creator-perfil': ['¿De dónde es? ¿Dónde vive?'],
+      'lcp-creator-idiomas': ['¿Habla varios idiomas?'],
+      'lcp-creator-motivacion': ['¿Qué lo motivó a crear esto?'],
+      'lcp-bot-identidad': ['¿Qué eres? ¿Eres un bot o una persona?'],
+      'lcp-bot-capacidades': ['¿Qué puedes hacer?'],
+      'lcp-bot-funcionamiento': ['¿Cómo funciona el bot?'],
+      'lcp-bot-entrenamiento': ['¿Cada cuánto se actualiza?'],
+      'lcp-creator-servicios': ['¿Qué servicios ofrece el desarrollador?'],
+      'lcp-creator-contacto': ['¿Cómo puedo contratar?']
+    },
+    en: {
+      'lcp-creator-who-is': ['Who is Wilkin Barbán?'],
+      'lcp-creator-education': ['What did he study? What is his background?'],
+      'lcp-creator-profile': ['Where is he from? Where does he live?'],
+      'lcp-creator-languages': ['Does he speak several languages?'],
+      'lcp-creator-motivation': ['What motivated him to create this?'],
+      'lcp-bot-identity': ['What are you? Are you a bot or a person?'],
+      'lcp-bot-capabilities': ['What can you do?'],
+      'lcp-bot-how-it-works': ['How does the bot work?'],
+      'lcp-bot-training': ['How often are you updated?'],
+      'lcp-creator-services': ['What services does the developer offer?'],
+      'lcp-creator-contact': ['How can I hire them?']
+    },
+    pt: {
+      'lcp-creator-quem-e': ['Quem é Wilkin Barbán?'],
+      'lcp-creator-formacao': ['O que ele estudou? Qual é a formação dele?'],
+      'lcp-creator-perfil': ['De onde ele é? Onde mora?'],
+      'lcp-creator-idiomas': ['Ele fala vários idiomas?'],
+      'lcp-creator-motivacao': ['O que o motivou a criar isto?'],
+      'lcp-bot-identidade': ['O que você é? É um bot ou uma pessoa?'],
+      'lcp-bot-capacidades': ['O que você pode fazer?'],
+      'lcp-bot-funcionamento': ['Como o bot funciona?'],
+      'lcp-bot-treinamento': ['Com que frequência é atualizado?'],
+      'lcp-creator-servicos': ['Quais serviços o desenvolvedor oferece?'],
+      'lcp-creator-contato': ['Como posso contratar?']
+    },
+    fr: {
+      'lcp-creator-qui-est': ['Qui est Wilkin Barbán ?'],
+      'lcp-creator-formation': ['Qu’a-t-il étudié ? Quelle est sa formation ?'],
+      'lcp-creator-profil': ['D’où vient-il ? Où vit-il ?'],
+      'lcp-creator-langues': ['Parle-t-il plusieurs langues ?'],
+      'lcp-creator-motivation': ['Qu’est-ce qui l’a motivé à créer ceci ?'],
+      'lcp-bot-identite': ['Qu’es-tu ? Es-tu un bot ou une personne ?'],
+      'lcp-bot-capacites': ['Que peux-tu faire ?'],
+      'lcp-bot-fonctionnement': ['Comment fonctionne le bot ?'],
+      'lcp-bot-entrainement': ['À quelle fréquence es-tu mis à jour ?'],
+      'lcp-creator-services': ['Quels services propose le développeur ?'],
+      'lcp-creator-contact': ['Comment puis-je engager ses services ?']
+    },
+    de: {
+      'lcp-creator-wer-ist': ['Wer ist Wilkin Barbán?'],
+      'lcp-creator-ausbildung': ['Was hat er studiert? Welche Ausbildung hat er?'],
+      'lcp-creator-profil': ['Woher kommt er? Wo lebt er?'],
+      'lcp-creator-sprachen': ['Spricht er mehrere Sprachen?'],
+      'lcp-creator-motivation': ['Was hat ihn motiviert, das hier zu erstellen?'],
+      'lcp-bot-identitaet': ['Was bist du? Bist du ein Bot oder eine Person?'],
+      'lcp-bot-faehigkeiten': ['Was kannst du tun?'],
+      'lcp-bot-funktionsweise': ['Wie funktioniert der Bot?'],
+      'lcp-bot-training': ['Wie oft wirst du aktualisiert?'],
+      'lcp-creator-dienstleistungen': ['Welche Services bietet der Entwickler an?'],
+      'lcp-creator-kontakt': ['Wie kann ich ihn beauftragen?']
+    },
+    it: {
+      'lcp-creator-chi-e': ['Chi è Wilkin Barbán?'],
+      'lcp-creator-formazione': ['Cosa ha studiato? Qual è la sua formazione?'],
+      'lcp-creator-profilo': ['Da dove viene? Dove vive?'],
+      'lcp-creator-lingue': ['Parla più lingue?'],
+      'lcp-creator-motivazione': ['Cosa lo ha motivato a creare questo?'],
+      'lcp-bot-identita': ['Cosa sei? Sei un bot o una persona?'],
+      'lcp-bot-capacita': ['Cosa puoi fare?'],
+      'lcp-bot-funzionamento': ['Come funziona il bot?'],
+      'lcp-bot-addestramento': ['Ogni quanto vieni aggiornato?'],
+      'lcp-creator-servizi': ['Quali servizi offre lo sviluppatore?'],
+      'lcp-creator-contatto': ['Come posso assumere i suoi servizi?']
+    }
+  };
+  for (const [lang, byId] of Object.entries(aliases)) {
+    for (const entry of FIXED_ENTRIES[lang] || []) {
+      const extra = byId[entry.id];
+      if (!extra) continue;
+      entry.keywords = Array.from(new Set([...(entry.keywords || []), ...extra]));
+    }
+  }
+}());

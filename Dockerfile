@@ -40,6 +40,7 @@ COPY --chown=node:node package.json package-lock.json ./
 COPY --chown=node:node server.js db.js widget.js cluster-state.js ./
 COPY --chown=node:node src ./src
 COPY --chown=node:node public ./public
+COPY --chown=node:node kb-trainer ./kb-trainer
 
 # Crear el directorio de datos con el propietario correcto para el usuario node.
 RUN mkdir -p /app/data && chown node:node /app/data
