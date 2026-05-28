@@ -11,11 +11,37 @@ Write-Host "│             LiveChat Pro — Windows Installer             │" 
 Write-Host "└──────────────────────────────────────────────────────────┘" -ForegroundColor Cyan
 Write-Host ""
 
-# Check administrative privileges
+# Functions to check dependencies
+function Check-Node {
+    $nodeCmd = Get-Command node -ErrorAction SilentlyContinue
+    if ($nodeCmd) {
+        $versionStr = & node -v
+        if ($versionStr -match 'v(\d+)\.') {
+            $major = [int]$Matches[1]
+            if ($major -ge 24) {
+                return $true
+            }
+        }
+    }
+    return $false
+}
+
+# Check administrative privileges and node installation
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-if (-not $isAdmin) {
-    Write-Host "[✗] Administrative privileges are required. Please run this script in an Elevated PowerShell prompt (Run as Administrator)." -ForegroundColor Red
-    Exit 1
+$nodeInstalled = Check-Node
+
+# Administrative privileges are only required if Node.js needs to be installed
+if (-not $nodeInstalled -and -not $isAdmin) {
+    Write-Host "[ℹ] Node.js >= 24 is not installed. Administrative privileges are required for installation." -ForegroundColor Yellow
+    Write-Host "[ℹ] Requesting elevation to run as Administrator..." -ForegroundColor Blue
+    Start-Sleep -Seconds 1
+    try {
+        Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`"" -Verb RunAs
+        Exit 0
+    } catch {
+        Write-Host "[✗] Administrative elevation was denied or failed. Please run this script in an Elevated PowerShell prompt (Run as Administrator)." -ForegroundColor Red
+        Exit 1
+    }
 }
 
 # Initialize temporary log path to capture early installer tasks
@@ -60,21 +86,6 @@ function Run-TaskWithSpinner {
         "=== FAILED: $TaskName ===" | Out-File -FilePath $LogPath -Append
         return $false
     }
-}
-
-# Functions to check dependencies
-function Check-Node {
-    $nodeCmd = Get-Command node -ErrorAction SilentlyContinue
-    if ($nodeCmd) {
-        $versionStr = & node -v
-        if ($versionStr -match 'v(\d+)\.') {
-            $major = [int]$Matches[1]
-            if ($major -ge 24) {
-                return $true
-            }
-        }
-    }
-    return $false
 }
 
 # Define Paths
