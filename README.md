@@ -54,93 +54,42 @@ For a public VPS:
 - Telegram bot created with [@BotFather](https://t.me/BotFather)
 - Your numeric Telegram ID
 
-`setup.js` validates the system Node.js installation before continuing. The `node` command must exist first so the installer can run; if that initial version is older than v24 or does not include `npm`, the installer tries to upgrade to Node.js 24 on supported distributions. On Ubuntu/Debian it removes old `nodejs`/`npm` packages, adds the NodeSource 24.x repository, installs `nodejs`, and then verifies `node --version` and `npm --version`. Docker/Compose is validated only when you choose Docker startup mode.
-
-The project uses only the system Node.js installation.
+System dependencies are validated and installed automatically by native installation scripts:
+- **Linux (Docker-based):** `Install.sh` verifies/installs Node.js >= 24, npm, and Docker.
+- **Windows (Node-based):** `Install.ps1` verifies/installs Node.js >= 24, npm, and runs `npm install`.
 
 ## One-command Installation
 
-First make sure the `node` command exists. If the server is fresh and does not have Node.js installed, install the initial package for your distro:
+To install dependencies and configure the environment:
 
-Ubuntu/Debian:
-
+### Linux
 ```bash
-sudo apt update
-sudo apt install -y nodejs
+git clone https://github.com/wilkinbarban/LiveChat-Pro.git && cd LiveChat-Pro && chmod +x Install.sh && ./Install.sh
 ```
 
-Fedora:
-
-```bash
-sudo dnf install -y nodejs
+### Windows (Elevated PowerShell)
+```powershell
+git clone https://github.com/wilkinbarban/LiveChat-Pro.git; cd LiveChat-Pro; .\Install.ps1
 ```
 
-CentOS/RHEL/Rocky Linux/AlmaLinux:
-
-```bash
-sudo dnf install -y nodejs
-```
-
-If your system uses `yum`:
-
-```bash
-sudo yum install -y nodejs
-```
-
-Arch Linux:
-
-```bash
-sudo pacman -Sy --noconfirm nodejs
-```
-
-Alpine Linux:
-
-```bash
-sudo apk add --no-cache nodejs
-```
-
-Then run the one-command installation:
-
-```bash
-git clone https://github.com/wilkinbarban/LiveChat-Pro.git && cd LiveChat-Pro && node setup.js
-```
-
-If that first package installs an old Node.js version, such as Ubuntu's `v12.22.9`, the installer will try to upgrade it to Node.js 24 first and then continue with the guided setup.
-
-## Local Quick Start
-
-```bash
-sudo npm install
-node setup.js
-sudo node server.js
-```
-
-Then open:
-
-- Widget demo: `http://localhost:3000/`
-- Admin panel: `http://localhost:3000/admin`
-- Status: `http://localhost:3000/health`
+The scripts will verify and install dependencies in the background (logging output to `install.log` with a clean visual spinner), and then automatically launch `setup.js` to configure your `.env` variables (launching with Docker on Linux or Node.js on Windows).
 
 ## Recommended VPS Installation
 
+Run the native script according to your OS:
 ```bash
-git clone https://github.com/wilkinbarban/LiveChat-Pro.git && cd LiveChat-Pro && node setup.js
+./Install.sh
 ```
+At the end of the dependency installation, the `setup.js` wizard will start. During the wizard:
+1. Choose **Basic Setup** (for quick configuration) or **Full Setup** (to customize all 43 parameters).
+2. Follow the prompts for Telegram bot credentials, admin panel password, and origins.
+3. When asked, choose **Yes** to build and start the server automatically using Docker Compose.
 
-During the assistant, choose:
-
-```text
-Deployment profile: Public VPS with Docker
-Startup mode: Docker with docker compose up -d
-```
-
-That profile configures:
-
+The VPS configuration will map:
 ```env
 PORT="3000"
 HOST_PORT="8080"
 ```
-
 Node listens inside the container on `3000`, but Docker publishes the project to the internet on `8080`. This port is the recommended option so `80` and `443` remain free for your public website or for an HTTPS proxy.
 
 If you do not have a domain yet, `setup.js` detects the public VPS IP and generates a script like:
@@ -149,29 +98,10 @@ If you do not have a domain yet, `setup.js` detects the public VPS IP and genera
 <script src="http://PUBLIC-IP:8080/widget.js" data-server="http://PUBLIC-IP:8080"></script>
 ```
 
-If you have a domain, enter it when the assistant asks for domain/allowed origins:
+If you have a domain, enter it when the assistant asks for domain/allowed origins. At the end, the installer shows the demo URL, admin panel, healthcheck and the final `<script>` to paste into the external website.
 
-```text
-mydomain.com
-https://chat.mydomain.com
-```
+If your user does not have sudo permissions, log in as root or add the user to the sudo/wheel group before running the installer.
 
-At the end, the installer shows the demo URL, admin panel, healthcheck and the final `<script>` to paste into the external website.
-
-To skip system checks in CI or tests:
-
-```bash
-LIVECHAT_SKIP_SYSTEM_CHECKS=1 node setup.js
-```
-
-If `setup.js` fails while validating elevated permissions, run the installer from an interactive terminal so `sudo` can ask for the password. In automated runs you can validate first with:
-
-```bash
-sudo -v
-node setup.js
-```
-
-If your user does not have sudo permissions, log in as root or add the user to the sudo/wheel group before installing Node.js, Docker or opening the firewall.
 
 ## WSL on Windows
 
@@ -609,7 +539,9 @@ Admin geolocation depends on Node receiving the visitor real public IP. The `ngi
 ```text
 server.js           Express, Socket.IO and Telegram server
 widget.js           Embeddable widget
-setup.js            Interactive installer
+Install.sh          Native dependency installer for Linux
+Install.ps1         Native dependency installer for Windows
+setup.js            Interactive environment (.env) configuration wizard
 db.js               SQLite persistence
 cluster-state.js    Optional shared state with Redis
 public/index.html   Widget demo
@@ -620,6 +552,7 @@ nginx/livechat.conf HTTPS reverse proxy
 tests/              Automated tests
 data/livechat.db    SQLite database in local runs without Docker
 ```
+
 
 ## Tests
 

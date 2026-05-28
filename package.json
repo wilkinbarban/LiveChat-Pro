@@ -1,6 +1,6 @@
 {
   "name": "livechat-pro",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Self-hosted educational live chat with Telegram integration",
   "license": "GPL-3.0-or-later",
   "main": "server.js",
