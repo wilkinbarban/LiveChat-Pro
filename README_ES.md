@@ -43,13 +43,13 @@ Para configurar rápidamente el entorno, verificar dependencias, clonar el repos
 
 ### Linux
 ```bash
-curl -fsSL https://raw.githubusercontent.com/wilkinbarban/AI-Workspace-Manager/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/wilkinbarban/LiveChat-Pro/main/install.sh | bash
 ```
 
 ### Windows (PowerShell Administrador)
 Abre PowerShell como Administrador y ejecuta:
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/wilkinbarban/AI-Workspace-Manager/main/install.ps1 | iex"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/wilkinbarban/LiveChat-Pro/main/install.ps1 | iex"
 ```
 
 ---
