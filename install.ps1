@@ -70,7 +70,13 @@ function Run-TaskWithSpinner {
         Start-Sleep -Milliseconds 150
     }
     
+    # Temporarily set ErrorActionPreference to SilentlyContinue during Receive-Job
+    # to prevent native stderr warnings (like npm deprecations) from crashing the script
+    $oldPreference = $ErrorActionPreference
+    $ErrorActionPreference = "SilentlyContinue"
     $result = Receive-Job -Job $job
+    $ErrorActionPreference = $oldPreference
+    
     $jobState = $job.State
     Remove-Job $job
     
@@ -186,7 +192,7 @@ if (Check-Node) {
 # 2. Install Project Dependencies (npm install)
 Write-Host "[ℹ] Installing project dependencies..." -ForegroundColor Yellow
 $currentPath = Get-Location
-$npmInstallBlock = [scriptblock]::Create("Set-Location '$currentPath'; npm install --no-fund --no-audit")
+$npmInstallBlock = [scriptblock]::Create("Set-Location '$currentPath'; npm install --no-fund --no-audit; if (`$LASTEXITCODE -ne 0) { throw 'npm install failed' }")
 $success = Run-TaskWithSpinner "Running npm install" $npmInstallBlock
 
 if (-not $success) {
