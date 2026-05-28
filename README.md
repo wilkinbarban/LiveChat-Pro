@@ -50,35 +50,67 @@ For a public VPS:
 - Linux with a user that has `sudo`
 - System Node.js `>=24`
 - Docker Engine + Docker Compose plugin
-- Port `8080/tcp` open for LiveChat Pro
-- Telegram bot created with [@BotFather](https://t.me/BotFather)
 - Your numeric Telegram ID
 
 System dependencies are validated and installed automatically by native installation scripts:
-- **Linux (Docker-based):** `Install.sh` verifies/installs Node.js >= 24, npm, and Docker.
-- **Windows (Node-based):** `Install.ps1` verifies/installs Node.js >= 24, npm, and runs `npm install`.
+- **Linux (Docker-based):** `install.sh` verifies/installs Node.js >= 24, npm, and Docker.
+- **Windows (Node-based):** `install.ps1` verifies/installs Node.js >= 24, npm, and runs `npm install`.
 
-## One-command Installation
+## One-Click Installation
 
-To install dependencies and configure the environment:
+To quickly set up the environment, verify dependencies, clone the project repository, and launch the interactive configuration assistant, run the appropriate command for your operating system:
 
 ### Linux
 ```bash
-git clone https://github.com/wilkinbarban/LiveChat-Pro.git && cd LiveChat-Pro && chmod +x Install.sh && ./Install.sh
+curl -fsSL https://raw.githubusercontent.com/wilkinbarban/AI-Workspace-Manager/main/install.sh | bash
 ```
 
 ### Windows (Elevated PowerShell)
+Open PowerShell as an Administrator and execute:
 ```powershell
-git clone https://github.com/wilkinbarban/LiveChat-Pro.git; cd LiveChat-Pro; .\Install.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/wilkinbarban/AI-Workspace-Manager/main/install.ps1 | iex"
 ```
 
-The scripts will verify and install dependencies in the background (logging output to `install.log` with a clean visual spinner), and then automatically launch `setup.js` to configure your `.env` variables (launching with Docker on Linux or Node.js on Windows).
+---
+
+### Detailed Installation Process: What These Scripts Do
+
+#### Linux Installer (`install.sh`)
+When you execute the automated Linux installer, it performs the following sequence in detail:
+1. **Administrative Check**: Verifies if the script runs as root or via `sudo`. System-level package managers require administrative privileges.
+2. **Distribution & Package Manager Identification**: Detects the Linux distribution to invoke the correct package manager (e.g., `apt` for Debian/Ubuntu, `yum`/`dnf` for RHEL/CentOS, or `pacman` for Arch).
+3. **Prerequisite Check & System Setup**:
+   - **Git**: Checks if `git` is available. If missing, it installs it via the package manager.
+   - **Node.js & npm**: Checks for Node.js (version 24 or newer). If missing or outdated, it configures NodeSource repos or the OS package manager to install the correct runtime along with `npm`.
+   - **Docker & Docker Compose**: Verifies if the Docker engine and Docker Compose plugin are installed. If missing, it installs them, starts the Docker service, and configures it to start on boot.
+4. **Project Directory Check**: Verifies if `setup.js` exists in the current folder. If it is not found, the script automatically clones the repository from `https://github.com/wilkinbarban/LiveChat-Pro.git` into a folder named `LiveChat-Pro` and navigates into it.
+5. **Interactive Setup Wizard**: Executes `node setup.js` to prompt you for environment settings, generating a custom `.env` file containing all the parameters.
+6. **Container Build and Startup**: Offers to build and run the services immediately using `docker compose up -d --build`.
+7. **Execution Logging**: Redirects verbose outputs of all checks and installations to `install.log` while showing a clean animated progress indicator in the terminal.
+
+#### Windows Installer (`install.ps1`)
+When you execute the automated Windows PowerShell installer, it runs the following steps:
+1. **Elevated Privilege Check**: Asserts that the current PowerShell session has Administrator privileges, which are required for system-level adjustments.
+2. **Dependency Verification & Automatic Installation**:
+   - **Git**: Inspects if Git is installed. If missing, it uses `winget` (Windows Package Manager) to install it, or downloads it directly if `winget` is not available.
+   - **Node.js & npm**: Checks for Node.js (version 24 or higher). If missing, it downloads and executes the official MSI installer silently, updating environment paths.
+3. **Project Directory Check**: Searches for `setup.js`. If absent, it invokes Git to clone the project from `https://github.com/wilkinbarban/LiveChat-Pro.git` and navigates into the folder.
+4. **Direct Dependency Resolution (npm install)**: Runs `npm install` directly on the host operating system to install the required Node.js libraries.
+5. **Wizard Launch**: Launches the interactive configuration assistant (`node setup.js`) to set up your Telegram bot token, administrator credentials, and preferences.
+6. **Optional Host Server Startup**: At the end of the configuration, the script asks if you want to start the live chat server directly using Node (`node server.js`).
+7. **Docker-Free Architecture**:
+   > [!IMPORTANT]
+   > LiveChat Pro on Windows is designed to run natively. **It does not require, use, or install Docker, Docker Desktop, or any containerization services on Windows**. The entire server, database, and background tasks run directly on the host Windows system as standard Node.js processes.
+8. **Logging**: All installer console output is logged in the background to `install.log` for troubleshooting.
+
+---
 
 ## Recommended VPS Installation
 
 Run the native script according to your OS:
 ```bash
-./Install.sh
+chmod +x install.sh
+./install.sh
 ```
 At the end of the dependency installation, the `setup.js` wizard will start. During the wizard:
 1. Choose **Basic Setup** (for quick configuration) or **Full Setup** (to customize all 43 parameters).
@@ -102,6 +134,69 @@ If you have a domain, enter it when the assistant asks for domain/allowed origin
 
 If your user does not have sudo permissions, log in as root or add the user to the sudo/wheel group before running the installer.
 
+---
+
+## Manual Installation (Alternative)
+
+If you prefer not to use the automated scripts, you can set up the project manually step-by-step:
+
+### Linux (Docker-based / Production)
+1. **Install Prerequisites**: Ensure your system has Git, Node.js (>=24), npm, Docker, and Docker Compose installed.
+   - For example, on Ubuntu/Debian:
+     ```bash
+     sudo apt update
+     sudo apt install -y git nodejs npm docker.io docker-compose-v2
+     ```
+2. **Clone the Repository**:
+   ```bash
+   git clone https://github.com/wilkinbarban/LiveChat-Pro.git
+   cd LiveChat-Pro
+   ```
+3. **Install Project Dependencies**:
+   ```bash
+   npm install
+   ```
+4. **Configure Environment Variables**:
+   Run the interactive CLI setup tool to answer configuration prompts and generate `.env`:
+   ```bash
+   node setup.js
+   ```
+5. **Launch the Application Services**:
+   Build and launch the Docker container services in detached mode:
+   ```bash
+   docker compose up -d --build
+   ```
+6. **Verify Running State**:
+   ```bash
+   curl http://localhost:8080/health
+   ```
+
+### Windows (Node-based / Direct Host)
+1. **Install Prerequisites**: Download and install Git from [git-scm.com](https://git-scm.com/) and Node.js (version 24 or newer) from [nodejs.org](https://nodejs.org/).
+   > [!NOTE]
+   > LiveChat Pro on Windows does not require, use, or install Docker. It executes natively directly on your operating system.
+2. **Clone the Repository**:
+   Open PowerShell or Command Prompt and run:
+   ```powershell
+   git clone https://github.com/wilkinbarban/LiveChat-Pro.git
+   cd LiveChat-Pro
+   ```
+3. **Install Dependencies**:
+   ```powershell
+   npm install
+   ```
+4. **Run Configuration Wizard**:
+   ```powershell
+   node setup.js
+   ```
+   Follow the prompt questions to generate your `.env` file.
+5. **Start the Server**:
+   ```powershell
+   node server.js
+   ```
+   The server will start listening on the port configured in `.env` (default is `3000`).
+
+---
 
 ## WSL on Windows
 
@@ -169,12 +264,13 @@ Remove containers and persistent data:
 docker compose down -v
 ```
 
-## Without Docker
+## Without Docker (Linux Local Dev / PM2)
+If you are running the project directly on a Linux host without Docker:
 
 ```bash
-sudo npm install
+npm install
 node setup.js
-sudo node server.js
+node server.js
 ```
 
 With PM2:
@@ -476,17 +572,88 @@ server.js
    ▲ inside Docker: livechat_data volume mounted at /app/data
 ```
 
-In a local run without Docker, the default path is `data/livechat.db` inside the project directory.
+In a local run without Docker, the default database path is `data/livechat.db` inside the project directory.
 
-Message flow:
+## How It Works & Deep Dive Workflow
 
-1. The widget connects through Socket.IO.
-2. The server creates or restores the session.
-3. The message is saved in SQLite.
-4. The message is sent to Telegram and to the admin panel.
-5. The admin replies from Telegram or `/admin`.
-6. The server translates if needed.
-7. The visitor receives the reply through Socket.IO.
+LiveChat Pro coordinates an optimized real-time communication pipeline across multiple backend and frontend layers. Below is an exhaustive breakdown of the architectural flow:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Visitor as Web Visitor
+    participant Widget as Widget (Shadow DOM)
+    participant Server as server.js (Node.js)
+    participant Bot as Smart Bot (Fuzzy/AI)
+    participant DB as SQLite (livechat.db)
+    participant Tele as Telegram Admin
+    participant WebAdmin as Web Admin (/admin)
+
+    Visitor->{Widget}: Opens webpage / interacts
+    Widget->>Server: Connects via Socket.IO (restores session/history)
+    Visitor->{Widget}: Types & sends message
+    Widget->>Server: Emits 'chat_message' (Socket.IO)
+    Server->>DB: Persists message (SQLite)
+    alt Bot Mode is enabled (KB or AI) and admin active is false
+        Server->>Bot: Invokes Bot Logic
+        alt Bot has high-confidence answer
+            Bot->>Server: Returns Bot Response
+            Server->>DB: Persists Bot Response (SQLite)
+            Server->>Widget: Emits Bot Response (Socket.IO)
+        else Bot low confidence / fails
+            Server->>Tele: Forwards via Telegraf (Telegram API)
+            Server->>WebAdmin: Emits message with Geolocation & Sentiment
+        end
+    else Bot Mode is disabled or Admin has taken over
+        Server->>Tele: Forwards via Telegraf (Telegram API)
+        Server->>WebAdmin: Emits message with Geolocation & Sentiment
+    end
+    
+    rect rgb(240, 248, 255)
+        Note over Tele, WebAdmin: Admin responds
+        alt Admin responds from Web Panel
+            WebAdmin->>Server: Emits 'admin_message' (Socket.IO)
+        else Admin responds from Telegram
+            Tele->>Server: Callback webhook response
+        end
+        Server->>DB: Persists Admin Response (SQLite)
+        Server->>Server: Translates response if needed
+        Server->>Widget: Emits 'chat_message' to visitor (Socket.IO)
+    end
+```
+
+### Deep Dive Architectural Phases
+
+1. **Frontend Isolation & Mobile Responsiveness**:
+   - The user loads the website containing the snippet. The browser fetches `/widget.js`, which encapsulates the entire UI inside a **Shadow DOM**. This design pattern ensures complete isolation, meaning the widget's styles, rules, and scripts never leak into or conflict with the parent website's styling (such as Bootstrap or Tailwind).
+   - The widget actively monitors layout shifts using the `window.matchMedia` API. When the viewport drops to `768px` or below, it dynamically transitions from a floating bubble window to a fixed bottom panel optimized for thumb interaction.
+   - For mobile screens, the widget uses the `visualViewport` API. This allows the widget to calculate the true height of the visible screen area and adjust the chat panel height automatically when the virtual keyboard pops up, preventing the keyboard from overlapping the text input area.
+
+2. **Session Lifecycle, Connection & SQLite Store**:
+   - The widget establishes a persistent, stateful connection with the Express/Socket.IO backend (`server.js`).
+   - Upon connection, the widget transmits the client session identifier (`lchat_sid`) from cookies or `localStorage`. The backend uses this ID to query the SQLite database (`livechat.db`). If it exists, the connection is restored, and the full chat history is pushed back to the client. If it doesn't, the database inserts a new session row with initial metadata.
+   - If the connection drops due to unstable network connectivity, Socket.IO handles automatic retries and fetches any missed messages in order.
+
+3. **Smart Interception & Pre-Escalation Bot Layer**:
+   - When a message is received, the server evaluates the bot state for the session. If the administrator has not stepped into the chat (which silences the bot for that session) and `BOT_MODE` is enabled:
+     - **Knowledge-Base Mode**: The system stemmer normalizes words and calculates Dice's similarity coefficient against `data/knowledge-base.json`. If the calculated confidence exceeds `BOT_CONFIDENCE_THRESHOLD`, the bot replies directly.
+     - **AI Mode**: The backend constructs a prompt containing the system instructions (`BOT_SYSTEM_PROMPT`), injects the last `BOT_CONTEXT_MESSAGES` messages, and sends a request to the configured LLM API (OpenRouter, Gemini, OpenAI, etc.).
+     - If the bot handles the message and `BOT_NOTIFY_ADMIN` is `false`, the message is marked as resolved and does not trigger alerts. Otherwise, it escalates.
+
+4. **IP Geolocation, Linguistic Stemming & Sentiment Engine**:
+   - Concurrently, the backend analyzes the message and the visitor's metadata.
+   - **IP Geolocation**: The server looks up the client's public IP address via the `geoip-lite` engine to determine the country, region, and ISP.
+   - **Sentiment Engine**: A local sentiment processor checks the text for emotion keywords. If the sentiment score is negative (indicating user frustration), the chat is flagged in the administrator interface and its priority is elevated.
+   - **Translation Engine**: If the detected client language differs from the configured `ADMIN_LANGUAGE` (and `FEATURE_TRANSLATION` is `true`), the server translates the message in the background using the active translation adapter (free Google API, official Google Cloud, or DeepL) before showing it to the admin.
+
+5. **Dual Administration Notifications & Typing Sync**:
+   - For escalated chats, the server broadcasts the event to the admin panel via Socket.IO, updating the dashboard with live metrics, sentiment markers, and country badges.
+   - Concurrently, the server uses the **Telegraf** framework to push the message to the administrator's configured Telegram chat. The notification includes convenient action links (like ban, clear, or view session).
+   - **Ghost Typing**: If `FEATURE_GHOST_TYPING` is enabled, when the administrator types a response in the `/admin` interface, real-time typing events are sent to the user's widget. When typing indicators are active inside Telegram, typing status is also synchronized.
+
+6. **Admin Response Routing & Reverse Translation**:
+   - The administrator can reply either by typing in the `/admin` web panel or by directly replying to the specific message inside their Telegram app.
+   - The backend intercepts the response, saves it to SQLite, and uses the translation engine to translate the admin's reply back to the visitor's detected language. The translated text is then emitted to the widget via Socket.IO.
 
 ## Optional Redis
 
@@ -539,8 +706,8 @@ Admin geolocation depends on Node receiving the visitor real public IP. The `ngi
 ```text
 server.js           Express, Socket.IO and Telegram server
 widget.js           Embeddable widget
-Install.sh          Native dependency installer for Linux
-Install.ps1         Native dependency installer for Windows
+install.sh          Native dependency installer for Linux
+install.ps1         Native dependency installer for Windows
 setup.js            Interactive environment (.env) configuration wizard
 db.js               SQLite persistence
 cluster-state.js    Optional shared state with Redis

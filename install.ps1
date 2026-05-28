@@ -4,6 +4,21 @@
 
 $ErrorActionPreference = "Stop"
 
+if (-not (Test-Path "setup.js")) {
+    Write-Host "[ℹ] LiveChat Pro directory not detected. Cloning repository..." -ForegroundColor Blue
+    $gitExists = Get-Command git -ErrorAction SilentlyContinue
+    if (-not $gitExists) {
+        Write-Host "[✗] git is not installed. Please install git or run the script from the project root directory." -ForegroundColor Red
+        Exit 1
+    }
+    git clone https://github.com/wilkinbarban/LiveChat-Pro.git
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "[✗] Failed to clone repository." -ForegroundColor Red
+        Exit 1
+    }
+    Set-Location "LiveChat-Pro"
+}
+
 # Clear or create install.log
 "--- LiveChat Pro Windows installation log started at $(Get-Date) ---" | Out-File -FilePath "install.log"
 

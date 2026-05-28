@@ -14,6 +14,17 @@ CYAN='\e[36m'
 BOLD='\e[1m'
 RESET='\e[0m'
 
+# Check if setup.js exists. If not, we clone the repo and enter it
+if [ ! -f "setup.js" ]; then
+    echo -e "${BLUE}[ℹ]${RESET} LiveChat Pro directory not detected. Cloning repository..."
+    if ! command -v git >/dev/null 2>&1; then
+        echo -e "${RED}[✗] git is not installed. Please install git or run the script from the project root directory.${RESET}"
+        exit 1
+    fi
+    git clone https://github.com/wilkinbarban/LiveChat-Pro.git || { echo -e "${RED}[✗] Failed to clone repository.${RESET}"; exit 1; }
+    cd LiveChat-Pro || exit 1
+fi
+
 # Clear log file on startup
 echo "--- LiveChat Pro installation log started at $(date) ---" > install.log
 
