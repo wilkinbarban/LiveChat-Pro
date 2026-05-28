@@ -4,24 +4,6 @@
 
 $ErrorActionPreference = "Stop"
 
-if (-not (Test-Path "setup.js")) {
-    Write-Host "[ℹ] LiveChat Pro directory not detected. Cloning repository..." -ForegroundColor Blue
-    $gitExists = Get-Command git -ErrorAction SilentlyContinue
-    if (-not $gitExists) {
-        Write-Host "[✗] git is not installed. Please install git or run the script from the project root directory." -ForegroundColor Red
-        Exit 1
-    }
-    git clone https://github.com/wilkinbarban/LiveChat-Pro.git
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "[✗] Failed to clone repository." -ForegroundColor Red
-        Exit 1
-    }
-    Set-Location "LiveChat-Pro"
-}
-
-# Clear or create install.log
-"--- LiveChat Pro Windows installation log started at $(Get-Date) ---" | Out-File -FilePath "install.log"
-
 # Clean UI Headers
 Clear-Host
 Write-Host "┌──────────────────────────────────────────────────────────┐" -ForegroundColor Cyan
@@ -36,6 +18,10 @@ if (-not $isAdmin) {
     Exit 1
 }
 
+# Initialize temporary log path to capture early installer tasks
+$LogPath = Join-Path $env:TEMP "livechat_install.log"
+"--- LiveChat Pro Windows installation log started at $(Get-Date) ---" | Out-File -FilePath $LogPath
+
 # Function to run a task with a spinner
 function Run-TaskWithSpinner {
     param (
@@ -44,7 +30,7 @@ function Run-TaskWithSpinner {
     )
     
     # Write command header to log
-    "=== STARTING: $TaskName ===" | Out-File -FilePath "install.log" -Append
+    "=== STARTING: $TaskName ===" | Out-File -FilePath $LogPath -Append
     
     # Start job
     $job = Start-Job -ScriptBlock $ScriptBlock
@@ -63,15 +49,15 @@ function Run-TaskWithSpinner {
     Remove-Job $job
     
     # Log results
-    $result | Out-File -FilePath "install.log" -Append
+    $result | Out-File -FilePath $LogPath -Append
     
     if ($jobState -eq 'Completed') {
         Write-Host "`r[✓] $TaskName completed successfully!" -ForegroundColor Green
-        "=== SUCCESS: $TaskName ===" | Out-File -FilePath "install.log" -Append
+        "=== SUCCESS: $TaskName ===" | Out-File -FilePath $LogPath -Append
         return $true
     } else {
         Write-Host "`r[✗] $TaskName failed! Check install.log for details." -ForegroundColor Red
-        "=== FAILED: $TaskName ===" | Out-File -FilePath "install.log" -Append
+        "=== FAILED: $TaskName ===" | Out-File -FilePath $LogPath -Append
         return $false
     }
 }
@@ -90,6 +76,68 @@ function Check-Node {
     }
     return $false
 }
+
+# Define Paths
+$DesktopPath = [System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::Desktop)
+$TargetDir = Join-Path $DesktopPath "LiveChat-Pro"
+$TempZip = Join-Path $env:TEMP "LiveChat-Pro.zip"
+$ExtractedTempDir = Join-Path $DesktopPath "LiveChat-Pro-main"
+
+# Rename existing folder if found on Desktop to prevent overwriting
+if (Test-Path $TargetDir) {
+    Write-Host "[ℹ] Existing LiveChat-Pro directory found on Desktop. Renaming to avoid overwriting..." -ForegroundColor Yellow
+    $BaseBackupName = Join-Path $DesktopPath "LiveChat-Pro_Backup"
+    $BackupDir = $BaseBackupName
+    $counter = 1
+    while (Test-Path $BackupDir) {
+        $BackupDir = "${BaseBackupName}_$counter"
+        $counter++
+    }
+    Rename-Item -Path $TargetDir -NewName (Split-Path $BackupDir -Leaf)
+    Write-Host "[✓] Renamed existing project folder to: $(Split-Path $BackupDir -Leaf)" -ForegroundColor Green
+}
+
+# Clean up any leftover temp extraction folder
+if (Test-Path $ExtractedTempDir) {
+    Remove-Item -Path $ExtractedTempDir -Recurse -Force
+}
+
+# Download ZIP from GitHub repository
+$zipUrl = "https://github.com/wilkinbarban/LiveChat-Pro/archive/refs/heads/main.zip"
+$downloadBlock = [scriptblock]::Create("Invoke-WebRequest -Uri '$zipUrl' -OutFile '$TempZip'")
+$success = Run-TaskWithSpinner "Downloading repository ZIP to Desktop" $downloadBlock
+if (-not $success) {
+    Write-Host "[✗] Failed to download ZIP. Aborting." -ForegroundColor Red
+    Exit 1
+}
+
+# Extract ZIP archive directly to user Desktop
+$extractBlock = [scriptblock]::Create("Expand-Archive -Path '$TempZip' -DestinationPath '$DesktopPath' -Force")
+$success = Run-TaskWithSpinner "Extracting repository ZIP to Desktop" $extractBlock
+if (-not $success) {
+    Write-Host "[✗] Failed to extract ZIP. Aborting." -ForegroundColor Red
+    Exit 1
+}
+
+# Clean up temporary ZIP file
+if (Test-Path $TempZip) {
+    Remove-Item -Path $TempZip -Force
+}
+
+# Rename the extracted folder 'LiveChat-Pro-main' to 'LiveChat-Pro'
+if (Test-Path $ExtractedTempDir) {
+    Rename-Item -Path $ExtractedTempDir -NewName "LiveChat-Pro"
+} else {
+    Write-Host "[✗] Extracted folder was not found. Expected: $ExtractedTempDir" -ForegroundColor Red
+    Exit 1
+}
+
+# Change location to the new project directory on the Desktop
+Set-Location $TargetDir
+
+# Relocate the install log file to the newly created project folder
+Move-Item -Path $LogPath -Destination (Join-Path $TargetDir "install.log") -Force
+$LogPath = Join-Path $TargetDir "install.log"
 
 # 1. Verify/Install Node.js >= 24
 if (Check-Node) {
@@ -143,3 +191,4 @@ Write-Host ""
 
 # Run setup.js
 & node setup.js
+
