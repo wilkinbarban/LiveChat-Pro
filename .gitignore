@@ -33,3 +33,6 @@ docker-compose.override.yml
 
 # Ficheros .env alternativos y reportes generados
 PHASE2_REVIEW_REPORT.md
+
+# Knowledge base entrenada
+kb-trainer/knowledge-base.json
