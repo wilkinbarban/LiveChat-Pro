@@ -690,8 +690,11 @@ async function start() {
   // Startup order matters: database first, optional cluster state second, then
   // hydration. HTTP starts before Telegram so a slow bot launch does not block
   // the health endpoint or local development.
+  logger.info('Iniciando base de datos SQLite...');
   await initDb();
+  logger.info('Conectando con el estado del cluster (Redis)...');
   await clusterState.connect(io);
+  logger.info('Restaurando sesiones desde la base de datos...');
   await loadFromDB();
 
   await new Promise((resolve, reject) => {
