@@ -475,54 +475,6 @@ server.js
 
 Em execução local sem Docker, o caminho padrão é `data/livechat.db` dentro do diretório do projeto.
 
-## Como Funciona e Fluxo de Trabalho Detalhado
-
-O LiveChat Pro coordena um canal de comunicação otimizado em tempo real através de múltiplas camadas no backend e no frontend. Abaixo está um detalhamento exaustivo do fluxo de trabalho arquitetural:
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor Visitante as Visitante Web
-    participant Widget as Widget (Shadow DOM)
-    participant Server as server.js (Node.js)
-    participant Bot as Smart Bot (Fuzzy/IA)
-    participant DB as SQLite (livechat.db)
-    participant Tele as Telegram Admin
-    participant WebAdmin as Web Admin (/admin)
-
-    Visitante->>Widget: Abre página web / interage
-    Widget->>Server: Conecta via Socket.IO (restaura sessão/histórico)
-    Visitante->>Widget: Escreve e envia mensagem
-    Widget->>Server: Emite 'chat_message' (Socket.IO)
-    Server->>DB: Salva mensagem (SQLite)
-    alt Bot ativo (KB ou IA) e sem admin ativo na sessão
-        Server->>Bot: Invoca a lógica do Bot
-        alt Bot possui resposta de alta confiança
-            Bot->>Server: Retorna a resposta do Bot
-            Server->>DB: Salva resposta do Bot (SQLite)
-            Server->>Widget: Emite a resposta ao visitante (Socket.IO)
-        else Confiança baixa do Bot / Falha
-            Server->>Tele: Encaminha via Telegraf (Telegram API)
-            Server->>WebAdmin: Emite mensagem com Geolocalização e Sentimento
-        end
-    else Bot desativado ou Administrador assumiu o controle
-        Server->>Tele: Encaminha via Telegraf (Telegram API)
-        Server->>WebAdmin: Emite mensagem com Geolocalização e Sentimento
-    end
-    
-    rect rgb(240, 248, 255)
-        Note over Tele, WebAdmin: O Administrador responde
-        alt Responde do Painel Web (/admin)
-            WebAdmin->>Server: Emite 'admin_message' (Socket.IO)
-        else Responde do Telegram
-            Tele->>Server: Resposta de webhook/callback
-        end
-        Server->>DB: Salva a resposta do Admin (SQLite)
-        Server->>Server: Traduz a resposta se necessário
-        Server->>Widget: Emite 'chat_message' ao visitante (Socket.IO)
-    end
-```
-
 ### Fases da Arquitetura em Detalhes
 
 1. **Isolamento de Frontend e Design Responsivo**:
