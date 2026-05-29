@@ -479,54 +479,6 @@ server.js
 
 En ejecución local sin Docker, la ruta por defecto sí es `data/livechat.db` dentro del directorio del proyecto.
 
-## Cómo Funciona y Flujo de Trabajo Detallado
-
-LiveChat Pro coordina un canal de comunicación optimizado en tiempo real a través de múltiples capas en el backend y el frontend. A continuación se presenta un desglose exhaustivo de su flujo de trabajo:
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor Visitante as Visitante Web
-    participant Widget as Widget (Shadow DOM)
-    participant Server as server.js (Node.js)
-    participant Bot as Smart Bot (Fuzzy/IA)
-    participant DB as SQLite (livechat.db)
-    participant Tele as Telegram Admin
-    participant WebAdmin as Web Admin (/admin)
-
-    Visitante->>Widget: Abre página web / interactúa
-    Widget->>Server: Se conecta vía Socket.IO (restaura sesión/historial)
-    Visitante->>Widget: Escribe y envía mensaje
-    Widget->>Server: Emite 'chat_message' (Socket.IO)
-    Server->>DB: Guarda mensaje (SQLite)
-    alt Bot está activo (KB o IA) y no hay admin activo en la sesión
-        Server->>Bot: Invoca la lógica del Bot
-        alt Bot tiene respuesta de alta confianza
-            Bot->>Server: Devuelve la respuesta del Bot
-            Server->>DB: Guarda la respuesta del Bot (SQLite)
-            Server->>Widget: Emite la respuesta al visitante (Socket.IO)
-        else Confianza baja del Bot / Falla
-            Server->>Tele: Reenvía vía Telegraf (Telegram API)
-            Server->>WebAdmin: Emite el mensaje con Geolocalización y Sentimiento
-        end
-    else El Bot está desactivado o el Administrador ha tomado el control
-        Server->>Tele: Reenvía vía Telegraf (Telegram API)
-        Server->>WebAdmin: Emite el mensaje con Geolocalización y Sentimiento
-    end
-    
-    rect rgb(240, 248, 255)
-        Note over Tele, WebAdmin: El Administrador responde
-        alt Responde desde el Panel Web (/admin)
-            WebAdmin->>Server: Emite 'admin_message' (Socket.IO)
-        else Responde desde Telegram
-            Tele->>Server: Respuesta de webhook/callback
-        end
-        Server->>DB: Guarda la respuesta del Admin (SQLite)
-        Server->>Server: Traduce la respuesta si es necesario
-        Server->>Widget: Emite 'chat_message' al visitante (Socket.IO)
-    end
-```
-
 ### Fases de la Arquitectura en Detalle
 
 1. **Aislamiento en el Frontend y Diseño Responsivo**:
