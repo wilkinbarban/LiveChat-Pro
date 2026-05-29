@@ -847,13 +847,10 @@ async function main() {
       ],
       mergedDefaults.WIDGET_BUTTON_STYLE
     );
-    answers.WIDGET_WELCOME_MESSAGE = await askQuestion(
-      t('widgetWelcome'),
-      mergedDefaults.WIDGET_WELCOME_MESSAGE
-    );
+    answers.WIDGET_WELCOME_MESSAGE = '';
   } else {
     answers.WIDGET_BUTTON_STYLE = mergedDefaults.WIDGET_BUTTON_STYLE;
-    answers.WIDGET_WELCOME_MESSAGE = mergedDefaults.WIDGET_WELCOME_MESSAGE;
+    answers.WIDGET_WELCOME_MESSAGE = '';
   }
 
   // Group 4: Features
@@ -983,14 +980,18 @@ async function main() {
       t('redisPrefix'),
       mergedDefaults.REDIS_KEY_PREFIX
     );
-    answers.REDIS_ENABLED = String(await chooseYesNo(
-      '   ' + t('redisEnabled'),
-      mergedDefaults.REDIS_ENABLED === 'true'
-    ));
+    if (process.platform === 'win32') {
+      answers.REDIS_ENABLED = 'false';
+    } else {
+      answers.REDIS_ENABLED = String(await chooseYesNo(
+        '   ' + t('redisEnabled'),
+        mergedDefaults.REDIS_ENABLED === 'true'
+      ));
+    }
   } else {
     answers.REDIS_URL = mergedDefaults.REDIS_URL;
     answers.REDIS_KEY_PREFIX = mergedDefaults.REDIS_KEY_PREFIX;
-    answers.REDIS_ENABLED = mergedDefaults.REDIS_ENABLED !== undefined ? mergedDefaults.REDIS_ENABLED : (process.platform === 'win32' ? 'false' : 'true');
+    answers.REDIS_ENABLED = process.platform === 'win32' ? 'false' : (mergedDefaults.REDIS_ENABLED !== undefined ? mergedDefaults.REDIS_ENABLED : 'true');
   }
 
   // Group 9: Smart Bot & AI
