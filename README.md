@@ -589,9 +589,9 @@ sequenceDiagram
     participant Tele as Telegram Admin
     participant WebAdmin as Web Admin (/admin)
 
-    Visitor->{Widget}: Opens webpage / interacts
+    Visitor->>Widget: Opens webpage / interacts
     Widget->>Server: Connects via Socket.IO (restores session/history)
-    Visitor->{Widget}: Types & sends message
+    Visitor->>Widget: Types & sends message
     Widget->>Server: Emits 'chat_message' (Socket.IO)
     Server->>DB: Persists message (SQLite)
     alt Bot Mode is enabled (KB or AI) and admin active is false
