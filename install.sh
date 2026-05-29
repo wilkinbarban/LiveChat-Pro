@@ -87,13 +87,17 @@ fi
 
 echo -e "${BLUE}[ℹ]${RESET} Detected System: ${BOLD}$OS_NAME${RESET}"
 
-# 2. Check Sudo Access
-if [ "$EUID" -ne 0 ]; then
-    echo -e "${YELLOW}[ℹ]${RESET} Sudo access is required to install dependencies."
-    sudo -v || { echo -e "${RED}[✗]${RESET} Sudo validation failed. Exiting."; exit 1; }
-    # Keep sudo alive
-    while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
-fi
+# 2. Define Sudo Verification Helper (Lazy check)
+ensure_sudo() {
+    if [ "$EUID" -ne 0 ]; then
+        if ! sudo -n true >/dev/null 2>&1; then
+            echo -e "${YELLOW}[ℹ]${RESET} Sudo access is required to perform system tasks."
+            sudo -v || { echo -e "${RED}[✗]${RESET} Sudo validation failed. Exiting."; exit 1; }
+        fi
+        # Keep sudo alive in background
+        while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
+    fi
+}
 
 # 3. Check for existing packages
 check_node() {
@@ -181,6 +185,7 @@ fi
 if check_node; then
     echo -e "${GREEN}[✓]${RESET} Node.js >= 24 is already installed ($(node -v))"
 else
+    ensure_sudo
     echo -e "${YELLOW}[ℹ]${RESET} Node.js >= 24 is not installed. Preparing installation..."
     run_task "Installing Node.js 24 & npm" "$NODE_CMD" || { echo -e "${RED}[✗] Node.js installation failed. Aborting.${RESET}"; exit 1; }
 fi
@@ -189,21 +194,32 @@ fi
 if check_docker; then
     echo -e "${GREEN}[✓]${RESET} Docker & Docker Compose plugin are already installed."
 else
+    ensure_sudo
     echo -e "${YELLOW}[ℹ]${RESET} Docker & Docker Compose are not installed. Preparing installation..."
     run_task "Installing Docker Engine & Compose" "$DOCKER_CMD" || { echo -e "${RED}[✗] Docker installation failed. Aborting.${RESET}"; exit 1; }
 fi
 
 # 7. Start/Enable Docker service
-run_task "Starting Docker Service" "$START_DOCKER_CMD" || { echo -e "${RED}[✗] Failed to start Docker. Setup will continue but Docker launch might fail.${RESET}"; }
+if ! docker info >/dev/null 2>&1; then
+    ensure_sudo
+    run_task "Starting Docker Service" "$START_DOCKER_CMD" || { echo -e "${RED}[✗] Failed to start Docker. Setup will continue but Docker launch might fail.${RESET}"; }
+fi
 
 # 8. Check Docker info
-run_task "Verifying Docker Daemon" "sudo docker info" || { echo -e "${RED}[✗] Docker daemon is not responding. Ensure it is running.${RESET}"; }
+if docker info >/dev/null 2>&1; then
+    echo -e "${GREEN}[✓]${RESET} Docker Daemon is verified and running."
+else
+    ensure_sudo
+    run_task "Verifying Docker Daemon" "sudo docker info" || { echo -e "${RED}[✗] Docker daemon is not responding. Ensure it is running.${RESET}"; }
+fi
 
-# 9. Clean package managers (best effort)
-if command -v apt-get >/dev/null 2>&1; then
-    run_task "Cleaning APT cache" "sudo apt-get autoremove -y && sudo apt-get autoclean -y"
-elif command -v dnf >/dev/null 2>&1; then
-    run_task "Cleaning DNF cache" "sudo dnf clean all"
+# 9. Clean package managers (best effort, only if sudo is available without prompting)
+if sudo -n true >/dev/null 2>&1; then
+    if command -v apt-get >/dev/null 2>&1; then
+        run_task "Cleaning APT cache" "sudo apt-get autoremove -y && sudo apt-get autoclean -y"
+    elif command -v dnf >/dev/null 2>&1; then
+        run_task "Cleaning DNF cache" "sudo dnf clean all"
+    fi
 fi
 
 # 10. Run setup.js for Env configuration
