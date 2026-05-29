@@ -113,6 +113,7 @@ function createConfig({ logger = console } = {}) {
     redis: {
       url: process.env.REDIS_URL || '',
       keyPrefix: process.env.REDIS_KEY_PREFIX || 'lcp',
+      enabled: process.env.REDIS_ENABLED !== 'false' && (process.platform !== 'win32' || process.env.REDIS_ENABLED === 'true'),
     },
     rateLimit: {
       windowMinutes: parseInteger(process.env.RATE_LIMIT_WINDOW_MINUTES || '15', 15),

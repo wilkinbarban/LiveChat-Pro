@@ -478,6 +478,7 @@ const clusterState = new ClusterState({
   redisUrl: REDIS_URL,
   keyPrefix: REDIS_KEY_PREFIX,
   logger,
+  enabled: config.redis.enabled,
 });
 
 async function resolveTelegramReplySessionId(message) {
@@ -692,7 +693,9 @@ async function start() {
   // the health endpoint or local development.
   logger.info('Iniciando base de datos SQLite...');
   await initDb();
-  logger.info('Conectando con el estado del cluster (Redis)...');
+  if (config.redis.enabled) {
+    logger.info('Conectando con el estado del cluster (Redis)...');
+  }
   await clusterState.connect(io);
   logger.info('Restaurando sesiones desde la base de datos...');
   await loadFromDB();

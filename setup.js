@@ -156,7 +156,7 @@ const TEXTS = {
     langPrompt: "Select Language / Selecciona el Idioma:",
     modePrompt: "Select Configuration Mode:",
     modeBasic: "Basic Setup (Core parameters only, recommended)",
-    modeAll: "Full Setup (All 43 parameters from .env.example)",
+    modeAll: "Full Setup (All 44 parameters from .env.example)",
     telegramSec: "1. Telegram Integration",
     teleToken: "Telegram Bot Token",
     teleAdmin: "Telegram Admin ID (numeric)",
@@ -200,6 +200,7 @@ const TEXTS = {
     redisSec: "8. Redis Cache & Multi-node (Optional)",
     redisUrl: "Redis Connection URL (leave empty to disable)",
     redisPrefix: "Redis Key Prefix",
+    redisEnabled: "Enable Redis scaling",
     botSec: "9. Smart AI Bot",
     botMode: "Bot Operating Mode (disabled, knowledge-base, ai)",
     botKey: "OpenAI API Key (required for mode: ai)",
@@ -219,7 +220,8 @@ const TEXTS = {
     dockerSuccess: "Docker started successfully! LiveChat Pro is running.",
     nodeSec: "Node.js Service Start",
     nodePrompt: "Do you want to start the server with Node now?",
-    nodeRunning: "Starting Node.js server in the foreground...",
+    nodeRunning: "Starting Node.js server in the background...",
+    nodeStarting: "Starting the server...",
     dockerFail: "Failed to start Docker Compose. Please check the logs above.",
     recommendedCmd: "Recommended final command to launch:",
     widgetSnippetTitle: "Snippet to paste into your HTML:",
@@ -233,7 +235,7 @@ const TEXTS = {
     langPrompt: "Select Language / Selecciona el Idioma:",
     modePrompt: "Selecciona el Modo de Configuración:",
     modeBasic: "Configuración Básica (Parámetros esenciales solamente, recomendado)",
-    modeAll: "Configuración Completa (Todos los 43 parámetros de .env.example)",
+    modeAll: "Configuración Completa (Todos los 44 parámetros de .env.example)",
     telegramSec: "1. Integración con Telegram",
     teleToken: "Token del Bot de Telegram",
     teleAdmin: "ID de Administrador de Telegram (numérico)",
@@ -277,6 +279,7 @@ const TEXTS = {
     redisSec: "8. Servidor Redis y Multi-nodo (Opcional)",
     redisUrl: "URL de Conexión de Redis (vacío para desactivar)",
     redisPrefix: "Prefijo de claves de Redis",
+    redisEnabled: "Activar escalado con Redis",
     botSec: "9. Bot Inteligente con IA",
     botMode: "Modo de Operación del Bot (disabled, knowledge-base, ai)",
     botKey: "Clave API de OpenAI (requerido para modo: ai)",
@@ -296,13 +299,93 @@ const TEXTS = {
     dockerSuccess: "¡Docker iniciado con éxito! LiveChat Pro está corriendo.",
     nodeSec: "Arranque del Servicio con Node.js",
     nodePrompt: "¿Deseas arrancar el servidor con Node ahora?",
-    nodeRunning: "Iniciando el servidor Node.js en primer plano...",
+    nodeRunning: "Iniciando el servidor Node.js en segundo plano...",
+    nodeStarting: "Iniciando el servidor...",
     dockerFail: "No se pudo iniciar Docker Compose. Revisa los logs superiores.",
     recommendedCmd: "Comando recomendado para arrancar manualmente:",
     widgetSnippetTitle: "Snippet de código para pegar en tu HTML:",
     widgetBtnCodeTitle: "Código del botón personalizado para abrir el chat oculto:",
     invalidVal: "Valor inválido. Por favor, intenta de nuevo.",
     kbTargetSuccess: "Plantilla creada en data/knowledge-base.json. Edítala para personalizar tus FAQs.",
+  },
+  pt: {
+    title: "LiveChat Pro — Assistente de Configuração",
+    desc: "Este script configura o arquivo de ambiente .env para o LiveChat Pro.",
+    langPrompt: "Selecione o Idioma do Assistente:",
+    modePrompt: "Selecione o Modo de Configuração:",
+    modeBasic: "Configuração Básica (Apenas parâmetros essenciais, recomendado)",
+    modeAll: "Configuração Completa (Todos os 44 parâmetros do .env.example)",
+    telegramSec: "1. Integração com o Telegram",
+    teleToken: "Token do Bot do Telegram",
+    teleAdmin: "ID de Administrador do Telegram (numérico)",
+    teleTimeout: "Tempo Limite de Inicialização do Telegram (ms)",
+    serverSec: "2. Servidor e Segurança",
+    port: "Porta Interna do Node.js",
+    hostPort: "Porta Pública do Host (Docker)",
+    nodeEnv: "Ambiente do Node (production/development/test)",
+    cors: "Origens CORS Permitidas (separadas por vírgula, ex: site.com ou * para todos)",
+    adminPass: "Senha do Painel Administrativo",
+    adminLang: "Idioma do Painel Admin (es, en, pt, fr, de, it)",
+    adminSess: "Duração da Sessão Admin (horas)",
+    logLevel: "Nível de Log (trace, debug, info, warn, error, fatal, silent)",
+    proxyHops: "Número de saltos de Proxy confiáveis",
+    sameSite: "Política SameSite de Cookies (lax, strict, none)",
+    widgetSec: "3. Personalização do Widget",
+    widgetBtn: "Estilo do Botão do Widget (floating, persistent, hidden)",
+    widgetColor: "Cor Principal do Widget",
+    widgetWelcome: "Mensagem de Boas-Vindas Personalizada (vazio para auto)",
+    widgetApiKey: "Chave API do Widget (vazio para desativar validação)",
+    featuresSec: "4. Funcionalidades (true/false)",
+    featTrans: "Ativar Recurso de Tradução",
+    featSent: "Ativar Análise de Sentimento",
+    featGhost: "Ativar Indicador de Digitação (Ghost Typing)",
+    featGeo: "Ativar Geolocalização por IP",
+    transSec: "5. Serviço de Tradução",
+    transProvider: "Provedor de Tradução (google_free, deepl, google_cloud)",
+    transKey: "Chave API do Tradutor (se usar DeepL ou Google Cloud)",
+    transUrl: "URL da API do DeepL",
+    rateSec: "6. Limite de Requisições (Rate Limiting)",
+    rateWin: "Janela de Rate Limit (minutos)",
+    ratePub: "Máximo de requisições públicas da API por janela",
+    rateAdm: "Máximo de requisições do admin por janela",
+    rateLog: "Máximo de tentativas de login por janela",
+    rateUpWin: "Janela de Rate Limit para uploads (minutos)",
+    rateUpMax: "Máximo de uploads por janela",
+    uploadSec: "7. Upload de Arquivos",
+    maxUpload: "Tamanho Máximo da Imagem (MB)",
+    uploadDir: "Diretório de Uploads",
+    allowedTypes: "Tipos MIME de Imagem Permitidos (separados por vírgula)",
+    redisSec: "8. Servidor Redis e Multi-nó (Opcional)",
+    redisUrl: "URL de Conexão do Redis (vazio para desativar)",
+    redisPrefix: "Prefixo de Chave do Redis",
+    redisEnabled: "Ativar escalonamento do Redis",
+    botSec: "9. Bot Inteligente com IA",
+    botMode: "Modo de Operação do Bot (disabled, knowledge-base, ai)",
+    botKey: "Chave API da OpenAI (requerido para modo: ai)",
+    botModel: "Modelo da OpenAI (ex: gpt-4o-mini)",
+    botTokens: "Limite de tokens de saída da IA por resposta",
+    botPrompt: "Prompt do Sistema do Bot de IA",
+    botConf: "Limite de Confiança da KB Difusa (0.0 a 1.0)",
+    botCtx: "Número de mensagens recentes de contexto",
+    botNotify: "Notificar admin no Telegram sobre resposta do bot",
+    confirmOverwrite: "já existe. Deseja sobrescrever?",
+    setupCanceled: "Configuração cancelada. Nenhuma alteração feita.",
+    writingConfig: "Escrevendo configuração no .env...",
+    success: "Configuração criada com sucesso!",
+    dockerSec: "Inicialização do Serviço Docker",
+    dockerPrompt: "Deseja compilar e iniciar o servidor no Docker agora?",
+    dockerRunning: "Iniciando Docker Compose em segundo plano...",
+    dockerSuccess: "Docker iniciado com sucesso! LiveChat Pro está rodando.",
+    nodeSec: "Inicialização do Serviço Node.js",
+    nodePrompt: "Deseja iniciar o servidor com Node agora?",
+    nodeRunning: "Iniciando o servidor Node.js em segundo plano...",
+    nodeStarting: "Iniciando o servidor...",
+    dockerFail: "Falha ao iniciar o Docker Compose. Verifique os logs acima.",
+    recommendedCmd: "Comando recomendado para iniciar manualmente:",
+    widgetSnippetTitle: "Snippet de código para colar no seu HTML:",
+    widgetBtnCodeTitle: "Código do botão personalizado para abrir o chat oculto:",
+    invalidVal: "Valor inválido. Por favor, tente novamente.",
+    kbTargetSuccess: "Modelo criado em data/knowledge-base.json. Edite-o para personalizar FAQs.",
   }
 };
 
@@ -357,22 +440,99 @@ function spawnAndLog(command, args, options = {}) {
 
     const logStream = fs.createWriteStream(logPath, { flags: 'a' });
 
+    let isSpinnerRunning = process.stdout.isTTY && command === 'node';
+    let spinnerFrame = 0;
+    const spinnerFrames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+    let spinnerInterval;
+
+    if (isSpinnerRunning) {
+      process.stdout.write('   Iniciando el servidor...  ');
+      spinnerInterval = setInterval(() => {
+        if (!isSpinnerRunning) return;
+        readline.cursorTo(process.stdout, 28);
+        process.stdout.write(color('cyan', spinnerFrames[spinnerFrame]));
+        spinnerFrame = (spinnerFrame + 1) % spinnerFrames.length;
+      }, 80);
+    }
+
+    const stopSpinner = () => {
+      if (isSpinnerRunning) {
+        isSpinnerRunning = false;
+        clearInterval(spinnerInterval);
+        readline.clearLine(process.stdout, 0);
+        readline.cursorTo(process.stdout, 0);
+      }
+    };
+
     const child = spawn(command, args, {
       ...options,
       stdio: ['inherit', 'pipe', 'pipe']
     });
 
-    child.stdout.on('data', (data) => {
-      process.stdout.write(data);
+    let stdoutBuffer = '';
+    let stderrBuffer = '';
+
+    const handleOutput = (data, isErrorStream = false) => {
+      stopSpinner();
       logStream.write(data);
+      
+      const str = data.toString();
+      let buffer = isErrorStream ? stderrBuffer : stdoutBuffer;
+      buffer += str;
+      const lines = buffer.split(/\r?\n/);
+      if (isErrorStream) {
+        stderrBuffer = lines.pop();
+      } else {
+        stdoutBuffer = lines.pop();
+      }
+      
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        try {
+          const parsed = JSON.parse(trimmed);
+          if (parsed && typeof parsed === 'object' && parsed.msg) {
+            const timeStr = parsed.time ? `[${new Date(parsed.time).toLocaleTimeString()}] ` : '';
+            let levelStr = '';
+            let levelColor = 'reset';
+            if (parsed.level === 10) { levelStr = 'TRACE'; levelColor = 'gray'; }
+            else if (parsed.level === 20) { levelStr = 'DEBUG'; levelColor = 'cyan'; }
+            else if (parsed.level === 30) { levelStr = 'INFO '; levelColor = 'green'; }
+            else if (parsed.level === 40) { levelStr = 'WARN '; levelColor = 'yellow'; }
+            else if (parsed.level === 50) { levelStr = 'ERROR'; levelColor = 'red'; }
+            else if (parsed.level === 60) { levelStr = 'FATAL'; levelColor = 'red'; }
+            
+            const levelFormatted = levelStr ? `${color(levelColor, levelStr)}: ` : '';
+            const errStr = parsed.err ? `\n${parsed.err.stack || JSON.stringify(parsed.err, null, 2)}` : '';
+            
+            process.stdout.write(`   ${color('gray', timeStr)}${levelFormatted}${parsed.msg}${errStr}\n`);
+          } else {
+            if (isErrorStream) {
+              process.stderr.write(`   ${line}\n`);
+            } else {
+              process.stdout.write(`   ${line}\n`);
+            }
+          }
+        } catch (e) {
+          if (isErrorStream) {
+            process.stderr.write(`   ${line}\n`);
+          } else {
+            process.stdout.write(`   ${line}\n`);
+          }
+        }
+      }
+    };
+
+    child.stdout.on('data', (data) => {
+      handleOutput(data, false);
     });
 
     child.stderr.on('data', (data) => {
-      process.stderr.write(data);
-      logStream.write(data);
+      handleOutput(data, true);
     });
 
     child.on('error', (err) => {
+      stopSpinner();
       const errMsg = `Error al iniciar el proceso: ${err.message}\n`;
       process.stderr.write(errMsg);
       logStream.write(errMsg);
@@ -381,6 +541,29 @@ function spawnAndLog(command, args, options = {}) {
     });
 
     child.on('close', (code) => {
+      stopSpinner();
+      
+      const flushRemaining = (buffer, isErrorStream) => {
+        if (buffer.trim()) {
+          try {
+            const parsed = JSON.parse(buffer.trim());
+            if (parsed && parsed.msg) {
+              const timeStr = parsed.time ? `[${new Date(parsed.time).toLocaleTimeString()}] ` : '';
+              process.stdout.write(`   ${color('gray', timeStr)}${parsed.msg}\n`);
+            } else {
+              if (isErrorStream) process.stderr.write(`   ${buffer}\n`);
+              else process.stdout.write(`   ${buffer}\n`);
+            }
+          } catch (e) {
+            if (isErrorStream) process.stderr.write(`   ${buffer}\n`);
+            else process.stdout.write(`   ${buffer}\n`);
+          }
+        }
+      };
+      
+      flushRemaining(stdoutBuffer, false);
+      flushRemaining(stderrBuffer, true);
+
       const exitMsg = `\nEl proceso terminó con el código: ${code}\n`;
       logStream.write(exitMsg);
       logStream.end();
@@ -399,11 +582,12 @@ async function main() {
   console.log(color('cyan', '└──────────────────────────────────────────────────────────┘'));
   
   // Language Prompt
-  console.log('\n   Select Wizard Language / Selecciona el Idioma del Asistente:');
+  console.log('\n   Select Wizard Language / Selecciona el Idioma del Asistente / Selecione o Idioma do Assistente:');
   console.log('     [1] English');
   console.log('     [2] Español');
-  const langChoice = await ask(color('yellow', '   Choose / Elige [1]: '));
-  currentLang = langChoice === '2' ? 'es' : 'en';
+  console.log('     [3] Português');
+  const langChoice = await ask(color('yellow', '   Choose / Elige / Escolha [1]: '));
+  currentLang = langChoice === '2' ? 'es' : (langChoice === '3' ? 'pt' : 'en');
 
   console.log('\n' + color('gray', '   ' + t('desc')));
 
@@ -451,6 +635,7 @@ async function main() {
     // 8. Redis
     REDIS_URL: '',
     REDIS_KEY_PREFIX: 'lcp',
+    REDIS_ENABLED: process.platform === 'win32' ? 'false' : 'true',
     // 9. Smart Bot
     BOT_MODE: 'knowledge-base',
     OPENAI_API_KEY: '',
@@ -647,6 +832,11 @@ async function main() {
   }
   answers.WIDGET_PRIMARY_COLOR = selectedColor;
 
+  answers.WIDGET_API_KEY = await askQuestion(
+    t('widgetApiKey'),
+    mergedDefaults.WIDGET_API_KEY
+  );
+
   if (configMode === 'all') {
     answers.WIDGET_BUTTON_STYLE = await askSelection(
       t('widgetBtn'),
@@ -661,14 +851,9 @@ async function main() {
       t('widgetWelcome'),
       mergedDefaults.WIDGET_WELCOME_MESSAGE
     );
-    answers.WIDGET_API_KEY = await askQuestion(
-      t('widgetApiKey'),
-      mergedDefaults.WIDGET_API_KEY
-    );
   } else {
     answers.WIDGET_BUTTON_STYLE = mergedDefaults.WIDGET_BUTTON_STYLE;
     answers.WIDGET_WELCOME_MESSAGE = mergedDefaults.WIDGET_WELCOME_MESSAGE;
-    answers.WIDGET_API_KEY = mergedDefaults.WIDGET_API_KEY;
   }
 
   // Group 4: Features
@@ -798,9 +983,14 @@ async function main() {
       t('redisPrefix'),
       mergedDefaults.REDIS_KEY_PREFIX
     );
+    answers.REDIS_ENABLED = String(await chooseYesNo(
+      '   ' + t('redisEnabled'),
+      mergedDefaults.REDIS_ENABLED === 'true'
+    ));
   } else {
     answers.REDIS_URL = mergedDefaults.REDIS_URL;
     answers.REDIS_KEY_PREFIX = mergedDefaults.REDIS_KEY_PREFIX;
+    answers.REDIS_ENABLED = mergedDefaults.REDIS_ENABLED !== undefined ? mergedDefaults.REDIS_ENABLED : (process.platform === 'win32' ? 'false' : 'true');
   }
 
   // Group 9: Smart Bot & AI
@@ -942,6 +1132,7 @@ async function main() {
     '# 8. Redis scaling',
     `REDIS_URL=${quoteEnv(answers.REDIS_URL)}`,
     `REDIS_KEY_PREFIX=${quoteEnv(answers.REDIS_KEY_PREFIX)}`,
+    `REDIS_ENABLED=${quoteEnv(answers.REDIS_ENABLED)}`,
     '',
     '# 9. Smart AI Bot',
     `BOT_MODE=${quoteEnv(answers.BOT_MODE)}`,
@@ -972,18 +1163,69 @@ async function main() {
       
       if (rl) rl.close();
       
-      let code;
+      const { spawn } = require('child_process');
+      const logPath = path.join(ROOT, 'install.log');
+      
+      let isSpinnerRunning = process.stdout.isTTY;
+      let spinnerFrame = 0;
+      const spinnerFrames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+      let spinnerInterval;
+
+      if (isSpinnerRunning) {
+        process.stdout.write('   ' + t('nodeStarting') + '  ');
+        spinnerInterval = setInterval(() => {
+          readline.cursorTo(process.stdout, 28);
+          process.stdout.write(color('cyan', spinnerFrames[spinnerFrame]));
+          spinnerFrame = (spinnerFrame + 1) % spinnerFrames.length;
+        }, 80);
+      }
+
+      let child;
       try {
-        code = await spawnAndLog('node', ['server.js']);
+        const outLog = fs.openSync(logPath, 'a');
+        fs.writeSync(outLog, `\n=== Servidor (Background) ===\nIniciando 'node server.js'\nFecha: ${new Date().toISOString()}\n\n`);
+
+        child = spawn('node', ['server.js'], {
+          detached: true,
+          stdio: ['ignore', outLog, outLog]
+        });
+        
+        fs.closeSync(outLog);
+        child.unref();
       } catch (err) {
+        if (isSpinnerRunning) {
+          clearInterval(spinnerInterval);
+          readline.clearLine(process.stdout, 0);
+          readline.cursorTo(process.stdout, 0);
+        }
         console.log('\n' + color('red', `   ✘ Error al iniciar el servidor Node.js: ${err.message}`));
-        code = -1;
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      if (isSpinnerRunning) {
+        clearInterval(spinnerInterval);
+        readline.clearLine(process.stdout, 0);
+        readline.cursorTo(process.stdout, 0);
+      }
+
+      if (child) {
+        const hasExited = child.exitCode !== null;
+        if (hasExited) {
+          console.log('\n' + color('red', `   ✘ El servidor no pudo arrancar. Código de salida: ${child.exitCode}`));
+          console.log(color('red', `     Revisa los detalles en: ${logPath}`));
+          didStart = false;
+        } else {
+          console.log('\n' + color('green', `   ✓ El servidor se inició en segundo plano. Logs en: ${logPath}`));
+          didStart = true;
+        }
+      } else {
+        didStart = false;
       }
       
       if (!SCRIPTED_INPUT) {
         rl = readline.createInterface({ input: process.stdin, output: process.stdout });
       }
-      didStart = code === 0;
     }
   } else {
     // Docker Compose Launch Option (Linux/other)

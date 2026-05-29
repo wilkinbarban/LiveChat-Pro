@@ -18,6 +18,7 @@ process.env.RATE_LIMIT_PUBLIC_MAX = '10000';
 process.env.RATE_LIMIT_ADMIN_MAX = '10000';
 process.env.RATE_LIMIT_LOGIN_MAX = '10000';
 process.env.RATE_LIMIT_UPLOAD_MAX = '10000';
+process.env.WIDGET_API_KEY = '';
 
 // ── Telegraf mock (before requiring server.js) ───────────────
 const telegrafPath = require.resolve('telegraf');

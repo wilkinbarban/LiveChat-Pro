@@ -3,10 +3,11 @@
 // ClusterState is the only module that knows whether the application is
 // running as a single process or with Redis-backed shared state.
 class ClusterState {
-  constructor({ redisUrl = '', keyPrefix = 'lcp', logger = console } = {}) {
+  constructor({ redisUrl = '', keyPrefix = 'lcp', logger = console, enabled = true } = {}) {
     this.redisUrl = redisUrl;
     this.keyPrefix = keyPrefix;
     this.logger = logger;
+    this.enabled = enabled;
     this.mode = 'memory';
 
     this.pubClient = null;
@@ -79,6 +80,10 @@ class ClusterState {
   // Enables Socket.IO cross-node fanout and Redis-backed state. Failure is
   // non-fatal so local development and single-node deployments continue to work.
   async connect(io) {
+    if (!this.enabled) {
+      this.logger.info('Redis desactivado en este entorno. Se usará el modo local');
+      return false;
+    }
     if (!this.redisUrl) return false;
 
     let hasConnected = false;
