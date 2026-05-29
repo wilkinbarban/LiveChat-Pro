@@ -78,6 +78,14 @@ class ClusterState {
     const subClient = pubClient.duplicate();
     const stateClient = pubClient.duplicate();
 
+    const errorHandler = (err) => {
+      this.logger.debug({ err }, 'Error de conexión en cliente Redis (ignorado para usar modo local)');
+    };
+
+    pubClient.on('error', errorHandler);
+    subClient.on('error', errorHandler);
+    stateClient.on('error', errorHandler);
+
     try {
       await Promise.all([
         pubClient.connect(),

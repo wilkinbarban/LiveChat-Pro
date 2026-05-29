@@ -98,7 +98,7 @@ async function detectPublicIp() {
 
   const fetchIp = (cmd) => {
     return new Promise(resolve => {
-      const child = spawn(cmd.split(' ')[0], cmd.split(' ').slice(1), { stdio: ['ignore', 'pipe', 'ignore'], shell: true });
+      const child = spawn(cmd.split(' ')[0], cmd.split(' ').slice(1), { stdio: ['ignore', 'pipe', 'ignore'], shell: false });
       let output = '';
       child.stdout.on('data', chunk => { output += chunk; });
       child.on('close', code => {
@@ -174,7 +174,7 @@ const TEXTS = {
     sameSite: "Cookie SameSite Policy (lax, strict, none)",
     widgetSec: "3. Widget Customization",
     widgetBtn: "Widget Button Style (floating, persistent, hidden)",
-    widgetColor: "Widget Primary Color (Hex format, e.g. #4F46E5)",
+    widgetColor: "Widget Primary Color",
     widgetWelcome: "Custom Welcome Message (leave empty for auto)",
     widgetApiKey: "Widget API Key (leave empty to disable validation)",
     featuresSec: "4. Features (true/false)",
@@ -251,7 +251,7 @@ const TEXTS = {
     sameSite: "Política SameSite de Cookies (lax, strict, none)",
     widgetSec: "3. Personalización del Widget",
     widgetBtn: "Estilo de Botón del Widget (floating, persistent, hidden)",
-    widgetColor: "Color Principal del Widget (Formato Hex, ej. #4F46E5)",
+    widgetColor: "Color Principal del Widget",
     widgetWelcome: "Mensaje de Bienvenida Personalizado (vacío para auto)",
     widgetApiKey: "Clave API del Widget (vacío para desactivar validación)",
     featuresSec: "4. Funcionalidades (true/false)",
@@ -548,11 +548,57 @@ async function main() {
 
   // Group 3: Widget
   printSectionHeader(t('widgetSec'));
-  answers.WIDGET_PRIMARY_COLOR = await askQuestion(
+
+  const colorOptions = currentLang === 'es' ? [
+    { key: '1', name: 'Indigo / Azul Violeta (#4F46E5)', value: '#4F46E5' },
+    { key: '2', name: 'Teal / Azul Turquesa (#0D9488)', value: '#0D9488' },
+    { key: '3', name: 'Emerald / Verde Esmeralda (#059669)', value: '#059669' },
+    { key: '4', name: 'Blue / Azul Eléctrico (#2563EB)', value: '#2563EB' },
+    { key: '5', name: 'Violet / Violeta (#7C3AED)', value: '#7C3AED' },
+    { key: '6', name: 'Rose / Rosado Fresa (#E11D48)', value: '#E11D48' },
+    { key: '7', name: 'Amber / Naranja Cálido (#D97706)', value: '#D97706' },
+    { key: '8', name: 'Cyan / Azul Cielo (#0891B2)', value: '#0891B2' },
+    { key: '9', name: 'Fuchsia / Fucsia (#C026D3)', value: '#C026D3' },
+    { key: '10', name: 'Slate / Gris Oscuro (#475569)', value: '#475569' },
+    { key: '11', name: 'Personalizado (Ingresar código hexadecimal)', value: 'custom' }
+  ] : [
+    { key: '1', name: 'Indigo / Violet Blue (#4F46E5)', value: '#4F46E5' },
+    { key: '2', name: 'Teal (#0D9488)', value: '#0D9488' },
+    { key: '3', name: 'Emerald Green (#059669)', value: '#059669' },
+    { key: '4', name: 'Electric Blue (#2563EB)', value: '#2563EB' },
+    { key: '5', name: 'Violet (#7C3AED)', value: '#7C3AED' },
+    { key: '6', name: 'Strawberry Rose (#E11D48)', value: '#E11D48' },
+    { key: '7', name: 'Warm Amber (#D97706)', value: '#D97706' },
+    { key: '8', name: 'Sky Cyan (#0891B2)', value: '#0891B2' },
+    { key: '9', name: 'Fuchsia (#C026D3)', value: '#C026D3' },
+    { key: '10', name: 'Dark Slate Gray (#475569)', value: '#475569' },
+    { key: '11', name: 'Custom (Enter hex code)', value: 'custom' }
+  ];
+
+  // If the default value is not in the predefined list, insert an option 0 for it
+  const isDefaultPredefined = colorOptions.some(opt => opt.value === mergedDefaults.WIDGET_PRIMARY_COLOR);
+  if (!isDefaultPredefined && mergedDefaults.WIDGET_PRIMARY_COLOR) {
+    colorOptions.unshift({
+      key: '0',
+      name: `${currentLang === 'es' ? 'Valor actual' : 'Current value'} (${mergedDefaults.WIDGET_PRIMARY_COLOR})`,
+      value: mergedDefaults.WIDGET_PRIMARY_COLOR
+    });
+  }
+
+  let selectedColor = await askSelection(
     t('widgetColor'),
-    mergedDefaults.WIDGET_PRIMARY_COLOR,
-    isValidHexColor
+    colorOptions,
+    mergedDefaults.WIDGET_PRIMARY_COLOR
   );
+
+  if (selectedColor === 'custom') {
+    selectedColor = await askQuestion(
+      currentLang === 'es' ? 'Ingresa el color en formato Hex (ej. #FF5733)' : 'Enter Hex color (e.g. #FF5733)',
+      mergedDefaults.WIDGET_PRIMARY_COLOR,
+      isValidHexColor
+    );
+  }
+  answers.WIDGET_PRIMARY_COLOR = selectedColor;
 
   if (configMode === 'all') {
     answers.WIDGET_BUTTON_STYLE = await askSelection(
@@ -880,7 +926,7 @@ async function main() {
       if (rl) rl.close();
       
       const code = await new Promise(resolve => {
-        const child = spawn('node', ['server.js'], { stdio: 'inherit', shell: true });
+        const child = spawn('node', ['server.js'], { stdio: 'inherit', shell: false });
         child.on('close', code => resolve(code));
       });
       
