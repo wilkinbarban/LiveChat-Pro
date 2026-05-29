@@ -21,6 +21,15 @@ class ClusterState {
     this.localPresence = new Map();
   }
 
+  async _safeDisconnect(client) {
+    if (!client) return;
+    try {
+      await client.disconnect();
+    } catch (err) {
+      // Ignorar errores de cliente ya cerrado
+    }
+  }
+
   // Keep every Redis key namespaced so multiple deployments can share a Redis
   // instance without colliding.
   key(suffix) {
@@ -72,9 +81,26 @@ class ClusterState {
   async connect(io) {
     if (!this.redisUrl) return false;
 
+    let hasConnected = false;
+
     const { createClient } = require('redis');
     const { createAdapter } = require('@socket.io/redis-adapter');
-    const pubClient = createClient({ url: this.redisUrl });
+    const socketOptions = {
+      reconnectStrategy: (retries) => {
+        if (!hasConnected) {
+          if (retries >= 3) {
+            return false;
+          }
+          return 100;
+        }
+        return Math.min(retries * 100, 3000);
+      }
+    };
+
+    const pubClient = createClient({
+      url: this.redisUrl,
+      socket: socketOptions
+    });
     const subClient = pubClient.duplicate();
     const stateClient = pubClient.duplicate();
 
@@ -85,6 +111,10 @@ class ClusterState {
     pubClient.on('error', errorHandler);
     subClient.on('error', errorHandler);
     stateClient.on('error', errorHandler);
+
+    pubClient.on('connect', () => { hasConnected = true; });
+    subClient.on('connect', () => { hasConnected = true; });
+    stateClient.on('connect', () => { hasConnected = true; });
 
     try {
       await Promise.all([
@@ -105,9 +135,9 @@ class ClusterState {
     } catch (error) {
       this.logger.warn({ err: error }, 'No se pudo habilitar Redis. Se usará el modo local');
       await Promise.allSettled([
-        pubClient.quit(),
-        subClient.quit(),
-        stateClient.quit(),
+        this._safeDisconnect(pubClient),
+        this._safeDisconnect(subClient),
+        this._safeDisconnect(stateClient),
       ]);
       this.pubClient = null;
       this.subClient = null;
@@ -119,9 +149,9 @@ class ClusterState {
 
   async close() {
     await Promise.allSettled([
-      this.pubClient?.quit?.(),
-      this.subClient?.quit?.(),
-      this.stateClient?.quit?.(),
+      this._safeDisconnect(this.pubClient),
+      this._safeDisconnect(this.subClient),
+      this._safeDisconnect(this.stateClient),
     ]);
   }
 
