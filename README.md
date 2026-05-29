@@ -574,54 +574,6 @@ server.js
 
 In a local run without Docker, the default database path is `data/livechat.db` inside the project directory.
 
-## How It Works & Deep Dive Workflow
-
-LiveChat Pro coordinates an optimized real-time communication pipeline across multiple backend and frontend layers. Below is an exhaustive breakdown of the architectural flow:
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor Visitor as Web Visitor
-    participant Widget as Widget (Shadow DOM)
-    participant Server as server.js (Node.js)
-    participant Bot as Smart Bot (Fuzzy/AI)
-    participant DB as SQLite (livechat.db)
-    participant Tele as Telegram Admin
-    participant WebAdmin as Web Admin (/admin)
-
-    Visitor->>Widget: Opens webpage / interacts
-    Widget->>Server: Connects via Socket.IO (restores session/history)
-    Visitor->>Widget: Types & sends message
-    Widget->>Server: Emits 'chat_message' (Socket.IO)
-    Server->>DB: Persists message (SQLite)
-    alt Bot Mode is enabled (KB or AI) and admin active is false
-        Server->>Bot: Invokes Bot Logic
-        alt Bot has high-confidence answer
-            Bot->>Server: Returns Bot Response
-            Server->>DB: Persists Bot Response (SQLite)
-            Server->>Widget: Emits Bot Response (Socket.IO)
-        else Bot low confidence / fails
-            Server->>Tele: Forwards via Telegraf (Telegram API)
-            Server->>WebAdmin: Emits message with Geolocation & Sentiment
-        end
-    else Bot Mode is disabled or Admin has taken over
-        Server->>Tele: Forwards via Telegraf (Telegram API)
-        Server->>WebAdmin: Emits message with Geolocation & Sentiment
-    end
-    
-    rect rgb(240, 248, 255)
-        Note over Tele, WebAdmin: Admin responds
-        alt Admin responds from Web Panel
-            WebAdmin->>Server: Emits 'admin_message' (Socket.IO)
-        else Admin responds from Telegram
-            Tele->>Server: Callback webhook response
-        end
-        Server->>DB: Persists Admin Response (SQLite)
-        Server->>Server: Translates response if needed
-        Server->>Widget: Emits 'chat_message' to visitor (Socket.IO)
-    end
-```
-
 ### Deep Dive Architectural Phases
 
 1. **Frontend Isolation & Mobile Responsiveness**:
