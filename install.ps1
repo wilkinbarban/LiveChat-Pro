@@ -46,7 +46,8 @@ if (-not $nodeInstalled -and -not $isAdmin) {
 
 # Initialize temporary log path to capture early installer tasks
 $LogPath = Join-Path $env:TEMP "livechat_install.log"
-"--- LiveChat Pro Windows installation log started at $(Get-Date) ---" | Out-File -FilePath $LogPath
+"=== Instalacion ===" | Out-File -FilePath $LogPath
+"--- LiveChat Pro Windows installation log started at $(Get-Date) ---" | Out-File -FilePath $LogPath -Append
 
 # Function to run a task with a spinner
 function Run-TaskWithSpinner {

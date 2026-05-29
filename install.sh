@@ -26,7 +26,8 @@ if [ ! -f "setup.js" ]; then
 fi
 
 # Clear log file on startup
-echo "--- LiveChat Pro installation log started at $(date) ---" > install.log
+echo "=== Instalacion ===" > install.log
+echo "--- LiveChat Pro installation log started at $(date) ---" >> install.log
 
 # Show header
 echo -e "${CYAN}┌──────────────────────────────────────────────────────────┐${RESET}"

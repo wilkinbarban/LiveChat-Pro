@@ -342,6 +342,53 @@ function printSectionHeader(title) {
   console.log('\n' + color('bright', `  ── ${title} ` + '─'.repeat(Math.max(10, 50 - title.length))));
 }
 
+function spawnAndLog(command, args, options = {}) {
+  return new Promise((resolve, reject) => {
+    const fs = require('fs');
+    const path = require('path');
+    const logPath = path.join(__dirname, 'install.log');
+    
+    // Append the section header to the log file
+    try {
+      fs.appendFileSync(logPath, `\n=== Servidor ===\nIniciando comando: ${command} ${args.join(' ')}\nFecha: ${new Date().toISOString()}\n\n`);
+    } catch (e) {
+      console.error('Error escribiendo en install.log:', e.message);
+    }
+
+    const logStream = fs.createWriteStream(logPath, { flags: 'a' });
+
+    const child = spawn(command, args, {
+      ...options,
+      stdio: ['inherit', 'pipe', 'pipe']
+    });
+
+    child.stdout.on('data', (data) => {
+      process.stdout.write(data);
+      logStream.write(data);
+    });
+
+    child.stderr.on('data', (data) => {
+      process.stderr.write(data);
+      logStream.write(data);
+    });
+
+    child.on('error', (err) => {
+      const errMsg = `Error al iniciar el proceso: ${err.message}\n`;
+      process.stderr.write(errMsg);
+      logStream.write(errMsg);
+      logStream.end();
+      reject(err);
+    });
+
+    child.on('close', (code) => {
+      const exitMsg = `\nEl proceso terminó con el código: ${code}\n`;
+      logStream.write(exitMsg);
+      logStream.end();
+      resolve(code);
+    });
+  });
+}
+
 async function main() {
   // Clear console
   if (!process.env.LIVECHAT_SETUP_NO_CLEAR) console.clear();
@@ -925,10 +972,13 @@ async function main() {
       
       if (rl) rl.close();
       
-      const code = await new Promise(resolve => {
-        const child = spawn('node', ['server.js'], { stdio: 'inherit', shell: false });
-        child.on('close', code => resolve(code));
-      });
+      let code;
+      try {
+        code = await spawnAndLog('node', ['server.js']);
+      } catch (err) {
+        console.log('\n' + color('red', `   ✘ Error al iniciar el servidor Node.js: ${err.message}`));
+        code = -1;
+      }
       
       if (!SCRIPTED_INPUT) {
         rl = readline.createInterface({ input: process.stdin, output: process.stdout });
@@ -950,10 +1000,13 @@ async function main() {
         
         if (rl) rl.close();
         
-        const code = await new Promise(resolve => {
-          const child = spawn(cmd, args, { stdio: 'inherit', shell: false });
-          child.on('close', code => resolve(code));
-        });
+        let code;
+        try {
+          code = await spawnAndLog(cmd, args);
+        } catch (err) {
+          console.log('\n' + color('red', `   ✘ Error al iniciar Docker Compose: ${err.message}`));
+          code = -1;
+        }
 
         // Restore readline
         if (!SCRIPTED_INPUT) {
