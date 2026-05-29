@@ -16,6 +16,11 @@ RESET='\e[0m'
 
 # Check if setup.js exists. If not, we clone the repo and enter it
 if [ ! -f "setup.js" ]; then
+    if [ -e "LiveChat-Pro" ]; then
+        BACKUP_NAME="LiveChat-Pro_backup_$(date +%Y%m%d_%H%M%S)"
+        echo -e "${YELLOW}[ℹ]${RESET} Existing 'LiveChat-Pro' folder detected. Renaming it to '${BACKUP_NAME}' to avoid conflict..."
+        mv "LiveChat-Pro" "$BACKUP_NAME" || { echo -e "${RED}[✗] Failed to rename existing 'LiveChat-Pro' directory.${RESET}"; exit 1; }
+    fi
     echo -e "${BLUE}[ℹ]${RESET} LiveChat Pro directory not detected. Cloning repository..."
     if ! command -v git >/dev/null 2>&1; then
         echo -e "${RED}[✗] git is not installed. Please install git or run the script from the project root directory.${RESET}"
