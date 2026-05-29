@@ -322,13 +322,26 @@
         .then(response => response.json())
         .then(config => {
           if (config.primaryColor) root.style.setProperty('--chat-color', config.primaryColor);
-        })
-        .catch(() => {});
 
-      document.getElementById('snippet').textContent =
-        `<script src="${origin}/widget.js" data-server="${origin}"><` + '/script>';
+          const keyAttr = config.apiKey ? ` data-api-key="${config.apiKey}"` : '';
+          document.getElementById('snippet').textContent =
+            `<script src="${origin}/widget.js" data-server="${origin}"${keyAttr}><` + '/script>';
+
+          const script = document.createElement('script');
+          script.src = '/widget.js';
+          script.setAttribute('data-server', origin);
+          if (config.apiKey) {
+            script.setAttribute('data-api-key', config.apiKey);
+          }
+          document.body.appendChild(script);
+        })
+        .catch(() => {
+          const script = document.createElement('script');
+          script.src = '/widget.js';
+          script.setAttribute('data-server', origin);
+          document.body.appendChild(script);
+        });
     })();
   </script>
-  <script src="/widget.js" data-server=""></script>
 </body>
 </html>

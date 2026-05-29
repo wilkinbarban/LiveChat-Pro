@@ -143,6 +143,7 @@ describe('Smoke tests', () => {
     assert.equal(r.headers.get('cross-origin-resource-policy'), 'cross-origin');
     assert.ok('primaryColor' in r.json, 'falta primaryColor');
     assert.ok('buttonStyle' in r.json, 'falta buttonStyle');
+    assert.ok('apiKey' in r.json, 'falta apiKey');
   });
 
   it('OPTIONS /config-public permite preflight público del widget', async () => {

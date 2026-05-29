@@ -649,7 +649,11 @@ app.get('/widget.js', publicApiLimiter, (req, res) => {
 
 app.get('/config-public', publicApiLimiter, (req, res) => {
   // Only expose visual widget settings that are safe for public embedded pages.
-  res.json({ primaryColor: widgetCfg.primaryColor, buttonStyle: widgetCfg.buttonStyle });
+  res.json({
+    primaryColor: widgetCfg.primaryColor,
+    buttonStyle: widgetCfg.buttonStyle,
+    apiKey: widgetCfg.apiKey
+  });
 });
 
 app.use(createAdminRouter({
