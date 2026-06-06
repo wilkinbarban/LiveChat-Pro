@@ -159,9 +159,9 @@ function renderHealthPage(data, lang = 'es') {
       <div class="panel">
         <h2>${escapeHtml(copy.links)}</h2>
         <div class="links">
-          <a class="btn primary" href="/">${escapeHtml(copy.demo)}</a>
-          <a class="btn" href="/admin">${escapeHtml(copy.admin)}</a>
-          <a class="btn" href="/health?format=json">${escapeHtml(copy.json)}</a>
+          <a class="btn primary" href="./">${escapeHtml(copy.demo)}</a>
+          <a class="btn" href="./admin">${escapeHtml(copy.admin)}</a>
+          <a class="btn" href="./health?format=json">${escapeHtml(copy.json)}</a>
         </div>
         <pre>${healthJson}</pre>
       </div>

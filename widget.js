@@ -156,10 +156,20 @@
     // ── Socket connection ──────────────────────────────────
     // autoConnect is disabled until the DOM is ready and event handlers are
     // attached, preventing early events from being missed.
-    const socket = io(SERVER_URL, {
+    let serverUrlClean = SERVER_URL.replace(/\/+$/, '');
+    let parsedUrl;
+    try {
+      parsedUrl = new URL(serverUrlClean);
+    } catch (e) {
+      parsedUrl = new URL(serverUrlClean, window.location.origin);
+    }
+    const baseSubpath = parsedUrl.pathname.replace(/\/+$/, '');
+
+    const socket = io(parsedUrl.origin, {
+      path: (baseSubpath ? baseSubpath : '') + '/socket.io',
       auth: { sessionId, apiKey: API_KEY, lang: WIDGET_LOCALE },
       autoConnect: false,
-      transports: ['websocket', 'polling'],
+      transports: ['websocket', 'polling']
     });
 
     // ── DOM ────────────────────────────────────────────────

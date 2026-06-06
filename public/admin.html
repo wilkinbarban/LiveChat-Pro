@@ -105,7 +105,7 @@
     <aside class="sidebar">
       <section class="topbar">
         <div><div class="brand-mark" data-i18n="singleAdmin">Admin único</div><h1 data-i18n="chats">Chats</h1><p data-i18n="directManage">Gestión directa de conversaciones.</p></div>
-        <div class="top-actions"><a href="/">Demo</a><a href="/health">Health</a><button id="logoutBtn" class="btn-soft" type="button" data-i18n="logout">Salir</button></div>
+        <div class="top-actions"><a href="./">Demo</a><a href="./health">Health</a><button id="logoutBtn" class="btn-soft" type="button" data-i18n="logout">Salir</button></div>
       </section>
       <section class="filters">
         <input id="searchInput" type="search" placeholder="Buscar nombre, ID, IP, país, página" data-i18n-placeholder="search">
@@ -155,10 +155,27 @@
   </div>
   <div id="loadingBadge" class="loading hidden">Sincronizando...</div>
 
-  <script src="/socket.io/socket.io.js"></script>
   <script>
     (() => {
       'use strict';
+      const getBasePath = () => {
+        const path = window.location.pathname;
+        return path.replace(/\/admin(\.html)?\/?$/, '');
+      };
+      const resolvePath = path => {
+        if (!path.startsWith('/')) return path;
+        const base = getBasePath();
+        if (!base) return path;
+        if (path === base || path.startsWith(base + '/')) return path;
+        return base + path;
+      };
+      function loadScript(src) {
+        return new Promise((resolve, reject) => {
+          const s = document.createElement('script');
+          s.src = src; s.onload = resolve; s.onerror = reject;
+          document.head.appendChild(s);
+        });
+      }
       const dictionaries = {
         es: { loginTitle:'Acceso administrador', loginLead:'Panel privado para gestionar chats, usuarios y estado general del sistema.', password:'Contraseña del panel', loginNotice:'Inicia sesión para cargar el panel.', enter:'Entrar', singleAdmin:'Admin único', chats:'Chats', directManage:'Gestión directa de conversaciones.', logout:'Salir', search:'Buscar nombre, ID, IP, país, página', online:'Online', all:'Todos', refresh:'Recargar', users:'Usuarios', connected:'Conectados', offline:'Desconectados', unread:'Sin leer', messages:'Mensajes', blocked:'Bloqueados', selectChat:'Selecciona un chat', detailHere:'El detalle aparecerá aquí.', geo:'Geolocalización', page:'Página actual', language:'Idioma', created:'Creado', lastActive:'Última actividad', clear:'Limpiar chat', block:'Bloquear', ban:'Banear', delete:'Eliminar', history:'Historial', reply:'Responder', ready:'Listo.', send:'Enviar', writeReply:'Escribe tu respuesta', syncing:'Sincronizando...', noCsrf:'No se encontró token CSRF. Recarga la página.', network:'Error de red', unnamed:'Sin nombre', unknown:'Desconocido', noIp:'sin ip', noSelection:'Sin selección', noMessages:'No hay mensajes todavía.', msgCount:n=>`${n} mensajes`, unreadCount:n=>`${n} sin leer`, read:'Leído', priority:'Prioridad', loading:'Cargando...', loadingChats:'Cargando chats...', loadingChat:'Cargando chat...', loggedIn:'Sesión iniciada.', loginRequired:'Inicia sesión para cargar el panel.', loginInvalid:'Sesión expirada o no iniciada.', connectedReply:'Cliente conectado. Puedes responder.', offlineReply:'Cliente offline. La respuesta quedará pendiente.', bannedUser:'Usuario bloqueado.', savedPending:'Respuesta guardada. Se entregará cuando el usuario vuelva.', sent:'Respuesta enviada.', emptyReply:'Escribe una respuesta.', clearConfirm:'¿Limpiar el historial de este chat?', blockConfirm:'¿Bloquear este usuario?', banConfirm:'¿Banear este usuario y desconectarlo?', deleteConfirm:'¿Eliminar este usuario y todo su historial?', clearing:'Limpiando chat...', blocking:'Bloqueando usuario...', banning:'Baneando usuario...', deleting:'Eliminando usuario...' },
         en: { loginTitle:'Admin access', loginLead:'Private panel to manage chats, users and general system status.', password:'Panel password', loginNotice:'Sign in to load the panel.', enter:'Enter', singleAdmin:'Single admin', chats:'Chats', directManage:'Direct conversation management.', logout:'Logout', search:'Search name, ID, IP, country, page', online:'Online', all:'All', refresh:'Refresh', users:'Users', connected:'Connected', offline:'Offline', unread:'Unread', messages:'Messages', blocked:'Blocked', selectChat:'Select a chat', detailHere:'Details will appear here.', geo:'Geolocation', page:'Current page', language:'Language', created:'Created', lastActive:'Last activity', clear:'Clear chat', block:'Block', ban:'Ban', delete:'Delete', history:'History', reply:'Reply', ready:'Ready.', send:'Send', writeReply:'Write your reply', syncing:'Syncing...', noCsrf:'CSRF token was not found. Reload the page.', network:'Network error', unnamed:'No name', unknown:'Unknown', noIp:'no ip', noSelection:'No selection', noMessages:'No messages yet.', msgCount:n=>`${n} messages`, unreadCount:n=>`${n} unread`, read:'Read', priority:'Priority', loading:'Loading...', loadingChats:'Loading chats...', loadingChat:'Loading chat...', loggedIn:'Signed in.', loginRequired:'Sign in to load the panel.', loginInvalid:'Session expired or not started.', connectedReply:'Client connected. You can reply.', offlineReply:'Client offline. The reply will stay pending.', bannedUser:'User blocked.', savedPending:'Reply saved. It will be delivered when the user returns.', sent:'Reply sent.', emptyReply:'Write a reply.', clearConfirm:'Clear this chat history?', blockConfirm:'Block this user?', banConfirm:'Ban this user and disconnect them?', deleteConfirm:'Delete this user and all history?', clearing:'Clearing chat...', blocking:'Blocking user...', banning:'Banning user...', deleting:'Deleting user...' },
@@ -196,7 +213,7 @@
       // Refreshes the double-submit CSRF token without changing authentication
       // state. This lets the login form recover if the browser dropped cookies.
       async function refreshCsrfToken() {
-        await fetch('/api/admin/me', { credentials: 'same-origin' }).catch(() => {});
+        await fetch(getBasePath() + '/api/admin/me', { credentials: 'same-origin' }).catch(() => {});
         state.csrfToken = readCookie('lcp_csrf');
         return state.csrfToken;
       }
@@ -210,7 +227,8 @@
           if (!csrfToken) throw new Error(t('noCsrf'));
           headers['x-csrf-token'] = csrfToken; state.csrfToken = csrfToken;
         }
-        let response = await fetch(path, { credentials: 'same-origin', headers, ...options });
+        let resolvedPath = resolvePath(path);
+        let response = await fetch(resolvedPath, { credentials: 'same-origin', headers, ...options });
         const data = await response.json().catch(() => ({}));
         if (!response.ok && response.status === 403 && method !== 'GET' && method !== 'HEAD') {
           // A single retry with a freshly issued CSRF cookie handles the common
@@ -218,7 +236,7 @@
           const csrfToken = await refreshCsrfToken();
           if (csrfToken && csrfToken !== headers['x-csrf-token']) {
             headers['x-csrf-token'] = csrfToken;
-            response = await fetch(path, { credentials: 'same-origin', headers, ...options });
+            response = await fetch(resolvedPath, { credentials: 'same-origin', headers, ...options });
             const retryData = await response.json().catch(() => ({}));
             if (!response.ok) throw new Error(retryData.error || t('network'));
             return retryData;
@@ -231,9 +249,10 @@
         const csrfToken = state.csrfToken || readCookie('lcp_csrf');
         if (!csrfToken) throw new Error(t('noCsrf'));
         state.csrfToken = csrfToken;
+        const resolvedPath = resolvePath(path);
         return new Promise((resolve, reject) => {
           const xhr = new XMLHttpRequest();
-          xhr.open('POST', path);
+          xhr.open('POST', resolvedPath);
           xhr.withCredentials = true;
           xhr.setRequestHeader('x-csrf-token', csrfToken);
           xhr.upload.onprogress = event => {
@@ -363,7 +382,11 @@
         // Realtime admin events use the signed admin cookie; REST auth and
         // Socket.IO auth therefore stay in sync.
         if (state.socket) state.socket.close();
-        state.socket = io('/admin', { withCredentials: true, transports: ['websocket', 'polling'] });
+        state.socket = io('/admin', {
+          path: getBasePath() + '/socket.io',
+          withCredentials: true,
+          transports: ['websocket', 'polling']
+        });
         state.socket.on('bootstrap', payload => { state.sessions = payload.sessions || []; renderSessions(); renderMetrics(); scheduleRefreshMetrics(); });
         state.socket.on('session:update', payload => { mergeSession(payload.session); renderSessions(); renderMetrics(); scheduleRefreshMetrics(); if (payload.session.sessionId === state.selectedSessionId) openSession(state.selectedSessionId, false).catch(() => {}); });
         state.socket.on('message:new', payload => { mergeSession(payload.session); renderSessions(); renderMetrics(); scheduleRefreshMetrics(); if (payload.sessionId === state.selectedSessionId) openSession(state.selectedSessionId, false).catch(() => {}); });
@@ -455,10 +478,18 @@
       async function boot() {
         // Boot always calls /me first so the CSRF cookie exists before any
         // mutating admin action is attempted.
+        if (!window.io) {
+          await loadScript(getBasePath() + '/socket.io/socket.io.js');
+        }
         const me = await api('/api/admin/me'); state.csrfToken = readCookie('lcp_csrf');
         if (!me.enabled) return showLogin('ADMIN_PANEL_PASSWORD');
         if (!me.authenticated) return showLogin();
-        showApp(); await refreshSessions(); connectRealtime();
+        showApp();
+        const demoLink = document.querySelector('.top-actions a[href="./"]');
+        if (demoLink) demoLink.href = getBasePath() + '/';
+        const healthLink = document.querySelector('.top-actions a[href="./health"]');
+        if (healthLink) healthLink.href = getBasePath() + '/health';
+        await refreshSessions(); connectRealtime();
       }
       boot().catch(error => showLogin(error.message));
     })();

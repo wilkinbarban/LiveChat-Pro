@@ -653,6 +653,106 @@ Admin cookies are marked as `Secure` when the request arrives through HTTPS or t
 
 Admin geolocation depends on Node receiving the visitor real public IP. The `nginx/livechat.conf` template already sends `X-Real-IP` and `X-Forwarded-For`; if the panel shows `127.x`, `10.x`, `172.16-31.x` or `192.168.x` IPs, the server is seeing a private Docker/proxy IP and the location will appear as unknown. In that case, use Nginx/HTTPS in front of the container or verify that the proxy preserves those headers.
 
+## Configuration Scenarios
+
+To help you configure and deploy LiveChat Pro, two common setup scenarios are detailed below.
+
+### Scenario 1: Production Deployment with Reverse Proxy and Subpath (HTTPS)
+
+Use this scenario when integrating the chat application into an existing website with HTTPS (e.g., `https://mywebsite.com`) and serving the chat under a subpath like `/chat/` (e.g., `https://mywebsite.com/chat/`).
+
+#### 1. Environment Configuration (`.env`)
+Configure the server environment variables as follows:
+```env
+PORT="3010"
+HOST_PORT="8080"
+NODE_ENV="production"
+ALLOWED_ORIGINS="https://mywebsite.com"
+COOKIE_SAME_SITE="none"
+```
+
+#### 2. Nginx Reverse Proxy Block
+Place the following inside your Nginx server block (usually `/etc/nginx/sites-available/livechat`). Make sure you have configured SSL certificates (e.g., via Let's Encrypt).
+```nginx
+upstream livechat_backend {
+    server 127.0.0.1:8080;
+    keepalive 32;
+}
+
+server {
+    listen 443 ssl;
+    server_name mywebsite.com;
+
+    ssl_certificate     /etc/letsencrypt/live/mywebsite.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/mywebsite.com/privkey.pem;
+
+    # Support upgrading to WebSocket connections
+    location /chat/ {
+        proxy_pass http://livechat_backend/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 86400s;
+        proxy_send_timeout 86400s;
+    }
+
+    # Explicit routing for WebSocket socket.io path
+    location /chat/socket.io/ {
+        proxy_pass http://livechat_backend/socket.io/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 86400s;
+        proxy_send_timeout 86400s;
+    }
+}
+```
+
+#### 3. HTML Snippet for Embedding the Widget
+Embed the widget on your pages using the `/chat` subpath URL:
+```html
+<script src="https://mywebsite.com/chat/widget.js" data-server="https://mywebsite.com/chat"></script>
+```
+
+#### 4. Admin and Health URLs
+After deployment, the admin dashboard and health check endpoints will be accessible at:
+- **Admin Dashboard**: `https://mywebsite.com/chat/admin`
+- **Health Endpoint**: `https://mywebsite.com/chat/health`
+
+---
+
+### Scenario 2: Development / Localhost / Direct Public IP (No Domain)
+
+Use this scenario when testing the application locally, or when hosting it on a VPS using a direct public IP address without a domain name or SSL certificates.
+
+#### 1. Environment Configuration (`.env`)
+```env
+PORT="3010"
+HOST_PORT="8080"
+NODE_ENV="development"
+ALLOWED_ORIGINS="http://localhost:3000,http://127.0.0.1:3000"
+COOKIE_SAME_SITE="lax"
+```
+
+#### 2. HTML Snippet for Embedding the Widget
+Embed the widget on your pages using the direct URL:
+```html
+<script src="http://localhost:8080/widget.js" data-server="http://localhost:8080"></script>
+```
+
+#### 3. Admin and Health URLs
+The admin dashboard and health check endpoints will be accessible at:
+- **Admin Dashboard**: `http://localhost:8080/admin`
+- **Health Endpoint**: `http://localhost:8080/health`
+
 ## Main Files
 
 ```text

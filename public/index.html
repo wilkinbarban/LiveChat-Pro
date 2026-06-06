@@ -252,8 +252,8 @@
       <h1 data-i18n="title">Así se verá el chat cuando lo pegues en tu web.</h1>
       <p class="lead" data-i18n="lead">Esta página usa la misma configuración real del proyecto: color principal, estilo del botón, idioma del navegador y conexión con Telegram.</p>
       <div class="actions">
-        <a class="btn primary" href="/admin" data-i18n="admin">Abrir panel admin</a>
-        <a class="btn" href="/health" data-i18n="health">Ver salud del sistema</a>
+        <a class="btn primary" href="./admin" data-i18n="admin">Abrir panel admin</a>
+        <a class="btn" href="./health" data-i18n="health">Ver salud del sistema</a>
       </div>
       <section class="features" aria-label="Capacidades del chat">
         <article class="feature"><strong data-i18n="f1t">Widget real</strong><span data-i18n="f1d">El botón flotante de esta demo carga `/widget.js` como lo hará cualquier sitio externo.</span></article>
@@ -303,6 +303,11 @@
 
   <script>
     (() => {
+      const getBasePath = () => {
+        const path = window.location.pathname;
+        return path.replace(/\/index\.html\/?$/, '').replace(/\/$/, '');
+      };
+
       const translations = {
         es: { titlePage:'Demo - LiveChat Pro', eyebrow:'Demo en vivo en el servidor', title:'Así se verá el chat cuando lo pegues en tu web.', lead:'Esta página usa la misma configuración real del proyecto: color principal, estilo del botón, idioma del navegador y conexión con Telegram.', admin:'Abrir panel admin', health:'Ver salud del sistema', f1t:'Widget real', f1d:'El botón flotante de esta demo carga `/widget.js` como lo hará cualquier sitio externo.', f2t:'Traducción', f2d:'El cliente ve su idioma; el admin trabaja en el idioma configurado.', f3t:'Telegram', f3d:'Las conversaciones llegan al bot y también quedan disponibles en `/admin`.', support:'Soporte en vivo', online:'Online', b1:'¡Hola! ¿Cómo te gustaría que te llamemos?', b2:'Encantado. ¿En qué podemos ayudarte?', hint:'Usa el botón real de la esquina inferior para probar el flujo completo de visitante.' },
         en: { titlePage:'Demo - LiveChat Pro', eyebrow:'Live demo on this server', title:'This is how the chat will look when you paste it into your site.', lead:'This page uses the real project configuration: primary color, button style, browser language and Telegram connection.', admin:'Open admin panel', health:'View system health', f1t:'Real widget', f1d:'The floating button in this demo loads `/widget.js` just like any external site will.', f2t:'Translation', f2d:'The visitor sees their language; the admin works in the configured language.', f3t:'Telegram', f3d:'Conversations arrive in the bot and are also available in `/admin`.', support:'Live support', online:'Online', b1:'Hi! What name would you like us to use?', b2:'Nice to meet you. How can we help?', hint:'Use the real button in the lower corner to test the complete visitor flow.' },
@@ -318,18 +323,18 @@
 
       const root = document.documentElement;
       const origin = window.location.origin;
-      fetch('/config-public')
+      fetch(getBasePath() + '/config-public')
         .then(response => response.json())
         .then(config => {
           if (config.primaryColor) root.style.setProperty('--chat-color', config.primaryColor);
 
           const keyAttr = config.apiKey ? ` data-api-key="${config.apiKey}"` : '';
           document.getElementById('snippet').textContent =
-            `<script src="${origin}/widget.js" data-server="${origin}"${keyAttr}><` + '/script>';
+            `<script src="${origin + getBasePath()}/widget.js" data-server="${origin + getBasePath()}"${keyAttr}><` + '/script>';
 
           const script = document.createElement('script');
-          script.src = '/widget.js';
-          script.setAttribute('data-server', origin);
+          script.src = getBasePath() + '/widget.js';
+          script.setAttribute('data-server', origin + getBasePath());
           if (config.apiKey) {
             script.setAttribute('data-api-key', config.apiKey);
           }
@@ -337,8 +342,8 @@
         })
         .catch(() => {
           const script = document.createElement('script');
-          script.src = '/widget.js';
-          script.setAttribute('data-server', origin);
+          script.src = getBasePath() + '/widget.js';
+          script.setAttribute('data-server', origin + getBasePath());
           document.body.appendChild(script);
         });
     })();

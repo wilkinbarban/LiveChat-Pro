@@ -27,6 +27,7 @@ Thumbs.db
 .vscode/
 .codex
 *.bak*
+.atl/
 
 # Docker overrides locales
 docker-compose.override.yml
@@ -36,3 +37,6 @@ PHASE2_REVIEW_REPORT.md
 
 # Knowledge base entrenada
 kb-trainer/knowledge-base.json
+
+# Archivos de configuración de nginx (si los hay)
+nginx/wilkinbarban

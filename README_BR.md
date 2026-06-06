@@ -556,6 +556,106 @@ Os cookies admin são marcados como `Secure` quando a requisição chega por HTT
 
 A geolocalização do admin depende de o Node receber o IP público real do visitante. O template `nginx/livechat.conf` já envia `X-Real-IP` e `X-Forwarded-For`; se o painel mostrar IPs `127.x`, `10.x`, `172.16-31.x` ou `192.168.x`, o servidor está vendo um IP privado de Docker/proxy e a localização aparecerá como desconhecida. Nesse caso, use Nginx/HTTPS na frente do contêiner ou verifique que o proxy preserva esses cabeçalhos.
 
+## Cenários de Configuração
+
+Para ajudá-lo a configurar e implantar o LiveChat Pro, abaixo são detalhados os dois cenários de instalação mais comuns.
+
+### Cenário 1: Implantação em Produção com Proxy Reverso e Subcaminho (HTTPS)
+
+Use este cenário ao integrar o aplicativo de chat em um site existente com HTTPS (ex., `https://mywebsite.com`) e servir o chat sob um subcaminho como `/chat/` (ex., `https://mywebsite.com/chat/`).
+
+#### 1. Configuração de Ambiente (`.env`)
+Configure as variáveis de ambiente do servidor da seguinte forma:
+```env
+PORT="3010"
+HOST_PORT="8080"
+NODE_ENV="production"
+ALLOWED_ORIGINS="https://mywebsite.com"
+COOKIE_SAME_SITE="none"
+```
+
+#### 2. Bloco de Proxy Reverso no Nginx
+Adicione o seguinte bloco à sua configuração de servidor no Nginx (normalmente em `/etc/nginx/sites-available/livechat`). Certifique-se de ter os certificados SSL configurados (ex., via Let's Encrypt).
+```nginx
+upstream livechat_backend {
+    server 127.0.0.1:8080;
+    keepalive 32;
+}
+
+server {
+    listen 443 ssl;
+    server_name mywebsite.com;
+
+    ssl_certificate     /etc/letsencrypt/live/mywebsite.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/mywebsite.com/privkey.pem;
+
+    # Suporte para upgrade de conexões WebSocket
+    location /chat/ {
+        proxy_pass http://livechat_backend/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 86400s;
+        proxy_send_timeout 86400s;
+    }
+
+    # Roteamento explícito para o caminho socket.io de WebSockets
+    location /chat/socket.io/ {
+        proxy_pass http://livechat_backend/socket.io/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 86400s;
+        proxy_send_timeout 86400s;
+    }
+}
+```
+
+#### 3. Fragmento HTML para Incorporar o Widget
+Incorpore o widget em suas páginas usando a URL com o subcaminho `/chat`:
+```html
+<script src="https://mywebsite.com/chat/widget.js" data-server="https://mywebsite.com/chat"></script>
+```
+
+#### 4. URLs de Administração e Estado (Health)
+Após a implantação, o painel de administração e os endpoints de verificação de status estarão acessíveis em:
+- **Painel de Administração**: `https://mywebsite.com/chat/admin`
+- **Endpoint de Estado**: `https://mywebsite.com/chat/health`
+
+---
+
+### Cenário 2: Desenvolvimento / Localhost / IP Público Direto (Sem Domínio)
+
+Use este cenário ao testar o aplicativo localmente, ou ao hospedá-lo em um VPS usando diretamente o endereço IP público, sem nome de domínio ou certificados SSL.
+
+#### 1. Configuração de Ambiente (`.env`)
+```env
+PORT="3010"
+HOST_PORT="8080"
+NODE_ENV="development"
+ALLOWED_ORIGINS="http://localhost:3000,http://127.0.0.1:3000"
+COOKIE_SAME_SITE="lax"
+```
+
+#### 2. Fragmento HTML para Incorporar o Widget
+Incorpore o widget em suas páginas usando a URL direta:
+```html
+<script src="http://localhost:8080/widget.js" data-server="http://localhost:8080"></script>
+```
+
+#### 3. URLs de Administração e Estado (Health)
+O painel de administração e os endpoints de verificação de status estarão acessíveis em:
+- **Painel de Administração**: `http://localhost:8080/admin`
+- **Endpoint de Estado**: `http://localhost:8080/health`
+
 ## Arquivos Principais
 
 ```text

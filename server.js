@@ -647,6 +647,10 @@ app.get('/widget.js', publicApiLimiter, (req, res) => {
   res.sendFile(path.join(__dirname, 'widget.js'));
 });
 
+app.get('/demo', (req, res) => {
+  res.redirect('./');
+});
+
 app.get('/config-public', publicApiLimiter, (req, res) => {
   // Only expose visual widget settings that are safe for public embedded pages.
   res.json({

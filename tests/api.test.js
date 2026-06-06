@@ -177,6 +177,12 @@ describe('Smoke tests', () => {
     const isJs = r.text.includes('function') || r.text.includes('=>') || r.text.includes('const ');
     assert.ok(isJs, 'respuesta no parece JavaScript');
   });
+
+  it('GET /demo redirige a ./', async () => {
+    const res = await fetch(`${BASE}/demo`, { redirect: 'manual' });
+    assert.equal(res.status, 302);
+    assert.equal(res.headers.get('location'), './');
+  });
 });
 
 // ── Admin authentication ─────────────────────────────────────

@@ -1,0 +1,45 @@
+schema: spec-driven
+
+context: |
+  Tech stack: Node.js (>=24), Express, Socket.io, SQLite (sqlite + sqlite3), Telegraf, Redis, OpenAI
+  Architecture: Monolith with event-driven WebSockets (Socket.io), modular services (attachments, geo, sessions, translator, admin-chat), and SQLite persistence.
+  Testing: Node.js native test runner (node --test) with node:test and node:assert/strict.
+  Style: CommonJS Modules ('use strict'), standard exports, no build step (direct execution).
+
+testing:
+  test_runner: "Node.js Native Test Runner (node --test)"
+  test_command: "npm test"
+  test_layers:
+    - name: unit
+      description: "Database, attachments, ai-bot, cluster-state, kb-trainer, sentiment, translator, widget-responsive tests"
+      command: "node --test tests/db.test.js tests/attachments.test.js tests/ai-bot.test.js tests/cluster-state.test.js tests/kb-trainer.test.js tests/sentiment.test.js tests/translator-adapters.test.js tests/widget-responsive.test.js"
+    - name: integration
+      description: "API router and Socket.io communication tests"
+      command: "node --test tests/api.test.js"
+  coverage:
+    test_command: "node --experimental-test-coverage --test tests/**/*.test.js"
+    coverage_threshold: 0
+  strict_tdd: true
+
+rules:
+  proposal:
+    - Include rollback plan for risky changes
+  specs:
+    - Use Given/When/Then for scenarios
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
+  design:
+    - Include sequence diagrams for complex flows
+    - Document architecture decisions with rationale
+  tasks:
+    - Group by phase, use hierarchical numbering
+    - Keep tasks completable in one session
+  apply:
+    - Follow existing code patterns
+    tdd: true
+    test_command: "npm test"
+  verify:
+    test_command: "npm test"
+    build_command: ""
+    coverage_threshold: 0
+  archive:
+    - Warn before merging destructive deltas
