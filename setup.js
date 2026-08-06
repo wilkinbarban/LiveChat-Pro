@@ -55,8 +55,6 @@ const randomPassword = () => {
   return crypto.randomBytes(16).toString('hex');
 };
 
-const isValidHexColor = val => /^#[0-9A-Fa-f]{6}$/.test(val);
-
 function commandExists(command) {
   const delimiter = process.platform === 'win32' ? ';' : ':';
   const paths = (process.env.PATH || '').split(delimiter);
@@ -172,11 +170,9 @@ const TEXTS = {
     logLevel: "Log Level (trace, debug, info, warn, error, fatal, silent)",
     proxyHops: "Trusted Proxy Hops count",
     sameSite: "Cookie SameSite Policy (lax, strict, none)",
-    widgetSec: "3. Widget Customization",
-    widgetBtn: "Widget Button Style (floating, persistent, hidden)",
-    widgetColor: "Widget Primary Color",
-    widgetWelcome: "Custom Welcome Message (leave empty for auto)",
+    widgetSec: "3. Widget",
     widgetApiKey: "Widget API Key (leave empty to disable validation)",
+    settingsKey: "Settings encryption key (optional, 64 hex chars; empty = auto-generate)",
     featuresSec: "4. Features (true/false)",
     featTrans: "Enable Translation Feature",
     featSent: "Enable Sentiment Analysis Feature",
@@ -201,15 +197,6 @@ const TEXTS = {
     redisUrl: "Redis Connection URL (leave empty to disable)",
     redisPrefix: "Redis Key Prefix",
     redisEnabled: "Enable Redis scaling",
-    botSec: "9. Smart AI Bot",
-    botMode: "Bot Operating Mode (disabled, knowledge-base, ai)",
-    botKey: "OpenAI API Key (required for mode: ai)",
-    botModel: "OpenAI Model (e.g. gpt-4o-mini)",
-    botTokens: "Max AI output tokens per reply",
-    botPrompt: "AI Bot System Prompt",
-    botConf: "Fuzzy KB Confidence Threshold (0.0 to 1.0)",
-    botCtx: "Number of Context messages to send",
-    botNotify: "Notify Telegram admin on bot reply",
     confirmOverwrite: "already exists. Overwrite it?",
     setupCanceled: "Configuration canceled. No changes made.",
     writingConfig: "Writing configuration to .env...",
@@ -225,9 +212,7 @@ const TEXTS = {
     dockerFail: "Failed to start Docker Compose. Please check the logs above.",
     recommendedCmd: "Recommended final command to launch:",
     widgetSnippetTitle: "Snippet to paste into your HTML:",
-    widgetBtnCodeTitle: "Custom code to open the hidden chat:",
     invalidVal: "Invalid value. Please try again.",
-    kbTargetSuccess: "Created data/knowledge-base.json template. Edit it to customize FAQs.",
   },
   es: {
     title: "LiveChat Pro — Asistente de Configuración",
@@ -251,11 +236,9 @@ const TEXTS = {
     logLevel: "Nivel de Log (trace, debug, info, warn, error, fatal, silent)",
     proxyHops: "Número de saltos de Proxy de confianza",
     sameSite: "Política SameSite de Cookies (lax, strict, none)",
-    widgetSec: "3. Personalización del Widget",
-    widgetBtn: "Estilo de Botón del Widget (floating, persistent, hidden)",
-    widgetColor: "Color Principal del Widget",
-    widgetWelcome: "Mensaje de Bienvenida Personalizado (vacío para auto)",
+    widgetSec: "3. Widget",
     widgetApiKey: "Clave API del Widget (vacío para desactivar validación)",
+    settingsKey: "Clave de cifrado de ajustes (opcional, 64 caracteres hex; vacío = autogenerar)",
     featuresSec: "4. Funcionalidades (true/false)",
     featTrans: "Activar Traducción Automática",
     featSent: "Activar Análisis de Sentimiento",
@@ -280,15 +263,6 @@ const TEXTS = {
     redisUrl: "URL de Conexión de Redis (vacío para desactivar)",
     redisPrefix: "Prefijo de claves de Redis",
     redisEnabled: "Activar escalado con Redis",
-    botSec: "9. Bot Inteligente con IA",
-    botMode: "Modo de Operación del Bot (disabled, knowledge-base, ai)",
-    botKey: "Clave API de OpenAI (requerido para modo: ai)",
-    botModel: "Modelo de OpenAI (ej. gpt-4o-mini)",
-    botTokens: "Límite de tokens de salida de IA por respuesta",
-    botPrompt: "Prompt de Sistema del Bot de IA",
-    botConf: "Umbral de Confianza de KB Difusa (0.0 a 1.0)",
-    botCtx: "Cantidad de mensajes recientes de contexto",
-    botNotify: "Notificar al administrador en Telegram cuando responda el bot",
     confirmOverwrite: "ya existe. ¿Deseas sobrescribirlo?",
     setupCanceled: "Configuración cancelada. No se hicieron cambios.",
     writingConfig: "Escribiendo configuración en .env...",
@@ -304,9 +278,7 @@ const TEXTS = {
     dockerFail: "No se pudo iniciar Docker Compose. Revisa los logs superiores.",
     recommendedCmd: "Comando recomendado para arrancar manualmente:",
     widgetSnippetTitle: "Snippet de código para pegar en tu HTML:",
-    widgetBtnCodeTitle: "Código del botón personalizado para abrir el chat oculto:",
     invalidVal: "Valor inválido. Por favor, intenta de nuevo.",
-    kbTargetSuccess: "Plantilla creada en data/knowledge-base.json. Edítala para personalizar tus FAQs.",
   },
   pt: {
     title: "LiveChat Pro — Assistente de Configuração",
@@ -330,11 +302,9 @@ const TEXTS = {
     logLevel: "Nível de Log (trace, debug, info, warn, error, fatal, silent)",
     proxyHops: "Número de saltos de Proxy confiáveis",
     sameSite: "Política SameSite de Cookies (lax, strict, none)",
-    widgetSec: "3. Personalização do Widget",
-    widgetBtn: "Estilo do Botão do Widget (floating, persistent, hidden)",
-    widgetColor: "Cor Principal do Widget",
-    widgetWelcome: "Mensagem de Boas-Vindas Personalizada (vazio para auto)",
+    widgetSec: "3. Widget",
     widgetApiKey: "Chave API do Widget (vazio para desativar validação)",
+    settingsKey: "Chave de criptografia de ajustes (opcional, 64 caracteres hex; vazio = autogerar)",
     featuresSec: "4. Funcionalidades (true/false)",
     featTrans: "Ativar Recurso de Tradução",
     featSent: "Ativar Análise de Sentimento",
@@ -359,15 +329,6 @@ const TEXTS = {
     redisUrl: "URL de Conexão do Redis (vazio para desativar)",
     redisPrefix: "Prefixo de Chave do Redis",
     redisEnabled: "Ativar escalonamento do Redis",
-    botSec: "9. Bot Inteligente com IA",
-    botMode: "Modo de Operação do Bot (disabled, knowledge-base, ai)",
-    botKey: "Chave API da OpenAI (requerido para modo: ai)",
-    botModel: "Modelo da OpenAI (ex: gpt-4o-mini)",
-    botTokens: "Limite de tokens de saída da IA por resposta",
-    botPrompt: "Prompt do Sistema do Bot de IA",
-    botConf: "Limite de Confiança da KB Difusa (0.0 a 1.0)",
-    botCtx: "Número de mensagens recentes de contexto",
-    botNotify: "Notificar admin no Telegram sobre resposta do bot",
     confirmOverwrite: "já existe. Deseja sobrescrever?",
     setupCanceled: "Configuração cancelada. Nenhuma alteração feita.",
     writingConfig: "Escrevendo configuração no .env...",
@@ -383,9 +344,7 @@ const TEXTS = {
     dockerFail: "Falha ao iniciar o Docker Compose. Verifique os logs acima.",
     recommendedCmd: "Comando recomendado para iniciar manualmente:",
     widgetSnippetTitle: "Snippet de código para colar no seu HTML:",
-    widgetBtnCodeTitle: "Código do botão personalizado para abrir o chat oculto:",
     invalidVal: "Valor inválido. Por favor, tente novamente.",
-    kbTargetSuccess: "Modelo criado em data/knowledge-base.json. Edite-o para personalizar FAQs.",
   }
 };
 
@@ -607,10 +566,8 @@ async function main() {
     LOG_LEVEL: 'info',
     TRUST_PROXY_HOPS: '1',
     COOKIE_SAME_SITE: 'lax',
+    SETTINGS_KEY: '',
     // 3. Widget
-    WIDGET_BUTTON_STYLE: 'floating',
-    WIDGET_PRIMARY_COLOR: '#4F46E5',
-    WIDGET_WELCOME_MESSAGE: '',
     WIDGET_API_KEY: '',
     // 4. Features
     FEATURE_TRANSLATION: 'true',
@@ -636,15 +593,6 @@ async function main() {
     REDIS_URL: '',
     REDIS_KEY_PREFIX: 'lcp',
     REDIS_ENABLED: process.platform === 'win32' ? 'false' : 'true',
-    // 9. Smart Bot
-    BOT_MODE: 'knowledge-base',
-    OPENAI_API_KEY: '',
-    OPENAI_MODEL: 'gpt-4o-mini',
-    OPENAI_MAX_TOKENS: '300',
-    BOT_SYSTEM_PROMPT: "You are a friendly support assistant. Be brief, accurate, and reply in the user's language. Escalate to a human when unsure.",
-    BOT_CONFIDENCE_THRESHOLD: '0.60',
-    BOT_CONTEXT_MESSAGES: '6',
-    BOT_NOTIFY_ADMIN: 'false',
   };
 
   // Merge existing config
@@ -767,6 +715,12 @@ async function main() {
       ],
       mergedDefaults.COOKIE_SAME_SITE
     );
+    answers.SETTINGS_KEY = await askQuestion(
+      t('settingsKey'),
+      mergedDefaults.SETTINGS_KEY,
+      val => val === '' || /^[0-9a-fA-F]{64}$/.test(val),
+      true
+    );
   } else {
     answers.PORT = mergedDefaults.PORT;
     answers.HOST_PORT = mergedDefaults.HOST_PORT;
@@ -776,82 +730,17 @@ async function main() {
     answers.LOG_LEVEL = mergedDefaults.LOG_LEVEL;
     answers.TRUST_PROXY_HOPS = mergedDefaults.TRUST_PROXY_HOPS;
     answers.COOKIE_SAME_SITE = mergedDefaults.COOKIE_SAME_SITE;
+    answers.SETTINGS_KEY = mergedDefaults.SETTINGS_KEY;
   }
 
-  // Group 3: Widget
+  // Group 3: Widget — only the bootstrap embed credential is kept in .env;
+  // visual settings moved to the admin panel (ADR-10).
   printSectionHeader(t('widgetSec'));
-
-  const colorOptions = currentLang === 'es' ? [
-    { key: '1', name: 'Indigo / Azul Violeta (#4F46E5)', value: '#4F46E5' },
-    { key: '2', name: 'Teal / Azul Turquesa (#0D9488)', value: '#0D9488' },
-    { key: '3', name: 'Emerald / Verde Esmeralda (#059669)', value: '#059669' },
-    { key: '4', name: 'Blue / Azul Eléctrico (#2563EB)', value: '#2563EB' },
-    { key: '5', name: 'Violet / Violeta (#7C3AED)', value: '#7C3AED' },
-    { key: '6', name: 'Rose / Rosado Fresa (#E11D48)', value: '#E11D48' },
-    { key: '7', name: 'Amber / Naranja Cálido (#D97706)', value: '#D97706' },
-    { key: '8', name: 'Cyan / Azul Cielo (#0891B2)', value: '#0891B2' },
-    { key: '9', name: 'Fuchsia / Fucsia (#C026D3)', value: '#C026D3' },
-    { key: '10', name: 'Slate / Gris Oscuro (#475569)', value: '#475569' },
-    { key: '11', name: 'Personalizado (Ingresar código hexadecimal)', value: 'custom' }
-  ] : [
-    { key: '1', name: 'Indigo / Violet Blue (#4F46E5)', value: '#4F46E5' },
-    { key: '2', name: 'Teal (#0D9488)', value: '#0D9488' },
-    { key: '3', name: 'Emerald Green (#059669)', value: '#059669' },
-    { key: '4', name: 'Electric Blue (#2563EB)', value: '#2563EB' },
-    { key: '5', name: 'Violet (#7C3AED)', value: '#7C3AED' },
-    { key: '6', name: 'Strawberry Rose (#E11D48)', value: '#E11D48' },
-    { key: '7', name: 'Warm Amber (#D97706)', value: '#D97706' },
-    { key: '8', name: 'Sky Cyan (#0891B2)', value: '#0891B2' },
-    { key: '9', name: 'Fuchsia (#C026D3)', value: '#C026D3' },
-    { key: '10', name: 'Dark Slate Gray (#475569)', value: '#475569' },
-    { key: '11', name: 'Custom (Enter hex code)', value: 'custom' }
-  ];
-
-  // If the default value is not in the predefined list, insert an option 0 for it
-  const isDefaultPredefined = colorOptions.some(opt => opt.value === mergedDefaults.WIDGET_PRIMARY_COLOR);
-  if (!isDefaultPredefined && mergedDefaults.WIDGET_PRIMARY_COLOR) {
-    colorOptions.unshift({
-      key: '0',
-      name: `${currentLang === 'es' ? 'Valor actual' : 'Current value'} (${mergedDefaults.WIDGET_PRIMARY_COLOR})`,
-      value: mergedDefaults.WIDGET_PRIMARY_COLOR
-    });
-  }
-
-  let selectedColor = await askSelection(
-    t('widgetColor'),
-    colorOptions,
-    mergedDefaults.WIDGET_PRIMARY_COLOR
-  );
-
-  if (selectedColor === 'custom') {
-    selectedColor = await askQuestion(
-      currentLang === 'es' ? 'Ingresa el color en formato Hex (ej. #FF5733)' : 'Enter Hex color (e.g. #FF5733)',
-      mergedDefaults.WIDGET_PRIMARY_COLOR,
-      isValidHexColor
-    );
-  }
-  answers.WIDGET_PRIMARY_COLOR = selectedColor;
 
   answers.WIDGET_API_KEY = await askQuestion(
     t('widgetApiKey'),
     mergedDefaults.WIDGET_API_KEY
   );
-
-  if (configMode === 'all') {
-    answers.WIDGET_BUTTON_STYLE = await askSelection(
-      t('widgetBtn'),
-      [
-        { key: '1', name: 'Floating bubble (floating)', value: 'floating' },
-        { key: '2', name: 'Persistent bar (persistent)', value: 'persistent' },
-        { key: '3', name: 'Hidden button (hidden)', value: 'hidden' }
-      ],
-      mergedDefaults.WIDGET_BUTTON_STYLE
-    );
-    answers.WIDGET_WELCOME_MESSAGE = '';
-  } else {
-    answers.WIDGET_BUTTON_STYLE = mergedDefaults.WIDGET_BUTTON_STYLE;
-    answers.WIDGET_WELCOME_MESSAGE = '';
-  }
 
   // Group 4: Features
   if (configMode === 'all') {
@@ -994,77 +883,6 @@ async function main() {
     answers.REDIS_ENABLED = process.platform === 'win32' ? 'false' : (mergedDefaults.REDIS_ENABLED !== undefined ? mergedDefaults.REDIS_ENABLED : 'true');
   }
 
-  // Group 9: Smart Bot & AI
-  printSectionHeader(t('botSec'));
-  answers.BOT_MODE = await askSelection(
-    t('botMode'),
-    [
-      { key: '1', name: 'Disabled (disabled)', value: 'disabled' },
-      { key: '2', name: 'Knowledge Base Bot (knowledge-base)', value: 'knowledge-base' },
-      { key: '3', name: 'OpenAI AI Bot (ai)', value: 'ai' }
-    ],
-    mergedDefaults.BOT_MODE
-  );
-
-  if (answers.BOT_MODE === 'ai') {
-    answers.OPENAI_API_KEY = await askQuestion(
-      t('botKey'),
-      mergedDefaults.OPENAI_API_KEY,
-      val => !!val,
-      true
-    );
-    answers.OPENAI_MODEL = await askQuestion(
-      t('botModel'),
-      mergedDefaults.OPENAI_MODEL
-    );
-    answers.OPENAI_MAX_TOKENS = await askQuestion(
-      t('botTokens'),
-      mergedDefaults.OPENAI_MAX_TOKENS,
-      val => /^\d+$/.test(val)
-    );
-    answers.BOT_SYSTEM_PROMPT = await askQuestion(
-      t('botPrompt'),
-      mergedDefaults.BOT_SYSTEM_PROMPT
-    );
-  } else {
-    answers.OPENAI_API_KEY = mergedDefaults.OPENAI_API_KEY;
-    answers.OPENAI_MODEL = mergedDefaults.OPENAI_MODEL;
-    answers.OPENAI_MAX_TOKENS = mergedDefaults.OPENAI_MAX_TOKENS;
-    answers.BOT_SYSTEM_PROMPT = mergedDefaults.BOT_SYSTEM_PROMPT;
-  }
-
-  if (answers.BOT_MODE === 'knowledge-base') {
-    answers.BOT_CONFIDENCE_THRESHOLD = await askQuestion(
-      t('botConf'),
-      mergedDefaults.BOT_CONFIDENCE_THRESHOLD,
-      val => !Number.isNaN(Number(val)) && Number(val) >= 0.0 && Number(val) <= 1.0
-    );
-    
-    // Copy template FAQ database if not exists
-    const kbExample = path.join(ROOT, 'knowledge-base.json.example');
-    const kbTarget = path.join(ROOT, 'data', 'knowledge-base.json');
-    if (!fs.existsSync(kbTarget) && fs.existsSync(kbExample)) {
-      try {
-        fs.mkdirSync(path.dirname(kbTarget), { recursive: true });
-        fs.copyFileSync(kbExample, kbTarget);
-        console.log(color('green', `     ✓ ${t('kbTargetSuccess')}`));
-      } catch (err) {}
-    }
-  } else {
-    answers.BOT_CONFIDENCE_THRESHOLD = mergedDefaults.BOT_CONFIDENCE_THRESHOLD;
-  }
-
-  if (answers.BOT_MODE !== 'disabled' && configMode === 'all') {
-    answers.BOT_CONTEXT_MESSAGES = await askQuestion(
-      t('botCtx'),
-      mergedDefaults.BOT_CONTEXT_MESSAGES,
-      val => /^\d+$/.test(val)
-    );
-    answers.BOT_NOTIFY_ADMIN = String(await chooseYesNo('   ' + t('botNotify'), mergedDefaults.BOT_NOTIFY_ADMIN === 'true'));
-  } else {
-    answers.BOT_CONTEXT_MESSAGES = mergedDefaults.BOT_CONTEXT_MESSAGES;
-    answers.BOT_NOTIFY_ADMIN = mergedDefaults.BOT_NOTIFY_ADMIN;
-  }
 
   // Double check overwriting
   if (fs.existsSync(ENV_PATH)) {
@@ -1099,11 +917,11 @@ async function main() {
     `LOG_LEVEL=${quoteEnv(answers.LOG_LEVEL)}`,
     `TRUST_PROXY_HOPS=${quoteEnv(answers.TRUST_PROXY_HOPS)}`,
     `COOKIE_SAME_SITE=${quoteEnv(answers.COOKIE_SAME_SITE)}`,
+    '# Optional AES-256-GCM key (64 hex chars) for encrypting settings at rest.',
+    '# Leave empty to auto-generate one at data/.settings-key on first boot.',
+    `SETTINGS_KEY=${quoteEnv(answers.SETTINGS_KEY)}`,
     '',
     '# 3. Widget',
-    `WIDGET_BUTTON_STYLE=${quoteEnv(answers.WIDGET_BUTTON_STYLE)}`,
-    `WIDGET_PRIMARY_COLOR=${quoteEnv(answers.WIDGET_PRIMARY_COLOR)}`,
-    `WIDGET_WELCOME_MESSAGE=${quoteEnv(answers.WIDGET_WELCOME_MESSAGE)}`,
     `WIDGET_API_KEY=${quoteEnv(answers.WIDGET_API_KEY)}`,
     '',
     '# 4. Features',
@@ -1134,16 +952,6 @@ async function main() {
     `REDIS_URL=${quoteEnv(answers.REDIS_URL)}`,
     `REDIS_KEY_PREFIX=${quoteEnv(answers.REDIS_KEY_PREFIX)}`,
     `REDIS_ENABLED=${quoteEnv(answers.REDIS_ENABLED)}`,
-    '',
-    '# 9. Smart AI Bot',
-    `BOT_MODE=${quoteEnv(answers.BOT_MODE)}`,
-    `OPENAI_API_KEY=${quoteEnv(answers.OPENAI_API_KEY)}`,
-    `OPENAI_MODEL=${quoteEnv(answers.OPENAI_MODEL)}`,
-    `OPENAI_MAX_TOKENS=${quoteEnv(answers.OPENAI_MAX_TOKENS)}`,
-    `BOT_SYSTEM_PROMPT=${quoteEnv(answers.BOT_SYSTEM_PROMPT)}`,
-    `BOT_CONFIDENCE_THRESHOLD=${quoteEnv(answers.BOT_CONFIDENCE_THRESHOLD)}`,
-    `BOT_CONTEXT_MESSAGES=${quoteEnv(answers.BOT_CONTEXT_MESSAGES)}`,
-    `BOT_NOTIFY_ADMIN=${quoteEnv(answers.BOT_NOTIFY_ADMIN)}`,
     '',
   ].join('\n');
 
@@ -1276,11 +1084,6 @@ async function main() {
   const keyAttr = answers.WIDGET_API_KEY ? ` data-api-key="${answers.WIDGET_API_KEY.replace(/"/g, '&quot;')}"` : '';
   const snippet = `<script src="${baseUrl}/widget.js" data-server="${baseUrl}"${keyAttr}></script>`;
   console.log(color('green', `   ${snippet}`));
-  
-  if (answers.WIDGET_BUTTON_STYLE === 'hidden') {
-    console.log('\n   ' + color('bright', t('widgetBtnCodeTitle')));
-    console.log(color('green', `   <button type="button" onclick="document.getElementById('lcp-btn')?.click()">Open Chat</button>`));
-  }
   console.log(color('cyan', '=========================================================='));
 
   if (rl) rl.close();

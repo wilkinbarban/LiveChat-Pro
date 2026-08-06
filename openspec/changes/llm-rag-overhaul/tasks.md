@@ -48,9 +48,9 @@ Rollback boundary: `biome.json` + package.json scripts/devDep; lint fixes are in
 
 ### 1.4 Installer minimization (setup.js + .env.example)
 **Objective**: drop obsolete env keys (`OPENAI_*`, `BOT_*`, widget-visual keys, dead `knowledge-base.json.example` block, `BOT_NOTIFY_ADMIN`), keep bootstrap secrets; legacy re-runs stay safe.
-- [ ] 1.4.1 RED: `tests/setup-installer.test.js` (new) — run setup.js non-interactively against a legacy `.env` containing `OPENAI_API_KEY`/`BOT_MODE`; assert it completes, does not re-ask obsolete keys, preserves valid values.
-- [ ] 1.4.2 GREEN: remove `botSec` entirely, `widgetSec` visual keys (keep `WIDGET_API_KEY` per ADR-10), the setup.js:1044-1052 dead copy block; add optional `SETTINGS_KEY`.
-- [ ] 1.4.3 Update `.env.example`: remove Smart-Bot/kb-trainer/widget-visual sections; document `SETTINGS_KEY`.
+- [x] 1.4.1 RED: `tests/setup-installer.test.js` (new) — run setup.js non-interactively against a legacy `.env` containing `OPENAI_API_KEY`/`BOT_MODE`; assert it completes, does not re-ask obsolete keys, preserves valid values.
+- [x] 1.4.2 GREEN: remove `botSec` entirely, `widgetSec` visual keys (keep `WIDGET_API_KEY` per ADR-10), the setup.js:1044-1052 dead copy block; add optional `SETTINGS_KEY`.
+- [x] 1.4.3 Update `.env.example`: remove Smart-Bot/kb-trainer/widget-visual sections; document `SETTINGS_KEY`.
 Files: `setup.js`, `.env.example`, `tests/setup-installer.test.js` (new).
 Tests first: `tests/setup-installer.test.js`.
 Verify: `npm test`; manual `npm run setup` smoke on a legacy `.env` copy in a temp dir.
