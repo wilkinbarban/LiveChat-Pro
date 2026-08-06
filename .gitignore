@@ -28,6 +28,7 @@ Thumbs.db
 .codex
 *.bak*
 .atl/
+.codegraph/
 
 # Docker overrides locales
 docker-compose.override.yml
