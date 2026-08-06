@@ -33,6 +33,6 @@ test('trainer default trainable output keeps language-keyed format', async () =>
   const parsed = JSON.parse(await fs.readFile(output, 'utf8'));
   assert.equal(Array.isArray(parsed.es), true);
   assert.equal(Array.isArray(parsed.en), true);
-  assert.equal(Object.prototype.hasOwnProperty.call(parsed, 'entries'), false);
+  assert.equal(Object.hasOwn(parsed, 'entries'), false);
   assert.ok(parsed.es.length > 0);
 });

@@ -523,16 +523,13 @@ const sessionService = createSessionService({
 });
 
 const {
-  applySharedSessionSnapshot,
   syncSharedSession,
-  dbRowToSession,
   sessionToDBRow,
   loadFromDB,
   loadSessionFromDB,
   ensureSessionLoaded,
   translateForAdmin,
   serializeMessageForAdmin,
-  serializeMessage,
   serializeSession,
   listSessionsForAdmin,
   getGeneralAdminMetrics,
@@ -642,16 +639,16 @@ app.use(createAttachmentRouter({
   uploadLimiter,
 }));
 
-app.get('/widget.js', publicApiLimiter, (req, res) => {
+app.get('/widget.js', publicApiLimiter, (_req, res) => {
   res.setHeader('Content-Type', 'application/javascript');
   res.sendFile(path.join(__dirname, 'widget.js'));
 });
 
-app.get('/demo', (req, res) => {
+app.get('/demo', (_req, res) => {
   res.redirect('./');
 });
 
-app.get('/config-public', publicApiLimiter, (req, res) => {
+app.get('/config-public', publicApiLimiter, (_req, res) => {
   // Only expose visual widget settings that are safe for public embedded pages.
   res.json({
     primaryColor: widgetCfg.primaryColor,
