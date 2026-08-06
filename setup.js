@@ -67,7 +67,7 @@ function commandExists(command) {
       const fullPath = path.join(dir, command + ext);
       try {
         if (fs.existsSync(fullPath)) return true;
-      } catch (e) {}
+      } catch {}
     }
   }
   return false;
@@ -142,7 +142,7 @@ function publicBaseUrl(allowedOrigins, port) {
       const needsPort = Number(port) && !['80', '443'].includes(String(port)) && !url.port;
       if (needsPort) url.port = String(port);
       return url.toString().replace(/\/+$/, '');
-    } catch (error) {
+    } catch {
       return cleanOrigin;
     }
   }
@@ -513,7 +513,7 @@ function spawnAndLog(command, args, options = {}) {
               process.stdout.write(`   ${line}\n`);
             }
           }
-        } catch (e) {
+        } catch {
           if (isErrorStream) {
             process.stderr.write(`   ${line}\n`);
           } else {
@@ -554,7 +554,7 @@ function spawnAndLog(command, args, options = {}) {
               if (isErrorStream) process.stderr.write(`   ${buffer}\n`);
               else process.stdout.write(`   ${buffer}\n`);
             }
-          } catch (e) {
+          } catch {
             if (isErrorStream) process.stderr.write(`   ${buffer}\n`);
             else process.stdout.write(`   ${buffer}\n`);
           }
@@ -1153,7 +1153,6 @@ async function main() {
 
   // Launch Option
   let launchCommandUsed = '';
-  let didStart = false;
 
   if (process.platform === 'win32') {
     printSectionHeader(t('nodeSec'));
@@ -1167,7 +1166,7 @@ async function main() {
       const { spawn } = require('child_process');
       const logPath = path.join(ROOT, 'install.log');
       
-      let isSpinnerRunning = process.stdout.isTTY;
+      const isSpinnerRunning = process.stdout.isTTY;
       let spinnerFrame = 0;
       const spinnerFrames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
       let spinnerInterval;
@@ -1215,13 +1214,9 @@ async function main() {
         if (hasExited) {
           console.log('\n' + color('red', `   ✘ El servidor no pudo arrancar. Código de salida: ${child.exitCode}`));
           console.log(color('red', `     Revisa los detalles en: ${logPath}`));
-          didStart = false;
         } else {
           console.log('\n' + color('green', `   ✓ El servidor se inició en segundo plano. Logs en: ${logPath}`));
-          didStart = true;
         }
-      } else {
-        didStart = false;
       }
       
       if (!SCRIPTED_INPUT) {
@@ -1258,7 +1253,6 @@ async function main() {
         
         if (code === 0) {
           console.log('\n' + color('green', '   ✓ ' + t('dockerSuccess')));
-          didStart = true;
         } else {
           console.log('\n' + color('red', '   ✘ ' + t('dockerFail')));
         }

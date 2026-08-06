@@ -109,11 +109,11 @@ function createAdminRouter(deps) {
     res.json({ ok: true });
   });
 
-  router.get('/api/admin/sessions', requireAdmin, async (req, res) => {
+  router.get('/api/admin/sessions', requireAdmin, async (_req, res) => {
     res.json({ sessions: await listSessionsForAdmin() });
   });
 
-  router.get('/api/admin/metrics/general', requireAdmin, async (req, res) => {
+  router.get('/api/admin/metrics/general', requireAdmin, async (_req, res) => {
     res.json({ ok: true, metrics: await getGeneralAdminMetrics() });
   });
 

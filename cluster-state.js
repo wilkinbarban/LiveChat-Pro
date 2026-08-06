@@ -26,7 +26,7 @@ class ClusterState {
     if (!client) return;
     try {
       await client.disconnect();
-    } catch (err) {
+    } catch {
       // Ignorar errores de cliente ya cerrado
     }
   }
@@ -68,10 +68,10 @@ class ClusterState {
       awaitingName: !!session.awaitingName,
       lastActive: session.lastActive || Date.now(),
       createdAt: session.createdAt || Date.now(),
-      connected: Object.prototype.hasOwnProperty.call(overrides, 'connected')
+      connected: Object.hasOwn(overrides, 'connected')
         ? !!overrides.connected
         : !!session.connected,
-      socketCount: Object.prototype.hasOwnProperty.call(overrides, 'socketCount')
+      socketCount: Object.hasOwn(overrides, 'socketCount')
         ? Math.max(0, Number(overrides.socketCount) || 0)
         : Math.max(0, Number(session.socketCount) || 0),
     };

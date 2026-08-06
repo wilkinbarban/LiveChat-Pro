@@ -37,9 +37,9 @@ Rollback boundary: three files only; independent.
 
 ### 1.3 Biome lint/format
 **Objective**: Biome as the single linter/formatter with `lint`/`format` scripts.
-- [ ] 1.3.1 Add `@biomejs/biome` devDependency + committed `biome.json` (CommonJS/no-build friendly; disable rules that fight the codebase style).
-- [ ] 1.3.2 Add `lint` and `format` npm scripts.
-- [ ] 1.3.3 RED→GREEN: run `npx biome check .`; fix violations in minimal, behavior-preserving edits (or add scoped `biome-ignore` with justification comments). Run `npm test` after every fix batch.
+- [x] 1.3.1 Add `@biomejs/biome` devDependency + committed `biome.json` (CommonJS/no-build friendly; disable rules that fight the codebase style).
+- [x] 1.3.2 Add `lint` and `format` npm scripts.
+- [x] 1.3.3 RED→GREEN: run `npx biome check .`; fix violations in minimal, behavior-preserving edits (or add scoped `biome-ignore` with justification comments). Run `npm test` after every fix batch.
 Files: `package.json`, `biome.json` (new), any files with lint fixes.
 Tests first: N/A (tooling); gate is `npx biome check .` exit code + full `npm test`.
 Verify: `npx biome check .` clean; `npm test` green.

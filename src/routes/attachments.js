@@ -15,7 +15,7 @@ function createUploadMiddleware(attachmentService) {
       fileSize: attachmentService.maxBytes,
       files: 1,
     },
-    fileFilter: (req, file, cb) => {
+    fileFilter: (_req, file, cb) => {
       if (!attachmentService.allowedImageTypes.includes(file.mimetype)) {
         return cb(Object.assign(new Error('Tipo de imagen no permitido'), { status: 415 }));
       }
@@ -58,7 +58,6 @@ function createAttachmentRouter(deps) {
     broadcastAdminMessage,
     broadcastAdminSessionUpdate,
     sendToAdmin,
-    ADMIN_ID,
     verifyAdminToken,
     adminCookieName,
     requireAdmin,

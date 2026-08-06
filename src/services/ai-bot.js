@@ -53,10 +53,10 @@ function stem(word) {
 // "audio" from otherwise valid keyword phrases like "funciones normalizador audio".
 function expandProjectAliases(text) {
   return text
-    .replace(/photo[\s\-]?dedup/gi, 'photodup')
-    .replace(/livechat[\s\-]?pro/gi, 'livechat')
-    .replace(/live[\s\-]?chat/gi, 'livechat')
-    .replace(/youtube[\s\-]?downloader/gi, 'youtubedownloader');
+    .replace(/photo[\s-]?dedup/gi, 'photodup')
+    .replace(/livechat[\s-]?pro/gi, 'livechat')
+    .replace(/live[\s-]?chat/gi, 'livechat')
+    .replace(/youtube[\s-]?downloader/gi, 'youtubedownloader');
 }
 
 // ── Project detection ────────────────────────────────────────────────────────
@@ -92,7 +92,6 @@ const INTENT_STEMS = {
 };
 
 function detectIntent(stemmedTokens) {
-  const tokenSet = new Set(stemmedTokens);
   for (const [intent, stems] of Object.entries(INTENT_STEMS)) {
     if (stems.some(s => stemmedTokens.some(t => t.startsWith(s) || s.startsWith(t)))) {
       return intent;
@@ -120,8 +119,7 @@ const ENTRY_PROJECT = {
   'normalizador-que-es': 'normalizador', 'normalizador-presets': 'normalizador',
   'normalizador-instalacion': 'normalizador', 'normalizador-gpu': 'normalizador',
   'normalizador-roadmap': 'normalizador', 'normalizador-ffmpeg-auto': 'normalizador',
-  'normalizador-roadmap': 'normalizador', 'normalizador-estructura': 'normalizador',
-  'normalizador-ffmpeg-auto': 'normalizador',
+  'normalizador-estructura': 'normalizador',
 };
 
 const ENTRY_INTENTS = {

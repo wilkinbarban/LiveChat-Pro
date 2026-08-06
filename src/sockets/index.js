@@ -272,6 +272,7 @@ function setupSockets(io, adminIo, deps) {
         return;
       }
 
+      let textForAdmin;
       if (!session.langDetected) {
         // Browser language is used initially, but the first real message can
         // correct it when the user writes in another language.
@@ -288,11 +289,11 @@ function setupSockets(io, adminIo, deps) {
           logger.error({ err: dbError, sessionId }, 'Error BD en updateLang');
         }
         await syncSharedSession(session);
-        var textForAdmin = session.lang !== ADMIN_LANGUAGE ? translatedEarly : text;
+        textForAdmin = session.lang !== ADMIN_LANGUAGE ? translatedEarly : text;
       }
 
       if (typeof textForAdmin === 'undefined') {
-        var textForAdmin = session.lang !== ADMIN_LANGUAGE ? await translate(text, ADMIN_LANGUAGE) : text;
+        textForAdmin = session.lang !== ADMIN_LANGUAGE ? await translate(text, ADMIN_LANGUAGE) : text;
       }
 
       const { isOffensive, isHighPriority } = features.sentiment

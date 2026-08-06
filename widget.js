@@ -3,7 +3,7 @@
  * Insert this script into any HTML page:
  * <script src="https://your-server.com/widget.js" data-server="https://your-server.com"></script>
  */
-(function () {
+(() => {
   'use strict';
 
   const SCRIPT_TAG = document.currentScript || document.querySelector('script[data-server]');
@@ -156,11 +156,11 @@
     // ── Socket connection ──────────────────────────────────
     // autoConnect is disabled until the DOM is ready and event handlers are
     // attached, preventing early events from being missed.
-    let serverUrlClean = SERVER_URL.replace(/\/+$/, '');
+    const serverUrlClean = SERVER_URL.replace(/\/+$/, '');
     let parsedUrl;
     try {
       parsedUrl = new URL(serverUrlClean);
-    } catch (e) {
+    } catch {
       parsedUrl = new URL(serverUrlClean, window.location.origin);
     }
     const baseSubpath = parsedUrl.pathname.replace(/\/+$/, '');
@@ -495,7 +495,7 @@
       if (!rgb) return 1;
       const [r, g, b] = rgb.map(channel => {
         const value = channel / 255;
-        return value <= 0.03928 ? value / 12.92 : Math.pow((value + 0.055) / 1.055, 2.4);
+        return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
       });
       return 0.2126 * r + 0.7152 * g + 0.0722 * b;
     }
@@ -665,7 +665,7 @@
         }
         // Build visible slice — respect HTML entities (& ; sequences)
         // but since content is already escapeHtml'd, entities use & sequences
-        let slice = plain.slice(0, i + 1);
+        const slice = plain.slice(0, i + 1);
         // Avoid cutting mid-entity: advance past full &...; if needed
         const ampIdx = slice.lastIndexOf('&');
         if (ampIdx !== -1 && !slice.slice(ampIdx).includes(';')) {
@@ -743,7 +743,9 @@
         const xhr = new XMLHttpRequest();
         xhr.open('POST', url);
         xhr.withCredentials = true;
-        Object.entries(headers || {}).forEach(([key, value]) => xhr.setRequestHeader(key, value));
+        Object.entries(headers || {}).forEach(([key, value]) => {
+          xhr.setRequestHeader(key, value);
+        });
         xhr.upload.onprogress = event => {
           if (event.lengthComputable) onProgress?.(Math.round((event.loaded / event.total) * 100));
         };
@@ -864,7 +866,9 @@
       if (cfg?.primaryColor) applyTheme(cfg.primaryColor);
       if (name) { nameBanner.textContent = uiText.greeting(name); nameBanner.style.display = 'block'; }
       if (history && history.length) {
-        history.forEach(m => addMessage(m, { history: true }));
+        history.forEach(m => {
+          addMessage(m, { history: true });
+        });
         const lastAgentMsg = [...history].reverse().find(m => m.from === 'admin' || m.from === 'bot');
         if (lastAgentMsg) emitRead(lastAgentMsg.ts);
       }

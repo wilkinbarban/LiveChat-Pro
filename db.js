@@ -97,7 +97,7 @@ async function createDb() {
       filename: DB_FILE,
       driver: sqlite3.Database,
     });
-  } catch (error) {
+  } catch {
     // Falling back keeps the app usable in constrained installs where sqlite3
     // failed to compile or load, while preserving the same async interface.
     db = createFallbackDb();
