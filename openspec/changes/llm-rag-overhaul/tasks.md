@@ -18,8 +18,8 @@ Gate notes (carried from prior phases — apply MUST honor):
 
 ### 1.1 Full test suite in `npm test`
 **Objective**: all 11 test files run under `npm test`; the run fails if a file is dropped.
-- [ ] 1.1.1 RED: add/extend a meta-check (or script assertion) proving `tests/telegram-routing.test.js` and `tests/translation-cache.test.js` are included — e.g. `tests/test-script.test.js` asserting the npm `test` script enumerates all `tests/*.test.js` files.
-- [ ] 1.1.2 GREEN: update `package.json` `test` script to run all 11 files; fix any newly-exposed failures in the two added files without weakening assertions.
+- [x] 1.1.1 RED: add/extend a meta-check (or script assertion) proving `tests/telegram-routing.test.js` and `tests/translation-cache.test.js` are included — e.g. `tests/test-script.test.js` asserting the npm `test` script enumerates all `tests/*.test.js` files.
+- [x] 1.1.2 GREEN: update `package.json` `test` script to run all 11 files; fix any newly-exposed failures in the two added files without weakening assertions.
 Files: `package.json`, `tests/test-script.test.js` (new), possibly the two re-included test files.
 Tests first: `tests/test-script.test.js`.
 Verify: `npm test` — 11 files green.
