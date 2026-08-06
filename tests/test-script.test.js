@@ -38,3 +38,18 @@ describe('script npm test', () => {
     assert.match(pkg.scripts.test, /^node --test /, 'el script test debe invocar node --test');
   });
 });
+
+describe('historia de versiones de Node', () => {
+  it('engines declara node >=22', () => {
+    assert.equal(pkg.engines.node, '>=22', 'package.json engines.node debe ser >=22');
+  });
+
+  it('el Dockerfile usa una imagen base node:24', () => {
+    const dockerfile = fs.readFileSync(path.join(ROOT, 'Dockerfile'), 'utf8');
+    const fromLines = dockerfile.split('\n').filter((l) => l.startsWith('FROM '));
+    assert.ok(fromLines.length > 0, 'el Dockerfile debe tener al menos una línea FROM');
+    for (const line of fromLines) {
+      assert.match(line, /^FROM node:24/, `base image inválida: ${line}`);
+    }
+  });
+});

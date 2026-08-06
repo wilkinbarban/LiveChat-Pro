@@ -27,9 +27,9 @@ Rollback boundary: revert `package.json` script + delete `tests/test-script.test
 
 ### 1.2 Node version alignment
 **Objective**: engines/CI/Docker tell one story — engines `>=22`, CI matrix `[22, 24]`, Docker `node:24`.
-- [ ] 1.2.1 Set `package.json` engines to `node >=22`.
-- [ ] 1.2.2 Update CI workflow matrix to `[22, 24]`.
-- [ ] 1.2.3 Confirm Dockerfile base image is `node:24` (change only if drifted).
+- [x] 1.2.1 Set `package.json` engines to `node >=22`.
+- [x] 1.2.2 Update CI workflow matrix to `[22, 24]`.
+- [x] 1.2.3 Confirm Dockerfile base image is `node:24` (change only if drifted).
 Files: `package.json`, CI workflow file(s), `Dockerfile`.
 Tests first: extend `tests/test-script.test.js` to assert engines `>=22` (parses package.json).
 Verify: `npm test` on Node 22; CI green on both matrix legs.
