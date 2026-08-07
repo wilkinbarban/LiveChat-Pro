@@ -2,6 +2,15 @@
 
 const fs = require('fs');
 const { getFixedEntries } = require('../../kb-trainer/fixed-entries');
+const {
+  stem,
+  normalizeStr,
+  expandProjectAliases,
+  tokenize,
+  tokenizeStem,
+  diceCoefficient,
+} = require('./text-match');
+
 
 
 const SUPPORTED_LANGS = ['es', 'en', 'pt', 'fr', 'de', 'it'];
@@ -22,42 +31,6 @@ const LANGUAGE_HINTS = {
   de: ['was', 'wie', 'wo', 'wer', 'installieren', 'anforderungen', 'funktionen', 'projekt', 'hilfe', 'hallo'],
   it: ['cosa', 'come', 'dove', 'chi', 'installare', 'requisiti', 'funzioni', 'progetto', 'aiuto', 'ciao'],
 };
-
-// ── Spanish stemmer ──────────────────────────────────────────────────────────
-// Strips common verb/noun inflection endings so "instalo", "instala",
-// "instalar", "instalas" all reduce to the same root "instal".
-// Applied to both query tokens and keyword tokens for fuzzy matching.
-function stem(word) {
-  if (word.length < 4) return word;
-  const rules = [
-    ['ando', 4], ['iendo', 5],
-    ['amos', 4], ['aron', 4], ['aban', 4], ['ados', 4], ['idos', 4],
-    ['ado', 3], ['ido', 3],
-    ['ar', 2], ['er', 2], ['ir', 2],
-    ['as', 2], ['es', 2], ['os', 2], ['an', 2], ['en', 2],
-    ['a', 1], ['e', 1], ['o', 1], ['s', 1],
-  ];
-  for (const [suffix, minRemain] of rules) {
-    if (word.length > suffix.length + minRemain && word.endsWith(suffix)) {
-      return word.slice(0, word.length - suffix.length);
-    }
-  }
-  return word;
-}
-
-// ── Project name normalization ───────────────────────────────────────────────
-// Collapses multi-word / hyphenated project names to a single canonical token
-// so "Photo Dedup", "photo-dedup" and "photodup" all match the same keyword.
-// NOTE: 'normalizador audio' is intentionally NOT collapsed because "normalizador"
-// alone already triggers the project detection and collapsing would eat the word
-// "audio" from otherwise valid keyword phrases like "funciones normalizador audio".
-function expandProjectAliases(text) {
-  return text
-    .replace(/photo[\s-]?dedup/gi, 'photodup')
-    .replace(/livechat[\s-]?pro/gi, 'livechat')
-    .replace(/live[\s-]?chat/gi, 'livechat')
-    .replace(/youtube[\s-]?downloader/gi, 'youtubedownloader');
-}
 
 // ── Project detection ────────────────────────────────────────────────────────
 // Maps canonical token → internal project key.
@@ -244,22 +217,17 @@ class AiBot {
 
   // Base text normalization: lowercase, strip accents, collapse non-alphanum to space.
   normalizeStr(text) {
-    return String(text || '')
-      .toLowerCase()
-      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-z0-9\s]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
+    return normalizeStr(text);
   }
 
   // Tokenize without stemming (for exact match layer).
   tokenize(text) {
-    return this.normalizeStr(expandProjectAliases(text)).split(' ').filter(Boolean);
+    return tokenize(text);
   }
 
   // Tokenize + stem (for fuzzy match layer).
   tokenizeStem(text) {
-    return this.tokenize(text).map(stem);
+    return tokenizeStem(text);
   }
 
   detectLanguage(text) {
