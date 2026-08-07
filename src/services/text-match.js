@@ -63,11 +63,9 @@ function diceCoefficient(inputA, inputB) {
 
   if (!tokensA.length || !tokensB.length) return 0;
 
-  const setA = new Set(tokensA);
   const setB = new Set(tokensB);
   const stemmedA = tokensA.map(stem);
   const stemmedB = tokensB.map(stem);
-  const stemSetA = new Set(stemmedA);
   const stemSetB = new Set(stemmedB);
 
   const exactHits = tokensA.filter(t => setB.has(t)).length;

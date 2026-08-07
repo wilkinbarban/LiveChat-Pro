@@ -8,7 +8,6 @@ const {
   expandProjectAliases,
   tokenize,
   tokenizeStem,
-  diceCoefficient,
 } = require('./text-match');
 
 
