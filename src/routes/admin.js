@@ -11,6 +11,17 @@ const { createRagService } = require('../services/rag');
 const { extractPdfText } = require('../utils/pdf');
 const { createMasterPromptService } = require('../services/master-prompt');
 const { createThemesService } = require('../services/themes');
+const { stripEnvQuotes } = require('../config/index');
+
+// Env token used for the empty-save fallback (ADR-5): a cleared settings token
+// falls back to the env token or stops. deps.telegramEnvToken (server-wired)
+// wins; otherwise the raw env value is read and quote-stripped like config does.
+function resolveTelegramEnvToken(envToken) {
+  if (envToken !== undefined) {
+    return typeof envToken === 'string' ? envToken.trim() : '';
+  }
+  return stripEnvQuotes(process.env.TELEGRAM_TOKEN);
+}
 
 function stripHtml(html) {
   return String(html || '')
@@ -74,6 +85,7 @@ function createAdminRouter(deps) {
     clearSessionChat,
     deleteAdminSession,
     sessionRoom,
+    telegramEnvToken,
   } = deps;
 
   const router = Router();
@@ -528,6 +540,8 @@ function createAdminRouter(deps) {
   async function handleGetTelegramStatus(_req, res) {
     try {
       const persistedAdminId = await settingsService.get('telegram.admin_id');
+      // Lazy identity refresh (ADR-9): never at boot/launch, only on status view.
+      await telegramBot.refreshTelegramIdentity?.();
       const botStatus = telegramBot.getTelegramStatus?.() || { status: 'stopped', adminId: null, configured: false };
       const adminId = persistedAdminId || botStatus.adminId || null;
 
@@ -535,11 +549,18 @@ function createAdminRouter(deps) {
         telegramBot.setTelegramAdminId(persistedAdminId);
       }
 
+      const adminUsername = await settingsService.get('telegram.admin_username', '');
+
       return res.json({
         ok: true,
         status: botStatus.status,
         adminId: adminId ? String(adminId) : null,
         configured: Boolean(botStatus.configured),
+        botUsername: botStatus.botUsername ?? null,
+        botFirstName: botStatus.botFirstName ?? null,
+        maskedToken: botStatus.maskedToken ?? null,
+        tokenSource: botStatus.tokenSource ?? null,
+        adminUsername: adminUsername || null,
       });
     } catch (err) {
       logger.error?.({ err }, 'Error fetching Telegram status');
@@ -570,6 +591,60 @@ function createAdminRouter(deps) {
     }
   });
 
+  // Current admin ID for reconfigure calls: persisted settings win, the live
+  // singleton falls back.
+  async function currentTelegramAdminId() {
+    const persisted = await settingsService.get('telegram.admin_id');
+    return persisted || telegramBot.getTelegramStatus?.()?.adminId || null;
+  }
+
+  // Token mutation shared by both PUT aliases (ADR-5): verify-then-save mirrors
+  // the LLM provider flow. Empty saves clear the stored token (env/stop
+  // fallback). Responses only ever carry maskedToken/tokenSource — never the
+  // full token (spec: token/botToken MUST NOT appear).
+  async function handlePutTelegramToken(req, res) {
+    const token = String(req.body.token).trim();
+
+    if (!token) {
+      const envToken = resolveTelegramEnvToken(telegramEnvToken);
+      await settingsService.delete('telegram.token');
+      await telegramBot.reconfigureTelegramBot?.({
+        token: envToken || null,
+        adminId: (await currentTelegramAdminId()) || undefined,
+        launch: false,
+      });
+      const botStatus = telegramBot.getTelegramStatus?.() || {};
+      return res.json({
+        ok: true,
+        maskedToken: envToken ? settingsService.maskSecret(envToken) : null,
+        tokenSource: envToken ? 'env' : 'none',
+        status: botStatus.status || 'not-configured',
+      });
+    }
+
+    const verifyRes = await telegramBot.verifyTelegramToken(token);
+    if (!verifyRes?.ok) {
+      return res.status(400).json({ ok: false, error: verifyRes?.error || 'Invalid Telegram token' });
+    }
+
+    const encKey = settingsService.encryptSecret(token);
+    await settingsService.setJSON('telegram.token', { encKey, verifiedAt: Date.now() });
+
+    await telegramBot.reconfigureTelegramBot?.({
+      token,
+      adminId: (await currentTelegramAdminId()) || undefined,
+      launch: true,
+    });
+
+    const botStatus = telegramBot.getTelegramStatus?.() || {};
+    return res.json({
+      ok: true,
+      maskedToken: settingsService.maskSecret(token),
+      tokenSource: 'settings',
+      status: botStatus.status || 'running',
+    });
+  }
+
   async function handlePutTelegramAdminId(req, res) {
     try {
       const candidate = req.body?.adminId !== undefined ? req.body.adminId : req.body?.admin_id;
@@ -590,8 +665,31 @@ function createAdminRouter(deps) {
     }
   }
 
-  router.put('/api/admin/telegram/admin-id', requireAdmin, requireCsrf, handlePutTelegramAdminId);
-  router.put('/api/admin/settings/telegram', requireAdmin, requireCsrf, handlePutTelegramAdminId);
+  // Shared PUT dispatcher (ADR-5): token vs adminId vs adminUsername on both
+  // aliases, mirroring handlePutLlmSettings. All mutations are behind
+  // requireAdmin + requireCsrf (threat matrix).
+  async function handlePutTelegram(req, res) {
+    try {
+      if (typeof req.body?.token === 'string') {
+        return await handlePutTelegramToken(req, res);
+      }
+      if (req.body?.adminId !== undefined || req.body?.admin_id !== undefined) {
+        return await handlePutTelegramAdminId(req, res);
+      }
+      if (req.body?.adminUsername !== undefined) {
+        const username = String(req.body.adminUsername).trim();
+        await settingsService.set('telegram.admin_username', username);
+        return res.json({ ok: true, adminUsername: username });
+      }
+      return res.status(400).json({ ok: false, error: 'Invalid payload' });
+    } catch (err) {
+      logger.error?.({ err }, 'Error updating Telegram settings');
+      return res.status(500).json({ ok: false, error: 'Internal server error' });
+    }
+  }
+
+  router.put('/api/admin/telegram/admin-id', requireAdmin, requireCsrf, handlePutTelegram);
+  router.put('/api/admin/settings/telegram', requireAdmin, requireCsrf, handlePutTelegram);
 
   // ── Themes Settings Routes ─────────────────────────────────────────
   async function handleGetThemeSettings(_req, res) {
