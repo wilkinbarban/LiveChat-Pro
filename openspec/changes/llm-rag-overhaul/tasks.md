@@ -196,9 +196,9 @@ Rollback boundary: `git revert` of the sweep commit restores all removed code; a
 
 ### 5.2 kb-trainer deletion (final code step — extraction already done in 2.3/2.4/3.1/4.1/3.3)
 **Objective**: delete `kb-trainer/`, `tests/kb-trainer.test.js`, `data/knowledge-base.json` (post-migration, backup exists), setup.js bot remnants if any, Dockerfile `COPY kb-trainer`.
-- [ ] 5.2.1 Pre-flight: confirm migration script ran (or run it) and `knowledge-base.<ts>.bak` exists; confirm `rg -n "kb-trainer" src/ server.js setup.js Dockerfile package.json` returns nothing outside deletion targets.
-- [ ] 5.2.2 Delete; remove kb-trainer references from `package.json` scripts/deps if present.
-- [ ] 5.2.3 Full suite green with kb-trainer.test.js gone (npm test now runs 11+ new files minus kb-trainer).
+- [x] 5.2.1 Pre-flight: confirm migration script ran (or run it) and `knowledge-base.<ts>.bak` exists; confirm `rg -n "kb-trainer" src/ server.js setup.js Dockerfile package.json` returns nothing outside deletion targets.
+- [x] 5.2.2 Delete; remove kb-trainer references from `package.json` scripts/deps if present.
+- [x] 5.2.3 Full suite green with kb-trainer.test.js gone (npm test now runs 11+ new files minus kb-trainer).
 Files: `kb-trainer/` (delete), `tests/kb-trainer.test.js` (delete), `data/knowledge-base.json` (delete, backed up), `Dockerfile`, `package.json`.
 Tests first: N/A (removal); gate is full `npm test` + boot.
 Verify: `npm test`; server boots; identity question answered via master prompt (spec scenario).

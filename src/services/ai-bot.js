@@ -1,7 +1,7 @@
 'use strict';
 
 const fs = require('fs');
-const { getFixedEntries } = require('../../kb-trainer/fixed-entries');
+const { getFixedEntries } = require('./master-prompt');
 const {
   stem,
   normalizeStr,
