@@ -55,32 +55,39 @@ function setupTestApp(overrides = {}) {
     },
   };
 
-  const mockLlmService = overrides.llmService || {
-    getSupportedProviders() {
-      return ['openai', 'anthropic', 'openrouter', 'deepseek', 'kimi', 'qwen'];
+  const mockLlmService = {
+    ...{
+      getSupportedProviders() {
+        return ['openai', 'anthropic', 'openrouter', 'deepseek', 'kimi', 'qwen'];
+      },
+      getProviderModels(provider) {
+        const map = {
+          openai: ['gpt-4o', 'gpt-4o-mini', 'o1-mini'],
+          anthropic: ['claude-3-5-sonnet-20241022', 'claude-3-haiku-20240307'],
+          openrouter: ['openai/gpt-4o-mini', 'anthropic/claude-3.5-sonnet', 'deepseek/deepseek-chat'],
+          deepseek: ['deepseek-chat', 'deepseek-coder'],
+          kimi: ['moonshot-v1-8k', 'moonshot-v1-32k'],
+          qwen: ['qwen-turbo', 'qwen-plus', 'qwen-max'],
+        };
+        return map[provider] || [];
+      },
+      lastVerifiedModel: null,
+      async verifyConnection(provider, apiKey, model) {
+        this.lastVerifiedModel = model;
+        if (apiKey === 'invalid-key') {
+          return { ok: false, error: 'Invalid API Key' };
+        }
+        if (!['openai', 'anthropic', 'openrouter', 'deepseek', 'kimi', 'qwen'].includes(provider)) {
+          return { ok: false, error: `Unsupported provider: ${provider}` };
+        }
+        return { ok: true, models: this.getProviderModels(provider) };
+      },
+      async listModels() {
+        // Default mock: model-listing API unavailable → [] → catalog fallback.
+        return [];
+      },
     },
-    getProviderModels(provider) {
-      const map = {
-        openai: ['gpt-4o', 'gpt-4o-mini', 'o1-mini'],
-        anthropic: ['claude-3-5-sonnet-20241022', 'claude-3-haiku-20240307'],
-        openrouter: ['openai/gpt-4o-mini', 'anthropic/claude-3.5-sonnet', 'deepseek/deepseek-chat'],
-        deepseek: ['deepseek-chat', 'deepseek-coder'],
-        kimi: ['moonshot-v1-8k', 'moonshot-v1-32k'],
-        qwen: ['qwen-turbo', 'qwen-plus', 'qwen-max'],
-      };
-      return map[provider] || [];
-    },
-    lastVerifiedModel: null,
-    async verifyConnection(provider, apiKey, model) {
-      this.lastVerifiedModel = model;
-      if (apiKey === 'invalid-key') {
-        return { ok: false, error: 'Invalid API Key' };
-      }
-      if (!['openai', 'anthropic', 'openrouter', 'deepseek', 'kimi', 'qwen'].includes(provider)) {
-        return { ok: false, error: `Unsupported provider: ${provider}` };
-      }
-      return { ok: true, models: this.getProviderModels(provider) };
-    },
+    ...(overrides.llmService || {}),
   };
 
   const verifyAdminToken = (token) => token === 'valid-admin-token';
@@ -97,6 +104,11 @@ function setupTestApp(overrides = {}) {
     next();
   };
 
+  // The router must receive the merged mock (base + per-test overrides), not
+  // the raw partial override object, so per-test listModels variants keep the
+  // full getSupportedProviders/getProviderModels/verifyConnection surface.
+  const routerOverrides = { ...overrides, llmService: mockLlmService };
+
   const adminRouter = createAdminRouter({
     rootDir: __dirname,
     adminCookieName: 'admin_token',
@@ -109,7 +121,7 @@ function setupTestApp(overrides = {}) {
     llmService: mockLlmService,
     aiBot: mockAiBot,
     logger: { error: () => {}, info: () => {} },
-    ...overrides,
+    ...routerOverrides,
   });
 
   app.use(adminRouter);
@@ -236,6 +248,54 @@ test('LLM Admin Endpoints — Verification endpoint', async (t) => {
     assert.equal(res.status, 200);
     assert.equal(res.json.ok, true);
     assert.equal(mockLlmService.lastVerifiedModel, 'deepseek-chat');
+  });
+
+  await t.test('returns API models from listModels when non-empty', async () => {
+    const { app: apiApp } = setupTestApp({
+      llmService: {
+        listModels: async () => ['deepseek-chat-v3', 'deepseek-reasoner'],
+      },
+    });
+    const res = await makeRequest(apiApp, 'POST', '/api/admin/settings/llm/verify-key', {
+      headers: authHeaders,
+      cookies: authCookies,
+      body: { provider: 'deepseek', apiKey: 'sk-deepseek-valid' },
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.json.ok, true);
+    assert.deepEqual(res.json.models, ['deepseek-chat-v3', 'deepseek-reasoner']);
+  });
+
+  await t.test('falls back to static catalog when listModels returns empty array', async () => {
+    const { app: fallbackApp } = setupTestApp({
+      llmService: {
+        listModels: async () => [],
+      },
+    });
+    const res = await makeRequest(fallbackApp, 'POST', '/api/admin/settings/llm/verify-key', {
+      headers: authHeaders,
+      cookies: authCookies,
+      body: { provider: 'deepseek', apiKey: 'sk-deepseek-valid' },
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.json.ok, true);
+    assert.deepEqual(res.json.models, ['deepseek-chat', 'deepseek-coder']);
+  });
+
+  await t.test('falls back to static catalog when listModels is absent from the service', async () => {
+    const { app: legacyApp } = setupTestApp({
+      llmService: {
+        listModels: undefined,
+      },
+    });
+    const res = await makeRequest(legacyApp, 'POST', '/api/admin/settings/llm/verify-key', {
+      headers: authHeaders,
+      cookies: authCookies,
+      body: { provider: 'openai', apiKey: 'sk-valid-key-1234', model: 'gpt-4o-mini' },
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.json.ok, true);
+    assert.deepEqual(res.json.models, ['gpt-4o', 'gpt-4o-mini', 'o1-mini']);
   });
 });
 

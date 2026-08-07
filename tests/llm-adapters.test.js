@@ -190,6 +190,145 @@ test('LLM Adapters — Connection verification helper', async (t) => {
   });
 });
 
+test('LLM Adapters — listModels dispatch (OpenAI-compatible)', async (t) => {
+  await t.test('GET {base}/models with Bearer auth returns data[].id list', async () => {
+    let capturedUrl = null;
+    let capturedOptions = null;
+
+    const mockFetch = async (url, options) => {
+      capturedUrl = url;
+      capturedOptions = options;
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          data: [{ id: 'gpt-4o' }, { id: 'gpt-4o-mini' }, { id: 'o1-mini' }],
+        }),
+      };
+    };
+
+    const models = await llmService.listModels('openai', 'sk-test-key', { fetchImpl: mockFetch });
+
+    assert.deepEqual(models, ['gpt-4o', 'gpt-4o-mini', 'o1-mini']);
+    assert.equal(capturedUrl, `${DEFAULT_BASE_URLS.openai}/models`);
+    assert.equal(capturedOptions.method, 'GET');
+    assert.equal(capturedOptions.headers['Authorization'], 'Bearer sk-test-key');
+  });
+
+  await t.test('honors baseURL override for the models endpoint', async () => {
+    let capturedUrl = null;
+
+    const mockFetch = async (url) => {
+      capturedUrl = url;
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ data: [{ id: 'custom-model' }] }),
+      };
+    };
+
+    const models = await llmService.listModels('deepseek', 'sk-ds-key', {
+      baseURL: 'https://custom.example.com/v1',
+      fetchImpl: mockFetch,
+    });
+
+    assert.deepEqual(models, ['custom-model']);
+    assert.equal(capturedUrl, 'https://custom.example.com/v1/models');
+  });
+
+  await t.test('returns [] on HTTP 404 without throwing', async () => {
+    const mockFetch = async () => ({ ok: false, status: 404, text: async () => 'Not Found' });
+
+    const models = await llmService.listModels('openai', 'sk-test-key', { fetchImpl: mockFetch });
+
+    assert.deepEqual(models, []);
+  });
+
+  await t.test('returns [] on HTTP 405 without throwing', async () => {
+    const mockFetch = async () => ({ ok: false, status: 405, text: async () => 'Method Not Allowed' });
+
+    const models = await llmService.listModels('openrouter', 'sk-or-key', { fetchImpl: mockFetch });
+
+    assert.deepEqual(models, []);
+  });
+
+  await t.test('returns [] on network error without throwing', async () => {
+    const mockFetch = async () => {
+      throw new Error('network down');
+    };
+
+    const models = await llmService.listModels('openai', 'sk-test-key', { fetchImpl: mockFetch });
+
+    assert.deepEqual(models, []);
+  });
+
+  await t.test('returns [] for unknown provider without calling fetch', async () => {
+    let called = false;
+    const mockFetch = async () => {
+      called = true;
+      return { ok: true, status: 200, json: async () => ({ data: [{ id: 'x' }] }) };
+    };
+
+    const models = await llmService.listModels('unknown-provider', 'sk-test-key', { fetchImpl: mockFetch });
+
+    assert.deepEqual(models, []);
+    assert.equal(called, false);
+  });
+});
+
+test('LLM Adapters — listModels dispatch (Anthropic)', async (t) => {
+  await t.test('GET https://api.anthropic.com/v1/models with x-api-key and anthropic-version headers', async () => {
+    let capturedUrl = null;
+    let capturedOptions = null;
+
+    const mockFetch = async (url, options) => {
+      capturedUrl = url;
+      capturedOptions = options;
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          data: [{ id: 'claude-3-5-sonnet-20241022' }, { id: 'claude-3-haiku-20240307' }],
+        }),
+      };
+    };
+
+    const models = await llmService.listModels('anthropic', 'sk-ant-key', { fetchImpl: mockFetch });
+
+    assert.deepEqual(models, ['claude-3-5-sonnet-20241022', 'claude-3-haiku-20240307']);
+    assert.equal(capturedUrl, 'https://api.anthropic.com/v1/models');
+    assert.equal(capturedOptions.method, 'GET');
+    assert.equal(capturedOptions.headers['x-api-key'], 'sk-ant-key');
+    assert.equal(capturedOptions.headers['anthropic-version'], '2023-06-01');
+  });
+
+  await t.test('returns [] on HTTP 404 (tier-dependent endpoint) without throwing', async () => {
+    const mockFetch = async () => ({ ok: false, status: 404, text: async () => 'Not Found' });
+
+    const models = await llmService.listModels('anthropic', 'sk-ant-key', { fetchImpl: mockFetch });
+
+    assert.deepEqual(models, []);
+  });
+
+  await t.test('returns [] on HTTP 405 without throwing', async () => {
+    const mockFetch = async () => ({ ok: false, status: 405, text: async () => 'Method Not Allowed' });
+
+    const models = await llmService.listModels('anthropic', 'sk-ant-key', { fetchImpl: mockFetch });
+
+    assert.deepEqual(models, []);
+  });
+
+  await t.test('returns [] on network error without throwing', async () => {
+    const mockFetch = async () => {
+      throw new Error('ECONNRESET');
+    };
+
+    const models = await llmService.listModels('anthropic', 'sk-ant-key', { fetchImpl: mockFetch });
+
+    assert.deepEqual(models, []);
+  });
+});
+
 test('LLM Adapters — Service configure snapshot', async (t) => {
   await t.test('configure() sets frozen active snapshot without throwing', () => {
     llmService.configure({
