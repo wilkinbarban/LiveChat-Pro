@@ -60,6 +60,6 @@ Verify: ai-bot + boot-without-token tests + biome
 
 ## Phase 4: Full verification
 
-- [ ] 4.1 `npm test` — all green
-- [ ] 4.2 `npx biome check .` clean
-- [ ] 4.3 No new test file; suites registered in package.json scripts.test
+- [x] 4.1 `npm test` — all green
+- [x] 4.2 `npx biome check .` clean
+- [x] 4.3 No new test file; suites registered in package.json scripts.test
