@@ -122,9 +122,9 @@ Rollback boundary: additive routes + tab; disabling AI via switch restores pre-c
 
 ### 3.1 RAG core: chunker, url-fetcher port, pdf wrapper, lexical retrieve
 **Objective**: `src/services/rag/{index,chunker,url-fetcher,pdf}.js` — chunking ~900 chars/150 overlap on paragraph-sentence boundaries; `fetcher/stripHtml` **ported from kb-trainer** (ADR-9 step 3); `pdfjs-dist@^3.11` legacy CJS wrapper `extractText(buffer)` (ADR-4); lexical retrieve top-4, min score 0.2, ≤1800 chars context, async embeddings-ready interface (ADR-5).
-- [ ] 3.1.1 RED: `tests/rag.test.js` (new) — chunker boundaries/overlap; retrieval ranks refund-policy chunks for a refund query (spec scenario); below-threshold returns []; ingest→retrieve round-trip; pdf wrapper extracts text from a small fixture buffer; interface is async (v2-swap-safe).
-- [ ] 3.1.2 GREEN: implement the four modules; wire RAG context into AiBot `getReply` (Phase 2 hook) — empty result means master prompt alone, no fabricated citations.
-- [ ] 3.1.3 Migration: `rag_documents`/`rag_chunks` tables + index in `db.js` (design §Data Model, `content_hash` UNIQUE, ON DELETE CASCADE).
+- [x] 3.1.1 RED: `tests/rag-core.test.js` & `tests/pdf-extractor.test.js` — chunker boundaries/overlap; retrieval ranks refund-policy chunks for a refund query (spec scenario); below-threshold returns []; ingest→retrieve round-trip; pdf wrapper extracts text from a small fixture buffer; interface is async (v2-swap-safe).
+- [x] 3.1.2 GREEN: implement rag core & pdf extractor modules; wire RAG context into AiBot `getReply` (Phase 2 hook) — empty result means master prompt alone, no fabricated citations.
+- [x] 3.1.3 Migration: `rag_documents`/`rag_chunks` tables + index in `db.js` (design §Data Model, `content_hash` UNIQUE, ON DELETE CASCADE).
 Files: `src/services/rag/*` (new), `src/services/ai-bot.js`, `db.js`, `tests/rag.test.js` (new), `package.json` (pdfjs-dist pin), small PDF test fixture.
 Tests first: `tests/rag.test.js`.
 Verify: `npm test`.
