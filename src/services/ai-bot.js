@@ -9,15 +9,14 @@ const {
   tokenize,
   tokenizeStem,
 } = require('./text-match');
-
-
+const { llmService: defaultLlmService } = require('./llm');
 
 const SUPPORTED_LANGS = ['es', 'en', 'pt', 'fr', 'de', 'it'];
 const FALLBACK_MESSAGES = {
   es: 'No tengo una respuesta específica para eso. He notificado al administrador y te responderá pronto.',
   en: "I don't have a specific answer for that. I've notified the administrator and they'll reply soon.",
   pt: 'Não tenho uma resposta específica para isso. Notifiquei o administrador e ele responderá em breve.',
-  fr: "Je n'ai pas de réponse spécifique à cela. J'ai notifié l'administrateur qui vous répondra bientôt.",
+  fr: "Je n'ai pas de resposta spécifique à cela. J'ai notifié l'administrateur qui vous répondra bientôt.",
   de: 'Ich habe keine spezifische Antwort darauf. Ich habe den Administrator benachrichtigt, der Ihnen bald antworten wird.',
   it: "Non ho una risposta specifica per questo. Ho notificato l'amministratore che risponderà presto.",
 };
@@ -40,21 +39,15 @@ const PROJECT_TOKENS = {
   youtube:      ['youtubedownloader', 'ytdownloader', 'ytdlp'],
 };
 
-// Word-level project detection: normalizedText is the joined token string.
-// 'youtube' as a standalone word (not part of 'youtubelufs' etc.) maps to the
-// YouTube Downloader project; it must not match on normalizador-presets context
-// but that is handled by the entry-level boost logic.
 function detectProject(normalizedText) {
   for (const [project, tokens] of Object.entries(PROJECT_TOKENS)) {
     if (tokens.some(t => normalizedText.includes(t))) return project;
   }
-  // Standalone 'youtube' token (space-bounded) → youtube project
   if (/(^|\s)youtube(\s|$)/.test(normalizedText)) return 'youtube';
   return null;
 }
 
 // ── Intent detection ─────────────────────────────────────────────────────────
-// Detects the user's intent category from stemmed query tokens.
 const INTENT_STEMS = {
   install:      ['instal', 'descarg', 'baj', 'setup', 'ejecut', 'inici', 'configur'],
   requirements: ['requisit', 'neces', 'compatibil', 'soporta', 'sistem', 'requerimient'],
@@ -73,7 +66,6 @@ function detectIntent(stemmedTokens) {
 }
 
 // ── Per-entry metadata ───────────────────────────────────────────────────────
-// Used for boosting: if detected project + intent align with entry, score rises.
 const ENTRY_PROJECT = {
   'livechat-que-es': 'livechat', 'livechat-instalacion': 'livechat',
   'livechat-requisitos': 'livechat', 'livechat-docker': 'livechat',
@@ -127,28 +119,82 @@ const DISAMBIGUATION = {
   dependencies: `¿Las dependencias de qué proyecto necesitas?\n${PROJECTS_LIST}`,
 };
 
+const DEFAULT_CONFIG = Object.freeze({
+  mode: 'disabled',
+  enabled: false,
+  provider: null,
+  model: 'gpt-4o-mini',
+  maxTokens: 300,
+  systemPrompt: "You are a friendly support assistant. Be brief and reply in the user's language.",
+  confidenceThreshold: 0.6,
+  contextMessages: 6,
+  notifyAdmin: false,
+});
+
 // ── AiBot ────────────────────────────────────────────────────────────────────
 class AiBot {
-  constructor() { this.config = {}; this.kb = null; this.openai = null; }
+  constructor() {
+    this.config = DEFAULT_CONFIG;
+    this.kb = null;
+    this.openai = null;
+  }
+
+  configure(nextConfig = {}) {
+    let enabled = nextConfig.enabled;
+    if (enabled === undefined) {
+      if (nextConfig.mode !== undefined) {
+        enabled = nextConfig.mode !== 'disabled';
+      } else {
+        enabled = this.config.enabled;
+      }
+    }
+    const merged = {
+      ...this.config,
+      ...nextConfig,
+      enabled,
+    };
+    this.config = Object.freeze(merged);
+
+    if (this.config.mode === 'knowledge-base' || this.config.mode === 'ai') {
+      this.loadKnowledgeBase();
+    }
+    return this.config;
+  }
 
   init(config = {}) {
     try {
-      this.config = {
-        mode: 'disabled', model: 'gpt-4o-mini', maxTokens: 300,
-        systemPrompt: "You are a friendly support assistant. Be brief and reply in the user's language.",
-        confidenceThreshold: 0.6, contextMessages: 6, notifyAdmin: false,
-        ...config,
-      };
-      if (this.config.mode === 'knowledge-base' || this.config.mode === 'ai') this.loadKnowledgeBase();
+      this.configure(config);
       if (this.config.mode === 'ai' && this.config.openaiKey) {
-        try { const OpenAI = require('openai'); this.openai = new OpenAI({ apiKey: this.config.openaiKey }); }
-        catch (err) { this.logError(err, 'OpenAI package/client init failed'); }
+        try {
+          const OpenAI = require('openai');
+          this.openai = new OpenAI({ apiKey: this.config.openaiKey });
+        } catch (err) {
+          this.logError(err, 'OpenAI package/client init failed');
+        }
       }
-    } catch (err) { this.logError(err, 'AiBot init failed'); }
+    } catch (err) {
+      this.logError(err, 'AiBot init failed');
+    }
   }
 
-  isEnabled() { try { return this.config.mode && this.config.mode !== 'disabled'; } catch { return false; } }
-  shouldBotHandle(session) { try { return this.isEnabled() && !session?.botSilenced; } catch { return false; } }
+  isEnabled() {
+    try {
+      if (this.config.enabled === false) return false;
+      if (this.config.enabled === true) return true;
+      return Boolean(this.config.mode && this.config.mode !== 'disabled');
+    } catch {
+      return false;
+    }
+  }
+
+  shouldBotHandle(session, { isHighPriority = false } = {}) {
+    try {
+      if (isHighPriority || session?.isHighPriority) return false;
+      return this.isEnabled() && !session?.botSilenced;
+    } catch {
+      return false;
+    }
+  }
 
   async getReply(session, text) {
     try {
@@ -161,15 +207,56 @@ class AiBot {
         if (Date.now() <= ctx.expiresAt) {
           const resolved = this.resolveDisambiguation(ctx, text);
           if (resolved) return resolved;
-          // Can't resolve → fall through to normal match
         }
       }
 
-      if (this.config.mode === 'knowledge-base') return this.matchKnowledge(text, session);
+      if (this.config.mode === 'knowledge-base') {
+        return this.matchKnowledge(text, session);
+      }
 
-      if (this.config.mode === 'ai') {
+      // Active LLM provider resolution
+      const activeLlmService = this.config.llmService || defaultLlmService;
+      const provider = this.config.provider || this.config.defaultProvider;
+      const apiKey = this.config.apiKey || this.config.openaiKey;
+
+      if (provider && apiKey) {
+        const messages = this.buildLLMContext(session, text);
+        let systemPrompt = this.getSystemPrompt(session, text);
+        const ragContext = await this.getRAGContext(session, text);
+        if (ragContext) {
+          systemPrompt = `${systemPrompt}\n\n${ragContext}`;
+        }
+
         try {
-          if (!this.openai) throw new Error('OpenAI client is not configured');
+          const res = await activeLlmService.chat({
+            provider,
+            apiKey,
+            model: this.config.model || 'gpt-4o-mini',
+            messages,
+            systemPrompt,
+            maxTokens: this.config.maxTokens,
+            baseURL: this.config.baseURL,
+          });
+
+          if (res && res.ok && res.text) {
+            const reply = String(res.text).trim();
+            if (reply) {
+              return { reply, confidence: 0.9, escalate: false };
+            }
+          }
+        } catch (err) {
+          this.logError(err, 'LLM provider reply failed');
+        }
+
+        if (this.kb?.entries?.length) {
+          const fallback = this.matchKnowledge(text, session);
+          if (fallback?.reply && !fallback.escalate) return fallback;
+        }
+        return { reply: null, confidence: 0, escalate: true };
+      }
+
+      if (this.config.mode === 'ai' && this.openai) {
+        try {
           const completion = await this.openai.chat.completions.create({
             model: this.config.model,
             messages: this.buildOpenAIContext(session, text),
@@ -177,12 +264,46 @@ class AiBot {
           });
           const reply = completion?.choices?.[0]?.message?.content?.trim();
           if (reply) return { reply, confidence: 0.9, escalate: false };
-        } catch (err) { this.logError(err, 'OpenAI reply failed'); }
+        } catch (err) {
+          this.logError(err, 'OpenAI reply failed');
+        }
         const fallback = this.matchKnowledge(text, session);
-        return fallback?.reply && !fallback.escalate ? fallback : { reply: fallback.reply, confidence: fallback.confidence || 0, escalate: true };
+        return fallback?.reply && !fallback.escalate
+          ? fallback
+          : { reply: fallback.reply, confidence: fallback.confidence || 0, escalate: true };
       }
-    } catch (err) { this.logError(err, 'AiBot getReply failed'); }
+
+      if (this.kb?.entries?.length) {
+        return this.matchKnowledge(text, session);
+      }
+    } catch (err) {
+      this.logError(err, 'AiBot getReply failed');
+    }
     return { reply: null, confidence: 0, escalate: true };
+  }
+
+  getSystemPrompt(session, text) {
+    if (typeof this.config.masterPromptService?.getPrompt === 'function') {
+      return this.config.masterPromptService.getPrompt(session, text);
+    }
+    return this.config.systemPrompt || "You are a friendly support assistant. Be brief and reply in the user's language.";
+  }
+
+  async getRAGContext(session, text) {
+    if (typeof this.config.ragService?.retrieve === 'function') {
+      try {
+        const chunks = await this.config.ragService.retrieve(text);
+        if (Array.isArray(chunks) && chunks.length > 0) {
+          const formatted = chunks.map(c => (typeof c === 'string' ? c : c.content || c.text || '')).filter(Boolean).join('\n---\n');
+          if (formatted) {
+            return `Knowledge context:\n${formatted}`;
+          }
+        }
+      } catch (err) {
+        this.logError(err, 'RAG retrieval failed');
+      }
+    }
+    return null;
   }
 
   // Attempt to resolve a pending disambiguation using the user's follow-up.
@@ -191,14 +312,12 @@ class AiBot {
     const project = detectProject(normalized);
     if (!project) return null;
 
-    // Find the best entry matching project + pending intent
     const candidates = (this.kb?.entries || []).filter(e => {
       return ENTRY_PROJECT[e.id] === project &&
         (ENTRY_INTENTS[e.id] || []).includes(ctx.pendingIntent);
     });
     if (candidates.length) return { reply: candidates[0].answer, confidence: 0.92, escalate: false };
 
-    // No intent match — fall back to the "what is" entry for the project
     const about = (this.kb?.entries || []).find(e =>
       ENTRY_PROJECT[e.id] === project && (ENTRY_INTENTS[e.id] || []).includes('features')
     );
@@ -214,17 +333,14 @@ class AiBot {
     } catch (err) { this.kb = null; this.logError(err, 'Knowledge base load failed'); }
   }
 
-  // Base text normalization: lowercase, strip accents, collapse non-alphanum to space.
   normalizeStr(text) {
     return normalizeStr(text);
   }
 
-  // Tokenize without stemming (for exact match layer).
   tokenize(text) {
     return tokenize(text);
   }
 
-  // Tokenize + stem (for fuzzy match layer).
   tokenizeStem(text) {
     return tokenizeStem(text);
   }
@@ -303,13 +419,10 @@ class AiBot {
 
   matchKnowledge(text, session) {
     try {
-      // Prefer the browser language for bot replies; fall back to the detected
-      // conversation language and finally to text hints.
       const preferredLang = session?.browserLang || session?.lang;
       const lang = (preferredLang && ['es','en','pt','fr','de','it'].includes(preferredLang)) ? preferredLang : this.detectLanguage(text);
       const threshold = Number(this.config.confidenceThreshold) || 0.6;
 
-      // Priority 1: protected bot/creator entries, selected by detected visitor language.
       const fixedEntries = getFixedEntries(lang);
       const normalizedQuery = this.normalizeStr(text);
       const identityEntry = fixedEntries.find(e => e.id === 'lcp-bot-identidad' || e.id === 'lcp-bot-identity');
@@ -323,12 +436,10 @@ class AiBot {
         return { reply: FALLBACK_MESSAGES[lang], confidence: 0, escalate: true, language: lang };
       }
 
-      // Priority 2: active production KB, filtered to the visitor language when available.
       const kbEntries = this.entriesForLanguage(this.kb.entries, lang);
       const kbMatch = this.matchEntries(text, kbEntries, session, { allowDisambiguation: true });
       if (kbMatch.confidence >= threshold || !kbMatch.escalate) return { ...kbMatch, language: lang };
 
-      // No visitor translation here. Admin/Telegram translation is handled by the normal escalation pipeline.
       return { reply: FALLBACK_MESSAGES[lang], confidence: kbMatch.confidence || fixedMatch.confidence || 0, escalate: true, language: lang };
     } catch (err) {
       this.logError(err, 'Knowledge match failed');
@@ -337,16 +448,21 @@ class AiBot {
   }
 
   buildOpenAIContext(session, text) {
+    return this.buildLLMContext(session, text);
+  }
+
+  buildLLMContext(session, text) {
     try {
-      const messages = [{ role: 'system', content: this.config.systemPrompt }];
-      const history = Array.isArray(session?.messages) ? session.messages.slice(-this.config.contextMessages) : [];
+      const messages = [];
+      const contextCount = this.config.contextMessages || 6;
+      const history = Array.isArray(session?.messages) ? session.messages.slice(-contextCount) : [];
       for (const msg of history) {
         messages.push({ role: msg.from === 'user' ? 'user' : 'assistant', content: String(msg.text || '').slice(0, 2000) });
       }
       messages.push({ role: 'user', content: String(text || '').slice(0, 4000) });
       return messages;
     } catch (err) {
-      this.logError(err, 'OpenAI context build failed');
+      this.logError(err, 'LLM context build failed');
       return [{ role: 'user', content: String(text || '') }];
     }
   }
@@ -358,3 +474,4 @@ class AiBot {
 }
 
 module.exports = new AiBot();
+
