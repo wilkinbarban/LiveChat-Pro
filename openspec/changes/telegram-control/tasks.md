@@ -56,10 +56,10 @@ Chain strategy: stacked-to-main
 
 ## Phase 5: Admin Routes (PR 5)
 
-- [ ] 5.1 [RED] telegram-admin.test.js: token save valid/invalid/empty; status identity+masked+source; token/botToken undefined (L207-8); adminUsername PUT V: wu5
-- [ ] 5.2 [GREEN] admin.js: handlePutTelegram dispatcher token/adminId/adminUsername both aliases (L593-4); flow mirrors LLM L384-394 verify→encryptSecret→setJSON telegram.token→reconfigure launch:true V: same
-- [ ] 5.3 [GREEN] handleGetTelegramStatus: refreshTelegramIdentity; merge maskedToken/tokenSource/adminUsername; never token V: wu5
-- [ ] 5.4 [REFACTOR] empty-save → env|none source V: `npm test`
+- [x] 5.1 [RED] telegram-admin.test.js: token save valid/invalid/empty; status identity+masked+source; token/botToken undefined (L207-8); adminUsername PUT V: wu5
+- [x] 5.2 [GREEN] admin.js: handlePutTelegram dispatcher token/adminId/adminUsername both aliases (L593-4); flow mirrors LLM L384-394 verify→encryptSecret→setJSON telegram.token→reconfigure launch:true V: same
+- [x] 5.3 [GREEN] handleGetTelegramStatus: refreshTelegramIdentity; merge maskedToken/tokenSource/adminUsername; never token V: wu5
+- [x] 5.4 [REFACTOR] empty-save → env|none source V: `npm test`
 
 ## Phase 6: Admin UI + i18n (PR 6)
 
