@@ -1,7 +1,7 @@
 'use strict';
 
-const { callOpenAiCompatible, DEFAULT_BASE_URLS } = require('./openai-compatible');
-const { callAnthropic } = require('./anthropic');
+const { callOpenAiCompatible, listOpenAiCompatibleModels, DEFAULT_BASE_URLS } = require('./openai-compatible');
+const { callAnthropic, listAnthropicModels } = require('./anthropic');
 
 const SUPPORTED_PROVIDERS = Object.freeze(['openai', 'anthropic', 'openrouter', 'deepseek', 'kimi', 'qwen']);
 
@@ -154,6 +154,32 @@ class LlmService {
     }
 
     return { ok: false, error: testRes.error || 'Connection verification failed' };
+  }
+
+  /**
+   * Lists available models for a provider by dispatching to its adapter.
+   * Never throws: returns [] for unknown providers and on any adapter failure,
+   * so callers can fall back to the static catalog (ADR-1/ADR-3).
+   *
+   * @param {string} provider
+   * @param {string} apiKey
+   * @param {Object} [opts]
+   * @param {Function} [opts.fetchImpl] - Optional custom fetch implementation
+   * @param {string} [opts.baseURL] - Custom base URL override (OpenAI-compatible only)
+   * @returns {Promise<string[]>}
+   */
+  async listModels(provider, apiKey, opts = {}) {
+    const normProvider = String(provider || '').toLowerCase().trim();
+
+    if (!SUPPORTED_PROVIDERS.includes(normProvider)) {
+      return [];
+    }
+
+    if (normProvider === 'anthropic') {
+      return listAnthropicModels({ apiKey, ...opts });
+    }
+
+    return listOpenAiCompatibleModels({ provider: normProvider, apiKey, ...opts });
   }
 }
 

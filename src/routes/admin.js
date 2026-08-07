@@ -370,7 +370,14 @@ function createAdminRouter(deps) {
         return res.status(400).json({ ok: false, error: verifyRes.error || 'Key verification failed' });
       }
 
-      const models = verifyRes.models || catalogModels;
+      // Prefer live model listing from the provider API; fall back to the
+      // static catalog when listing is unavailable (returns [] or the service
+      // has no listModels). ADR-3 keeps the {ok, models} contract unchanged.
+      const apiModels =
+        typeof llmService.listModels === 'function'
+          ? await llmService.listModels(normProvider, apiKey)
+          : [];
+      const models = apiModels.length ? apiModels : catalogModels;
       return res.json({ ok: true, models });
     } catch (err) {
       logger.error?.({ err }, 'Error verifying LLM key');

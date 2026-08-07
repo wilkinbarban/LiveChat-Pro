@@ -84,6 +84,50 @@ async function callAnthropic({
   }
 }
 
+/**
+ * Lists models available from the Anthropic API.
+ * The /v1/models endpoint is tier-dependent (may 404 for some API keys), so
+ * it degrades gracefully. Never throws: returns [] on 404/405/network errors.
+ *
+ * @param {Object} params
+ * @param {string} params.apiKey - Anthropic API key (x-api-key header)
+ * @param {Function} [params.fetchImpl] - Optional custom fetch implementation
+ * @returns {Promise<string[]>} - Model ids from GET /v1/models
+ */
+async function listAnthropicModels({ apiKey, fetchImpl }) {
+  try {
+    const fetchFn = fetchImpl || globalThis.fetch;
+    if (typeof fetchFn !== 'function') {
+      return [];
+    }
+
+    const endpoint = 'https://api.anthropic.com/v1/models';
+
+    const res = await fetchFn(endpoint, {
+      method: 'GET',
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+    });
+
+    if (!res.ok) {
+      return [];
+    }
+
+    const data = typeof res.json === 'function' ? await res.json() : {};
+    if (!Array.isArray(data.data)) {
+      return [];
+    }
+    return data.data
+      .map((item) => (item && typeof item.id === 'string' ? item.id : ''))
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
 module.exports = {
   callAnthropic,
+  listAnthropicModels,
 };
