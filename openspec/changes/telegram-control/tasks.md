@@ -52,7 +52,7 @@ Chain strategy: stacked-to-main
 - [x] 4.1 [RED] api.test.js: FakeTelegraf boot without getMe; /health reflects reconfigure V: wu4
 - [x] 4.2 [GREEN] server.js start(): resolveTelegramToken after initDb; pass token+source; reconcile L491 vs start() V: same
 - [x] 4.3 [GREEN] drop telegramReady var (L271/550/553/562); health getter getTelegramStatus().status==='running' (L489) V: wu4
-- [ ] 4.4 [REFACTOR] createAdminAuth call clean V: `npm test`
+- [x] 4.4 [REFACTOR] createAdminAuth call clean V: `npm test` — verified clean in slice 7: server.js:248 createAdminAuth no longer receives telegramToken (dropped in slice 2); no code change needed
 
 ## Phase 5: Admin Routes (PR 5)
 
@@ -70,6 +70,6 @@ Chain strategy: stacked-to-main
 
 ## Phase 7: Docs + Verification (PR 7)
 
-- [ ] 7.1 [GREEN] .env.example optional token note; README precedence+re-login V: `git diff --stat`
-- [ ] 7.2 [VERIFY] wu7 full suite green
-- [ ] 7.3 [REFACTOR] remove dead telegramReady code V: wu7
+- [x] 7.1 [GREEN] .env.example optional token note; README precedence+re-login V: `git diff --stat` — .env.example TELEGRAM_TOKEN bootstrap/fallback comment; README env table + Telegram-tab note; one-time re-login note (L511) kept
+- [x] 7.2 [VERIFY] wu7 full suite green — `npm test` 370/370 (30 suites, 0 fail); `npx biome check .` exit 0 (25w/54i pre-existing baseline)
+- [x] 7.3 [REFACTOR] final tasks.md state — all telegram-control tasks [x] (1.1–7.3 + 4.4); dead telegramReady code was already removed in slice 4 (4.3), so 7.3 resolves to state confirmation V: wu7
