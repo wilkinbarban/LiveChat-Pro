@@ -99,12 +99,18 @@ function setupTestApp(overrides = {}) {
 }
 
 test('Theme service catalog includes required presets and 13 CSS custom property maps', () => {
-  const expectedPresets = ['auto', 'classic', 'light-aurora', 'light-mint', 'dark-midnight', 'dark-ember'];
+  const expectedPresets = [
+    'auto', 'classic', 'light-aurora', 'light-mint', 'dark-midnight', 'dark-ember',
+    'light-sunrise', 'light-sky', 'dark-ocean', 'dark-forest', 'mono-light',
+    'mono-dark', 'green-chat', 'sky-chat', 'gradient-vibrant', 'ink',
+  ];
   const presets = Object.keys(THEME_PRESETS);
 
   for (const presetName of expectedPresets) {
     assert.ok(presets.includes(presetName), `Missing preset: ${presetName}`);
   }
+
+  assert.equal(presets.length, 16, 'Catalog must contain exactly 16 presets');
 
   const expectedVars = [
     'font', 'color', 'panelBg', 'surfaceBg', 'inputBg', 'inputTextColor',
@@ -125,6 +131,50 @@ test('Theme service catalog includes required presets and 13 CSS custom property
       assert.equal(Object.keys(preset.vars).length, 13, `Preset ${name} must have exactly 13 variables`);
     }
   }
+});
+
+test('Expanded catalog adds 10 new presets with exact labels, types, and 13-key variable maps', () => {
+  const newPresets = {
+    'light-sunrise': { label: 'Light Sunrise', type: 'light' },
+    'light-sky': { label: 'Light Sky', type: 'light' },
+    'dark-ocean': { label: 'Dark Ocean', type: 'dark' },
+    'dark-forest': { label: 'Dark Forest', type: 'dark' },
+    'mono-light': { label: 'Mono Light', type: 'light' },
+    'mono-dark': { label: 'Mono Dark', type: 'dark' },
+    'green-chat': { label: 'Green Chat', type: 'light' },
+    'sky-chat': { label: 'Sky Chat', type: 'light' },
+    'gradient-vibrant': { label: 'Gradient Vibrant', type: 'light' },
+    'ink': { label: 'Ink', type: 'light' },
+  };
+  const expectedVars = [
+    'font', 'color', 'panelBg', 'surfaceBg', 'inputBg', 'inputTextColor',
+    'inputPlaceholderColor', 'textColor', 'mutedColor', 'borderColor',
+    'headerBg', 'headerColor', 'shadow',
+  ];
+
+  for (const [name, expected] of Object.entries(newPresets)) {
+    const preset = THEME_PRESETS[name];
+    assert.ok(preset, `Missing new preset: ${name}`);
+    assert.equal(preset.label, expected.label, `Preset ${name} label`);
+    assert.equal(preset.type, expected.type, `Preset ${name} type`);
+    assert.ok(preset.vars, `Preset ${name} missing vars`);
+    for (const varKey of expectedVars) {
+      assert.ok(varKey in preset.vars, `Preset ${name} missing property: ${varKey}`);
+      assert.equal(typeof preset.vars[varKey], 'string', `Preset ${name} ${varKey} must be a string`);
+    }
+    assert.equal(Object.keys(preset.vars).length, 13, `Preset ${name} must have exactly 13 variables`);
+  }
+
+  // Distinctive values from the design table (source of truth)
+  assert.equal(THEME_PRESETS['green-chat'].vars.color, '#25D366');
+  assert.equal(THEME_PRESETS['green-chat'].vars.headerBg, '#075E54');
+  assert.equal(THEME_PRESETS['sky-chat'].vars.color, '#2AABEE');
+  assert.equal(THEME_PRESETS['mono-dark'].vars.color, '#6b7280');
+  assert.equal(THEME_PRESETS.ink.vars.color, '#000000');
+  assert.equal(
+    THEME_PRESETS['gradient-vibrant'].vars.headerBg,
+    'linear-gradient(135deg,#fa7e1e,#d62976 50%,#962fbf)',
+  );
 });
 
 test('ThemesService persists active theme selection across restarts', async () => {
@@ -253,6 +303,29 @@ test('PUT /api/admin/settings/theme updates active theme and emits theme:update 
     assert.ok(themeUpdate, 'theme:update socket event was not emitted');
     assert.equal(themeUpdate.data.name, 'dark-ember');
     assert.equal(themeUpdate.data.vars.color, '#e11d48');
+
+    // New preset hot-change: green-chat persists and broadcasts live
+    const res2 = await fetch(`http://127.0.0.1:${port}/api/admin/settings/theme`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Cookie: 'admin_token=valid-admin-token',
+        'x-csrf-token': 'valid-csrf-token',
+      },
+      body: JSON.stringify({ name: 'green-chat' }),
+    });
+
+    assert.equal(res2.status, 200);
+    const body2 = await res2.json();
+    assert.equal(body2.ok, true);
+    assert.equal(body2.active, 'green-chat');
+    assert.ok(body2.theme.vars);
+    assert.equal(body2.theme.vars.color, '#25D366');
+
+    const greenUpdate = emittedEvents.filter(e => e.event === 'theme:update').at(-1);
+    assert.ok(greenUpdate, 'theme:update socket event was not emitted for green-chat');
+    assert.equal(greenUpdate.data.name, 'green-chat');
+    assert.equal(greenUpdate.data.vars.color, '#25D366');
   } finally {
     server.close();
   }
