@@ -40,8 +40,8 @@ Chain strategy: stacked-to-main
 
 ## Phase 3: i18n ×5 dicts (RED → GREEN → verify)
 
-- [ ] 3.1 RED `tests/admin-theme-tab.test.js`: i18n `requiredKeys` (L30) → 16 `theme.*` + `theme.preview` ×5 langs. Fails: 10 missing.
-- [ ] 3.2 GREEN `public/admin.html`: +11 keys × 5 dicts (L465-469): `theme.light_sunrise`, `theme.light_sky`, `theme.dark_ocean`, `theme.dark_forest`, `theme.mono_light`, `theme.mono_dark`, `theme.green_chat`, `theme.sky_chat`, `theme.gradient_vibrant`, `theme.ink`, `theme.preview`; EN labels per design.md L42; `fr` uses U+2019; existing 6 keys untouched.
+- [x] 3.1 RED `tests/admin-theme-tab.test.js`: i18n `requiredKeys` (L30) → 16 `theme.*` + `theme.preview` ×5 langs. Fails: 10 missing.
+- [x] 3.2 GREEN `public/admin.html`: +11 keys × 5 dicts (L465-469): `theme.light_sunrise`, `theme.light_sky`, `theme.dark_ocean`, `theme.dark_forest`, `theme.mono_light`, `theme.mono_dark`, `theme.green_chat`, `theme.sky_chat`, `theme.gradient_vibrant`, `theme.ink`, `theme.preview`; EN labels per design.md L42; `fr` uses U+2019; existing 6 keys untouched.
 - [ ] 3.3 VERIFY: `node --test tests/admin-theme-tab.test.js` && `npm test` && `npx biome check .`
 - Rollback: revert dict commit; missing keys fall back to `preset.label`.
 
