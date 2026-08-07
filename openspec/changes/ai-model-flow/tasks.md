@@ -39,13 +39,13 @@ Verify: llm-adapters + admin-llm-routes tests + biome
 ## Phase 2: Slice B — Two-step modal UX + i18n (PR 2)
 Verify: admin-ai-tab test + biome
 
-- [ ] 2.1 [RED] admin-ai-tab.test.js L131: verify_save_key→verify_connection; add 3 keys ×5 (fr U+2019)
-- [ ] 2.2 [GREEN] admin.html L245: relabel #btn-verify-llm → ai.modal.verify_connection
-- [ ] 2.3 [GREEN] admin.html: add #btn-modal-save-close ai.modal.save_and_close
-- [ ] 2.4 [GREEN] admin.html JS L1048-1108: verify-only (populate #llm-model, modalVerified, no save); save-close PUT providers/:name → close → loadLlmSettings
-- [ ] 2.5 [GREEN] admin.html populateModelDropdown L938: sort + cap 50 openrouter
-- [ ] 2.6 [GREEN] admin.html i18n ×5 L465-469: rename + 3 keys (fr U+2019)
-- [ ] 2.7 [REFACTOR] run phase verify; save-model kept
+- [x] 2.1 [RED] admin-ai-tab.test.js L131: verify_save_key→verify_connection; add 3 keys ×5 (fr U+2019)
+- [x] 2.2 [GREEN] admin.html L245: relabel #btn-verify-llm → ai.modal.verify_connection
+- [x] 2.3 [GREEN] admin.html: add #btn-modal-save-close ai.modal.save_and_close
+- [x] 2.4 [GREEN] admin.html JS L1048-1108: verify-only (populate #llm-model, modalVerified, no save); save-close PUT providers/:name → close → loadLlmSettings
+- [x] 2.5 [GREEN] admin.html populateModelDropdown L938: sort + cap 50 openrouter
+- [x] 2.6 [GREEN] admin.html i18n ×5 L465-469: rename + 3 keys (fr U+2019)
+- [x] 2.7 [REFACTOR] run phase verify; save-model kept
 
 ## Phase 3: Slice C — Boot rehydration + {rag_context} (PR 3)
 Verify: ai-bot + boot-without-token tests + biome
