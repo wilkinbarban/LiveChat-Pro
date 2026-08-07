@@ -54,6 +54,27 @@ test('Admin Panel Telegram Tab — HTML Structure and Component Verification', a
     assert.match(html, /id="btn-save-telegram-admin-username"/i);
     assert.match(html, /data-i18n="telegram\.admin_username"/i);
   });
+
+  await t.test('JS token save handler PUTs { token } to the dispatcher and clears the input on success', () => {
+    assert.match(html, /btnSaveTelegramToken\.addEventListener\(['"]click['"]/);
+    assert.match(html, /api\(['"]\/api\/admin\/settings\/telegram['"],\s*\{\s*method:\s*['"]PUT['"]/);
+    assert.match(html, /body:\s*JSON\.stringify\(\{\s*token\s*\}\)/);
+    assert.match(html, /telegramTokenInput\.value\s*=\s*['"]['"]/);
+  });
+
+  await t.test('JS adminUsername handler PUTs { adminUsername } to the dispatcher', () => {
+    assert.match(html, /btnSaveTelegramAdminUsername\.addEventListener\(['"]click['"]/);
+    assert.match(html, /body:\s*JSON\.stringify\(\{\s*adminUsername\s*\}\)/);
+  });
+
+  await t.test('JS loadTelegramSettings renders identity, masked token and source', () => {
+    assert.match(html, /@\$\{data\.botUsername\}/);
+    assert.match(html, /data\.botFirstName/);
+    assert.match(html, /data\.maskedToken/);
+    assert.match(html, /data\.tokenSource/);
+    assert.match(html, /telegramAdminUsernameInput\.value\s*=\s*data\.adminUsername/);
+    assert.match(html, /data\.adminUsername/);
+  });
 });
 
 test('Admin Panel Telegram Tab — i18n Dictionaries Verification across 5 Languages', async (t) => {
