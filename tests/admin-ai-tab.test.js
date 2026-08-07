@@ -128,9 +128,60 @@ test('Admin Panel AI Tab — i18n Dictionaries Verification across 5 Languages',
       assert.ok(dict['ai.modal.title'], `Missing 'ai.modal.title' in '${lang}'`);
       assert.ok(dict['ai.modal.api_key'], `Missing 'ai.modal.api_key' in '${lang}'`);
       assert.ok(dict['ai.modal.model'], `Missing 'ai.modal.model' in '${lang}'`);
-      assert.ok(dict['ai.modal.verify_save_key'], `Missing 'ai.modal.verify_save_key' in '${lang}'`);
+      assert.ok(dict['ai.modal.verify_connection'], `Missing 'ai.modal.verify_connection' in '${lang}'`);
+      assert.ok(dict['ai.modal.save_and_close'], `Missing 'ai.modal.save_and_close' in '${lang}'`);
+      assert.ok(dict['ai.modal.model_list_title'], `Missing 'ai.modal.model_list_title' in '${lang}'`);
+      assert.ok(dict['ai.modal.no_models'], `Missing 'ai.modal.no_models' in '${lang}'`);
       assert.ok(dict['ai.modal.save_model'], `Missing 'ai.modal.save_model' in '${lang}'`);
       assert.ok(dict['ai.modal.close'], `Missing 'ai.modal.close' in '${lang}'`);
+
+      // French entries must follow the U+2019 apostrophe convention (no straight quotes)
+      if (lang === 'fr') {
+        for (const key of ['ai.modal.verify_connection', 'ai.modal.save_and_close', 'ai.modal.model_list_title', 'ai.modal.no_models']) {
+          assert.doesNotMatch(dict[key], /'/, `fr '${key}' must use U+2019 apostrophe, not ASCII`);
+        }
+      }
     });
   }
+});
+
+test('Admin Panel AI Tab — Two-step Modal UX (verify-only, save-close, gating)', async (t) => {
+  const html = fs.readFileSync(ADMIN_HTML_PATH, 'utf8');
+
+  await t.test('modal exposes Guardar y Cerrar button id #btn-modal-save-close', () => {
+    assert.match(html, /id="btn-modal-save-close"/, 'Missing Guardar y Cerrar button');
+  });
+
+  await t.test('verify-only handler lists models without persisting or closing (two-step modal)', () => {
+    const verifyBlock = html.match(/if \(btnVerifyLlm\) \{([\s\S]*?)hideLoading\(\);\n\s*\}\s*\}\);\s*\}/);
+    assert.ok(verifyBlock, 'verify handler block not found');
+    const verifyBody = verifyBlock[1];
+    assert.match(verifyBody, /verify-key/, 'verify handler must POST /verify-key');
+    assert.match(verifyBody, /method:\s*'POST'/, 'verify handler must use POST');
+    assert.match(verifyBody, /populateModelDropdown\(verifyRes\.models/, 'verify handler must populate #llm-model from response');
+    assert.doesNotMatch(verifyBody, /\/api\/admin\/settings\/llm\/providers\//, 'verify-only handler MUST NOT persist via PUT');
+    assert.doesNotMatch(verifyBody, /closeProviderModal/, 'verify-only handler MUST NOT close the modal');
+  });
+
+  await t.test('save-close handler persists provider, closes modal, and reloads grid', () => {
+    const saveCloseBlock = html.match(/handleSaveAndClose\s*=\s*async\s*\(\)\s*=>\s*\{([\s\S]*?)\n\s*\};/);
+    assert.ok(saveCloseBlock, 'save-close handler block not found');
+    const body = saveCloseBlock[1];
+    assert.match(body, /\/api\/admin\/settings\/llm\/providers\//, 'save-close must PUT /providers/:name');
+    assert.match(body, /method:\s*'PUT'/, 'save-close must use PUT');
+    assert.match(body, /closeProviderModal\(\)/, 'save-close must close the modal');
+    assert.match(body, /loadLlmSettings\(\)/, 'save-close must reload the provider grid');
+  });
+
+  await t.test('modalVerified flag gates Guardar y Cerrar and resets on open and key change', () => {
+    assert.match(html, /modalVerified/, 'Missing modalVerified session flag');
+    assert.match(html, /modalVerified\s*=\s*true/, 'verify success must set modalVerified');
+    assert.match(html, /btnModalSaveClose\.disabled/, 'save-close gating must toggle disabled');
+  });
+
+  await t.test('populateModelDropdown sorts and caps OpenRouter list to ~50', () => {
+    assert.match(html, /localeCompare/, 'model list must sort locale-aware');
+    assert.match(html, /\.slice\(0,\s*50\)/, 'OpenRouter list must cap at 50');
+    assert.match(html, /openrouter/, 'cap must apply to openrouter provider');
+  });
 });
