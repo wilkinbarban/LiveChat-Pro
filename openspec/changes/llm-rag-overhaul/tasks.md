@@ -186,9 +186,9 @@ Rollback boundary: default `theme.active=auto` reproduces current behavior; addi
 
 ### 5.1 Dead-code audit sweep (own group, near the end)
 **Objective**: remove `scratch/`, `HELP_TOPICS` personal content (**grep-gate first**), collapse duplicated `resolveTelegramReplySessionId` to the canonical `src/telegram/bot.js` implementation (**import-gate first**), strip remaining KB code paths from `ai-bot.js` (matchKnowledge/disambiguation/`BOT_MODE=knowledge-base`).
-- [ ] 5.1.1 GATE: `rg -n "HELP_TOPICS" tests/` → confirm no assertions; `rg -n "resolveTelegramReplySessionId" tests/ src/` → decide re-export need.
-- [ ] 5.1.2 RED: `tests/dead-code.test.js` (new, lightweight) — assert no `require`/`import` of `kb-trainer` or `scratch/` remains in `src/`/`server.js` (static scan); single canonical resolver (exactly one definition).
-- [ ] 5.1.3 GREEN: deletions + ai-bot KB-path removal + resolver dedupe (server.js:484-490 removed; re-export from telegram module only if the gate proved it necessary).
+- [x] 5.1.1 GATE: `rg -n "HELP_TOPICS" tests/` → confirm no assertions; `rg -n "resolveTelegramReplySessionId" tests/ src/` → decide re-export need.
+- [x] 5.1.2 RED: `tests/dead-code.test.js` (new, lightweight) — assert no `require`/`import` of `kb-trainer` or `scratch/` remains in `src/`/`server.js` (static scan); single canonical resolver (exactly one definition).
+- [x] 5.1.3 GREEN: deletions + ai-bot KB-path removal + resolver dedupe (server.js:484-490 removed; re-export from telegram module only if the gate proved it necessary).
 Files: `src/sockets/index.js`, `server.js`, `src/telegram/bot.js`, `src/services/ai-bot.js`, `scratch/` (delete), `tests/dead-code.test.js` (new).
 Tests first: `tests/dead-code.test.js` + full suite as regression.
 Verify: `npm test`; server boots clean.
