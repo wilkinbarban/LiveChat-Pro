@@ -141,8 +141,8 @@ Rollback boundary: additive routes/tab; documents deletable via endpoint.
 
 ### 3.3 KB migration script
 **Objective**: `scripts/migrate-kb-to-rag.js` — timestamped backup before import; `content_hash = sha256(kb:id:lang)` idempotent re-run; missing file → "nothing to migrate", exit 0 (ADR-9 step 5, design sequence diagram).
-- [ ] 3.3.1 RED: `tests/migrate-kb.test.js` (new) — fixture KB imports fully; backup file created; second run does not increase document counts; missing file exits 0 with message.
-- [ ] 3.3.2 GREEN: implement script (CommonJS, run via `node scripts/migrate-kb-to-rag.js`).
+- [x] 3.3.1 RED: `tests/migrate-kb.test.js` (new) — fixture KB imports fully; backup file created; second run does not increase document counts; missing file exits 0 with message.
+- [x] 3.3.2 GREEN: implement script (CommonJS, run via `node scripts/migrate-kb-to-rag.js`).
 Files: `scripts/migrate-kb-to-rag.js` (new), `tests/migrate-kb.test.js` (new), fixture JSON.
 Tests first: `tests/migrate-kb.test.js`.
 Verify: `npm test`; run script against a copy of production-shaped `data/knowledge-base.json`.
