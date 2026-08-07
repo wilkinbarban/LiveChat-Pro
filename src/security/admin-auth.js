@@ -15,11 +15,9 @@ function isHexToken(value, size) {
 }
 
 function resolveAdminSigningSecret(opts = {}) {
-  const telegramToken = opts.telegramToken;
-  if (telegramToken && typeof telegramToken === 'string' && telegramToken.trim() !== '') {
-    return telegramToken;
-  }
-
+  // HMAC decoupling (ADR-8): the signing secret is ALWAYS the persisted
+  // data/.admin-secret file. The Telegram token is deliberately ignored so
+  // UI token rotation no longer invalidates admin sessions.
   const secretFilePath = opts.secretFilePath || DEFAULT_SECRET_FILE;
   if (fs.existsSync(secretFilePath)) {
     const content = fs.readFileSync(secretFilePath, 'utf8').trim();
@@ -42,7 +40,6 @@ function resolveAdminSigningSecret(opts = {}) {
 // password. The module is intentionally stateless: tokens are signed and carry
 // their own expiration timestamp.
 function createAdminAuth({
-  telegramToken,
   adminPanelPassword,
   adminSessionTtlMs,
   adminCookieName,
@@ -50,10 +47,12 @@ function createAdminAuth({
   cookieSameSite,
   secretFilePath,
 }) {
-  const signingSecret = resolveAdminSigningSecret({ telegramToken, secretFilePath });
+  const signingSecret = resolveAdminSigningSecret({ secretFilePath });
 
-  // Admin sessions are HMAC-signed with both the Telegram token (or fallback secret)
-  // and panel password. Rotating either secret invalidates existing cookies.
+  // Admin sessions are HMAC-signed with the persisted file secret
+  // (data/.admin-secret) and the panel password. Rotating either invalidates
+  // existing cookies; the Telegram token is NOT part of the secret, so token
+  // addition or rotation never logs the admin out.
   function createAdminSignature(payload) {
     return crypto
       .createHmac('sha256', `${signingSecret}:${adminPanelPassword}`)
