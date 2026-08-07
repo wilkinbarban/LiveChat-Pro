@@ -221,7 +221,7 @@ class AiBot {
 
       if (provider && apiKey) {
         const messages = this.buildLLMContext(session, text);
-        let systemPrompt = this.getSystemPrompt(session, text);
+        let systemPrompt = await this.getSystemPrompt(session, text);
         const ragContext = await this.getRAGContext(session, text);
         if (ragContext) {
           systemPrompt = `${systemPrompt}\n\n${ragContext}`;
@@ -282,9 +282,16 @@ class AiBot {
     return { reply: null, confidence: 0, escalate: true };
   }
 
-  getSystemPrompt(session, text) {
+  async getSystemPrompt(session, text) {
+    if (typeof this.config.masterPromptService?.getFormattedPrompt === 'function') {
+      return await this.config.masterPromptService.getFormattedPrompt({
+        visitor_name: session?.visitorName || session?.name,
+        site_title: this.config.siteTitle,
+        current_language: session?.lang || session?.browserLang || 'es',
+      });
+    }
     if (typeof this.config.masterPromptService?.getPrompt === 'function') {
-      return this.config.masterPromptService.getPrompt(session, text);
+      return await this.config.masterPromptService.getPrompt(session, text);
     }
     return this.config.systemPrompt || "You are a friendly support assistant. Be brief and reply in the user's language.";
   }

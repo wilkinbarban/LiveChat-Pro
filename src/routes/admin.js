@@ -9,6 +9,7 @@ const { llmService: defaultLlmService } = require('../services/llm');
 const defaultAiBot = require('../services/ai-bot');
 const { createRagService } = require('../services/rag');
 const { extractPdfText } = require('../utils/pdf');
+const { createMasterPromptService } = require('../services/master-prompt');
 
 function stripHtml(html) {
   return String(html || '')
@@ -38,6 +39,7 @@ function createAdminRouter(deps) {
   const llmService = deps.llmService || defaultLlmService;
   const aiBot = deps.aiBot || defaultAiBot;
   const ragService = deps.ragService || createRagService({ db: deps.db, stmts: deps.stmts });
+  const masterPromptService = deps.masterPromptService || createMasterPromptService({ settingsService });
 
   const {
     rootDir,
@@ -465,6 +467,34 @@ function createAdminRouter(deps) {
       return res.status(500).json({ ok: false, error: 'Internal server error' });
     }
   });
+
+  // ── Master Prompt Admin Routes ────────────────────────────────────
+  const handleGetMasterPrompt = async (_req, res) => {
+    try {
+      const prompt = await masterPromptService.getPrompt();
+      return res.json({ ok: true, prompt });
+    } catch (err) {
+      logger.error?.({ err }, 'Error getting master prompt');
+      return res.status(500).json({ ok: false, error: 'Internal server error' });
+    }
+  };
+
+  const handlePutMasterPrompt = async (req, res) => {
+    try {
+      const { prompt } = req.body || {};
+      const savedPrompt = await masterPromptService.setPrompt(prompt);
+      aiBot.configure({ masterPromptService });
+      return res.json({ ok: true, prompt: savedPrompt });
+    } catch (err) {
+      logger.error?.({ err }, 'Error updating master prompt');
+      return res.status(500).json({ ok: false, error: 'Internal server error' });
+    }
+  };
+
+  router.get('/api/admin/master-prompt', requireAdmin, handleGetMasterPrompt);
+  router.get('/api/admin/settings/prompt', requireAdmin, handleGetMasterPrompt);
+  router.put('/api/admin/master-prompt', requireAdmin, requireCsrf, handlePutMasterPrompt);
+  router.put('/api/admin/settings/prompt', requireAdmin, requireCsrf, handlePutMasterPrompt);
 
   // ── RAG Admin Routes ──────────────────────────────────────────────
   router.get('/api/admin/rag/documents', requireAdmin, async (_req, res) => {
