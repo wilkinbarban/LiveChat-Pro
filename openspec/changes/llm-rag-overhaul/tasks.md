@@ -81,8 +81,8 @@ Rollback boundary: two modified source files + test; token-present deployments a
 
 ### 2.3 text-match extraction (ADR-9 step 1)
 **Objective**: extract stem/normalize/Dice from `src/services/ai-bot.js` into `src/services/text-match.js` — pure refactor, zero behavior change.
-- [ ] 2.3.1 RED: `tests/text-match.test.js` (new) — characterize current stemming/Dice behavior with cases copied from existing ai-bot expectations (including multilingual stems).
-- [ ] 2.3.2 GREEN: move functions to `text-match.js`; ai-bot imports from it; existing `tests/ai-bot.test.js` stays green untouched.
+- [x] 2.3.1 RED: `tests/text-match.test.js` (new) — characterize current stemming/Dice behavior with cases copied from existing ai-bot expectations (including multilingual stems).
+- [x] 2.3.2 GREEN: move functions to `text-match.js`; ai-bot imports from it; existing `tests/ai-bot.test.js` stays green untouched.
 Files: `src/services/text-match.js` (new), `src/services/ai-bot.js`, `tests/text-match.test.js` (new).
 Tests first: `tests/text-match.test.js` + existing `tests/ai-bot.test.js` as regression net.
 Verify: `npm test`.
@@ -90,8 +90,8 @@ Rollback boundary: single refactor commit; revert restores inline functions.
 
 ### 2.4 LLM adapter registry (6 providers)
 **Objective**: `src/services/llm/` — registry + shared OpenAI-protocol adapter (OpenAI/OpenRouter/DeepSeek/Kimi/Qwen via `openai` pkg + baseURL) + native Anthropic adapter **ported from `kb-trainer/ai-client.js` lines 183–200 BEFORE any kb-trainer deletion** (ADR-2: `x-api-key`, `anthropic-version: 2023-06-01`, top-level `system`, mandatory `max_tokens`, reply at `data.content[0].text`).
-- [ ] 2.4.1 RED: `tests/llm-adapters.test.js` (new) — registry rejects unknown provider; each adapter builds correct request (headers/baseURL/body shape) via mock fetch; Anthropic request shape matches the kb-trainer protocol verbatim; error paths fail open (no throw).
-- [ ] 2.4.2 GREEN: `src/services/llm/{index,openai-compatible,anthropic}.js`; clients cached per provider, rebuilt on `configure()` (ADR-6).
+- [x] 2.4.1 RED: `tests/llm-adapters.test.js` (new) — registry rejects unknown provider; each adapter builds correct request (headers/baseURL/body shape) via mock fetch; Anthropic request shape matches the kb-trainer protocol verbatim; error paths fail open (no throw).
+- [x] 2.4.2 GREEN: `src/services/llm/{index,openai-compatible,anthropic}.js`; clients cached per provider, rebuilt on `configure()` (ADR-6).
 Files: `src/services/llm/index.js`, `openai-compatible.js`, `anthropic.js` (new), `tests/llm-adapters.test.js` (new), `package.json` (openai dep).
 Tests first: `tests/llm-adapters.test.js`.
 Verify: `npm test`.
