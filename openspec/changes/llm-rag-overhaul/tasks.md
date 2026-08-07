@@ -62,9 +62,9 @@ Rollback boundary: `setup.js` + `.env.example` + new test; no runtime path depen
 
 ### 2.1 Settings KV table + AES-256-GCM secrets
 **Objective**: `settings` table (idempotent CREATE pattern), KV read/write service, `v1.<iv>.<tag>.<ct>` encryption helpers, `SETTINGS_KEY` env with `data/.settings-key` (0600) fallback (ADR-1).
-- [ ] 2.1.1 RED: `tests/settings.test.js` (new) — set/get round-trip, restart persistence (reopen DB), encrypt/decrypt round-trip, wrong-key decryption failure, masked output `…last4`, key never written to logs.
-- [ ] 2.1.2 GREEN: migration in `db.js` (settings table per design §Data Model); `src/services/settings.js` (`get/set/getJSON/setJSON`, `encryptSecret/decryptSecret`, `maskSecret`).
-- [ ] 2.1.3 Settings survive restart: load-on-boot path wired in service factory.
+- [x] 2.1.1 RED: `tests/settings.test.js` (new) — set/get round-trip, restart persistence (reopen DB), encrypt/decrypt round-trip, wrong-key decryption failure, masked output `…last4`, key never written to logs.
+- [x] 2.1.2 GREEN: migration in `db.js` (settings table per design §Data Model); `src/services/settings.js` (`get/set/getJSON/setJSON`, `encryptSecret/decryptSecret`, `maskSecret`).
+- [x] 2.1.3 Settings survive restart: load-on-boot path wired in service factory.
 Files: `db.js`, `src/services/settings.js` (new), `tests/settings.test.js` (new).
 Tests first: `tests/settings.test.js`.
 Verify: `npm test`.
@@ -72,8 +72,8 @@ Rollback boundary: new service + test + one additive migration; nothing consumes
 
 ### 2.2 Boot without TELEGRAM_TOKEN + persisted admin signing secret (ADR-3)
 **Objective**: soft token validation; `resolveAdminSigningSecret()` = telegram token else persisted 32-byte hex at `data/.admin-secret` (0600).
-- [ ] 2.2.1 RED: `tests/boot-without-token.test.js` (new) — server boots with no `TELEGRAM_TOKEN`, serves chat/admin, telegram reports not-configured; cookies survive restart without token; adding a token later invalidates old cookies once (documented behavior).
-- [ ] 2.2.2 GREEN: downgrade missing-token hard-fail to warning in `src/config/index.js` (admin-ID numeric check only when token present); implement `resolveAdminSigningSecret()` in `src/security/admin-auth.js`.
+- [x] 2.2.1 RED: `tests/boot-without-token.test.js` (new) — server boots with no `TELEGRAM_TOKEN`, serves chat/admin, telegram reports not-configured; cookies survive restart without token; adding a token later invalidates old cookies once (documented behavior).
+- [x] 2.2.2 GREEN: downgrade missing-token hard-fail to warning in `src/config/index.js` (admin-ID numeric check only when token present); implement `resolveAdminSigningSecret()` in `src/security/admin-auth.js`.
 Files: `src/config/index.js`, `src/security/admin-auth.js`, `tests/boot-without-token.test.js` (new).
 Tests first: `tests/boot-without-token.test.js`.
 Verify: `npm test`; manual boot with token unset.
