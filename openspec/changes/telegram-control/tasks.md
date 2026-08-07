@@ -63,10 +63,10 @@ Chain strategy: stacked-to-main
 
 ## Phase 6: Admin UI + i18n (PR 6)
 
-- [ ] 6.1 [RED] admin-telegram-tab.test.js: token input/identity/adminUsername/telegram.saved in 5 dicts; old DOM ids kept V: wu6
-- [ ] 6.2 [GREEN] admin.html tab L340-364: token input+save/verify+masked/identity display+adminUsername; JS L1246-1348 V: same
-- [ ] 6.3 [GREEN] add telegram.saved+token keys to 5 dicts L441-445 V: wu6
-- [ ] 6.4 [REFACTOR] keep 12 telegram.* keys+DOM ids V: `npm test`
+- [x] 6.1 [RED] admin-telegram-tab.test.js: token input/identity/adminUsername/telegram.saved in 5 dicts; old DOM ids kept V: wu6
+- [x] 6.2 [GREEN] admin.html tab L340-364: token input+save/verify+masked/identity display+adminUsername; JS L1246-1348 V: same
+- [x] 6.3 [GREEN] add telegram.saved+token keys to 5 dicts L441-445 V: wu6
+- [x] 6.4 [REFACTOR] keep 12 telegram.* keys+DOM ids V: `npm test`
 
 ## Phase 7: Docs + Verification (PR 7)
 
