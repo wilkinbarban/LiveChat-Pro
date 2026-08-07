@@ -50,11 +50,13 @@ USER node
 # Documentar el puerto por defecto (el valor real lo aporta --env-file o el compose)
 EXPOSE 3000
 
-# Healthcheck usando Node.js puro — no depende de curl/wget
+# Healthcheck usando Node.js puro — no depende de curl/wget.
+# El puerto se sanitiza porque .env puede traer PORT="3010" con comillas.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD node -e " \
     const h = require('http'); \
-    h.get('http://localhost:' + (process.env.PORT || 3000) + '/health', r => { \
+    const port = String(process.env.PORT || 3000).replace(/[\"']/g, ''); \
+    h.get('http://localhost:' + port + '/health', r => { \
       process.exit(r.statusCode === 200 ? 0 : 1); \
     }).on('error', () => process.exit(1));"
 
