@@ -22,15 +22,7 @@ const crypto = require('crypto');
 async function migrateKbToRag(options = {}) {
   let kbPath = options.kbPath;
   if (!kbPath) {
-    const defaultDataKb = path.join(__dirname, '../data/knowledge-base.json');
-    const fallbackTrainerKb = path.join(__dirname, '../kb-trainer/knowledge-base.json');
-    if (fs.existsSync(defaultDataKb)) {
-      kbPath = defaultDataKb;
-    } else if (fs.existsSync(fallbackTrainerKb)) {
-      kbPath = fallbackTrainerKb;
-    } else {
-      kbPath = defaultDataKb;
-    }
+    kbPath = path.join(__dirname, '../data/knowledge-base.json');
   }
 
   if (!fs.existsSync(kbPath)) {

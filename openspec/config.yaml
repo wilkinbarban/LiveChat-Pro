@@ -11,8 +11,8 @@ testing:
   test_command: "npm test"
   test_layers:
     - name: unit
-      description: "Database, attachments, ai-bot, cluster-state, kb-trainer, sentiment, translator, widget-responsive tests"
-      command: "node --test tests/db.test.js tests/attachments.test.js tests/ai-bot.test.js tests/cluster-state.test.js tests/kb-trainer.test.js tests/sentiment.test.js tests/translator-adapters.test.js tests/widget-responsive.test.js"
+      description: "Database, attachments, ai-bot, cluster-state, kb-trainer-removal, sentiment, translator, widget-responsive tests"
+      command: "node --test tests/db.test.js tests/attachments.test.js tests/ai-bot.test.js tests/cluster-state.test.js tests/kb-trainer-removal.test.js tests/sentiment.test.js tests/translator-adapters.test.js tests/widget-responsive.test.js"
     - name: integration
       description: "API router, Telegram reply routing, and translation cache tests (boot the real server with stubbed env)"
       command: "node --test tests/api.test.js tests/telegram-routing.test.js tests/translation-cache.test.js"

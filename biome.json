@@ -6,7 +6,7 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["**/*.js", "!kb-trainer", "!data", "!node_modules", "!public/admin.html"]
+    "includes": ["**/*.js", "!data", "!node_modules", "!public/admin.html"]
   },
   "formatter": {
     "enabled": false,
