@@ -6,11 +6,19 @@ const {
   llmService,
   DEFAULT_BASE_URLS,
   SUPPORTED_PROVIDERS,
+  PROVIDER_MODELS,
 } = require('../src/services/llm/index.js');
 
 test('LLM Adapters — Registry and provider validation', async (t) => {
   await t.test('lists all 6 supported providers', () => {
     assert.deepEqual(SUPPORTED_PROVIDERS, ['openai', 'anthropic', 'openrouter', 'deepseek', 'kimi', 'qwen']);
+  });
+
+  await t.test('exports PROVIDER_MODELS catalog and getProviderModels', () => {
+    assert.ok(PROVIDER_MODELS);
+    assert.deepEqual(llmService.getProviderModels('openai'), ['gpt-4o', 'gpt-4o-mini', 'o1-mini']);
+    assert.deepEqual(llmService.getProviderModels('anthropic'), ['claude-3-5-sonnet-20241022', 'claude-3-haiku-20240307']);
+    assert.deepEqual(llmService.getProviderModels('UNKNOWN'), []);
   });
 
   await t.test('rejects unknown provider in verifyConnection', async () => {
@@ -150,7 +158,7 @@ test('LLM Adapters — Anthropic provider requests', async (t) => {
 });
 
 test('LLM Adapters — Connection verification helper', async (t) => {
-  await t.test('verifyConnection returns ok:true when 1-token test call succeeds', async () => {
+  await t.test('verifyConnection returns ok:true and models list when 1-token test call succeeds', async () => {
     const mockFetch = async (url, options) => {
       const body = JSON.parse(options.body);
       // Confirm max_tokens or minimal token limit used for test call
@@ -166,6 +174,7 @@ test('LLM Adapters — Connection verification helper', async (t) => {
 
     const result = await llmService.verifyConnection('qwen', 'qwen-key', 'qwen-turbo', { fetchImpl: mockFetch });
     assert.equal(result.ok, true);
+    assert.deepEqual(result.models, ['qwen-turbo', 'qwen-plus', 'qwen-max']);
   });
 
   await t.test('verifyConnection returns ok:false with error on failure', async () => {

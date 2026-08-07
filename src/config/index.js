@@ -29,7 +29,8 @@ function readLegacyConfig(logger = console) {
 }
 
 function parseInteger(value, fallback) {
-  const parsed = parseInt(value, 10);
+  const sanitized = typeof value === 'string' ? value.replace(/['"]/g, '').trim() : value;
+  const parsed = parseInt(sanitized, 10);
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
@@ -103,7 +104,7 @@ function createConfig({ logger = console } = {}) {
       apiKey: process.env.WIDGET_API_KEY || '',
     },
     admin: {
-      password: process.env.ADMIN_PANEL_PASSWORD || '',
+      password: typeof process.env.ADMIN_PANEL_PASSWORD === 'string' ? process.env.ADMIN_PANEL_PASSWORD.replace(/^["']|["']$/g, '').trim() : '',
       sessionTtlMs: parseInteger(process.env.ADMIN_SESSION_TTL_HOURS || '12', 12) * 60 * 60 * 1000,
       cookieName: 'lcp_admin',
       csrfCookieName: 'lcp_csrf',

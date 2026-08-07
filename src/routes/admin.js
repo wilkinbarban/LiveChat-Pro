@@ -296,6 +296,9 @@ function createAdminRouter(deps) {
 
       for (const provider of supported) {
         const raw = await settingsService.getJSON(`llm.provider.${provider}`, null);
+        const models = typeof llmService.getProviderModels === 'function'
+          ? llmService.getProviderModels(provider)
+          : [];
         if (raw && (raw.encKey || raw.apiKey)) {
           let plainKey = '';
           if (raw.encKey) {
@@ -307,12 +310,14 @@ function createAdminRouter(deps) {
             configured: true,
             maskedKey: settingsService.maskSecret(plainKey),
             model: raw.model || 'gpt-4o-mini',
+            models,
           };
         } else {
           providers[provider] = {
             configured: false,
             maskedKey: '',
             model: provider === 'anthropic' ? 'claude-3-5-sonnet-20241022' : 'gpt-4o-mini',
+            models,
           };
         }
       }
@@ -342,7 +347,8 @@ function createAdminRouter(deps) {
         return res.status(400).json({ ok: false, error: verifyRes.error || 'Key verification failed' });
       }
 
-      return res.json({ ok: true });
+      const models = verifyRes.models || (typeof llmService.getProviderModels === 'function' ? llmService.getProviderModels(normProvider) : []);
+      return res.json({ ok: true, models });
     } catch (err) {
       logger.error?.({ err }, 'Error verifying LLM key');
       return res.status(500).json({ ok: false, error: 'Internal server error' });

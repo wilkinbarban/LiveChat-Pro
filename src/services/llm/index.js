@@ -5,6 +5,15 @@ const { callAnthropic } = require('./anthropic');
 
 const SUPPORTED_PROVIDERS = Object.freeze(['openai', 'anthropic', 'openrouter', 'deepseek', 'kimi', 'qwen']);
 
+const PROVIDER_MODELS = Object.freeze({
+  openai: Object.freeze(['gpt-4o', 'gpt-4o-mini', 'o1-mini']),
+  anthropic: Object.freeze(['claude-3-5-sonnet-20241022', 'claude-3-haiku-20240307']),
+  openrouter: Object.freeze(['openai/gpt-4o-mini', 'anthropic/claude-3.5-sonnet', 'deepseek/deepseek-chat']),
+  deepseek: Object.freeze(['deepseek-chat', 'deepseek-coder']),
+  kimi: Object.freeze(['moonshot-v1-8k', 'moonshot-v1-32k']),
+  qwen: Object.freeze(['qwen-turbo', 'qwen-plus', 'qwen-max']),
+});
+
 class LlmService {
   constructor() {
     this.config = Object.freeze({
@@ -41,6 +50,16 @@ class LlmService {
    */
   getSupportedProviders() {
     return SUPPORTED_PROVIDERS;
+  }
+
+  /**
+   * Returns supported model list for a given provider.
+   * @param {string} provider
+   * @returns {string[]}
+   */
+  getProviderModels(provider) {
+    const normProvider = String(provider || '').toLowerCase().trim();
+    return Array.from(PROVIDER_MODELS[normProvider] || []);
   }
 
   /**
@@ -131,7 +150,7 @@ class LlmService {
     });
 
     if (testRes.ok) {
-      return { ok: true };
+      return { ok: true, models: this.getProviderModels(normProvider) };
     }
 
     return { ok: false, error: testRes.error || 'Connection verification failed' };
@@ -144,5 +163,6 @@ module.exports = {
   llmService,
   LlmService,
   SUPPORTED_PROVIDERS,
+  PROVIDER_MODELS,
   DEFAULT_BASE_URLS,
 };

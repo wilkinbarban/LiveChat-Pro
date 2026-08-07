@@ -52,8 +52,9 @@ const {
   resolveTelegramReplySessionId
 } = require('./src/telegram/bot');
 
+const logLevel = (process.env.LOG_LEVEL || 'info').replace(/['"]/g, '').trim().toLowerCase();
 const logger = pino({
-  level: process.env.LOG_LEVEL || 'info',
+  level: logLevel || 'info',
   base: undefined,
   timestamp: pino.stdTimeFunctions.isoTime,
 });

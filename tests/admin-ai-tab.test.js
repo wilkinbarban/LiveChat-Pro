@@ -39,8 +39,16 @@ test('Admin Panel AI Tab — HTML Structure and Component Verification', async (
     assert.match(html, /id="ai-global-toggle"|id="llm-enabled"|name="aiEnabled"/i);
   });
 
-  await t.test('default model selection input exists', () => {
-    assert.match(html, /id="llm-model"|id="ai-model"|name="model"/i);
+  await t.test('default model selection input is a disabled select dropdown initially (spec requirement)', () => {
+    assert.match(html, /<select[^>]*id="llm-model"[^>]*disabled/i);
+  });
+
+  await t.test('admin.html JS updates provider fields with dynamic select options and disabled state toggles', () => {
+    assert.match(html, /function\s+populateModelDropdown/);
+    assert.match(html, /updateProviderFields/);
+    assert.match(html, /llmModelInput\.disabled\s*=\s*!pInfo\.configured/);
+    assert.match(html, /verify-key/);
+    assert.match(html, /populateModelDropdown\(verifyRes\.models/);
   });
 });
 

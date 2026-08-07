@@ -59,6 +59,17 @@ function setupTestApp(overrides = {}) {
     getSupportedProviders() {
       return ['openai', 'anthropic', 'openrouter', 'deepseek', 'kimi', 'qwen'];
     },
+    getProviderModels(provider) {
+      const map = {
+        openai: ['gpt-4o', 'gpt-4o-mini', 'o1-mini'],
+        anthropic: ['claude-3-5-sonnet-20241022', 'claude-3-haiku-20240307'],
+        openrouter: ['openai/gpt-4o-mini', 'anthropic/claude-3.5-sonnet', 'deepseek/deepseek-chat'],
+        deepseek: ['deepseek-chat', 'deepseek-coder'],
+        kimi: ['moonshot-v1-8k', 'moonshot-v1-32k'],
+        qwen: ['qwen-turbo', 'qwen-plus', 'qwen-max'],
+      };
+      return map[provider] || [];
+    },
     async verifyConnection(provider, apiKey, _model) {
       if (apiKey === 'invalid-key') {
         return { ok: false, error: 'Invalid API Key' };
@@ -66,7 +77,7 @@ function setupTestApp(overrides = {}) {
       if (!['openai', 'anthropic', 'openrouter', 'deepseek', 'kimi', 'qwen'].includes(provider)) {
         return { ok: false, error: `Unsupported provider: ${provider}` };
       }
-      return { ok: true };
+      return { ok: true, models: this.getProviderModels(provider) };
     },
   };
 
@@ -203,7 +214,7 @@ test('LLM Admin Endpoints — Verification endpoint', async (t) => {
     assert.equal(res.json.error, 'Invalid API Key');
   });
 
-  await t.test('returns ok:true on successful connection test', async () => {
+  await t.test('returns ok:true and models list on successful connection test', async () => {
     const res = await makeRequest(app, 'POST', '/api/admin/settings/llm/verify-key', {
       headers: authHeaders,
       cookies: authCookies,
@@ -211,6 +222,7 @@ test('LLM Admin Endpoints — Verification endpoint', async (t) => {
     });
     assert.equal(res.status, 200);
     assert.equal(res.json.ok, true);
+    assert.deepEqual(res.json.models, ['gpt-4o', 'gpt-4o-mini', 'o1-mini']);
   });
 });
 
@@ -218,7 +230,7 @@ test('LLM Admin Endpoints — Get settings with masked keys', async (t) => {
   const { app } = setupTestApp();
   const authCookies = { admin_token: 'valid-admin-token' };
 
-  await t.test('returns default structure when fresh', async () => {
+  await t.test('returns default structure when fresh including provider model lists', async () => {
     const res = await makeRequest(app, 'GET', '/api/admin/settings/llm', {
       cookies: authCookies,
     });
@@ -229,6 +241,8 @@ test('LLM Admin Endpoints — Get settings with masked keys', async (t) => {
     assert.ok(res.json.providers);
     assert.equal(res.json.providers.openai.configured, false);
     assert.equal(res.json.providers.openai.maskedKey, '');
+    assert.deepEqual(res.json.providers.openai.models, ['gpt-4o', 'gpt-4o-mini', 'o1-mini']);
+    assert.deepEqual(res.json.providers.anthropic.models, ['claude-3-5-sonnet-20241022', 'claude-3-haiku-20240307']);
   });
 });
 

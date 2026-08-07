@@ -4,7 +4,7 @@
 // running as a single process or with Redis-backed shared state.
 class ClusterState {
   constructor({ redisUrl = '', keyPrefix = 'lcp', logger = console, enabled = true } = {}) {
-    this.redisUrl = redisUrl;
+    this.redisUrl = typeof redisUrl === 'string' ? redisUrl.replace(/^["']|["']$/g, '').trim() : '';
     this.keyPrefix = keyPrefix;
     this.logger = logger;
     this.enabled = enabled;

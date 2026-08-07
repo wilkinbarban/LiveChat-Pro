@@ -194,7 +194,7 @@
 
             <div class="field-group">
               <label for="llm-model" style="display:block; margin-bottom:6px; font-weight:700;" data-i18n="ai.model">Modelo por defecto</label>
-              <input type="text" id="llm-model" name="model" placeholder="gpt-4o-mini">
+              <select id="llm-model" name="model" disabled style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--line);"></select>
             </div>
 
             <div class="field-group">
@@ -746,10 +746,32 @@
         }
       }
 
+      function populateModelDropdown(models, selectedModel) {
+        if (!llmModelInput) return;
+        llmModelInput.innerHTML = '';
+        const modelList = Array.isArray(models) ? models : [];
+        if (modelList.length === 0) {
+          llmModelInput.disabled = true;
+          return;
+        }
+        modelList.forEach(m => {
+          const opt = document.createElement('option');
+          opt.value = m;
+          opt.textContent = m;
+          if (m === selectedModel) opt.selected = true;
+          llmModelInput.appendChild(opt);
+        });
+      }
+
       function updateProviderFields(provider) {
         if (!currentLlmConfig || !currentLlmConfig.providers) return;
         const pInfo = currentLlmConfig.providers[provider] || {};
-        if (llmModelInput) llmModelInput.value = pInfo.model || 'gpt-4o-mini';
+        const models = pInfo.models || [];
+        const selectedModel = pInfo.model || models[0] || '';
+        populateModelDropdown(models, selectedModel);
+        if (llmModelInput) {
+          llmModelInput.disabled = !pInfo.configured;
+        }
         if (llmApiKeyInput) llmApiKeyInput.value = pInfo.maskedKey || '';
       }
 
@@ -779,13 +801,29 @@
       if (btnVerifyLlm) {
         btnVerifyLlm.addEventListener('click', async () => {
           const provider = aiProviderSelect.value;
-          const model = llmModelInput.value.trim();
           const apiKey = llmApiKeyInput.value.trim();
+          let model = llmModelInput.value ? llmModelInput.value.trim() : '';
 
           showLoading(t('syncing'));
           if (aiNotice) aiNotice.classList.add('hidden');
 
           try {
+            const verifyPayload = { provider, model };
+            if (apiKey && !apiKey.startsWith('…')) {
+              verifyPayload.apiKey = apiKey;
+            }
+
+            const verifyRes = await api('/api/admin/settings/llm/verify-key', {
+              method: 'POST',
+              body: JSON.stringify(verifyPayload),
+            });
+
+            if (verifyRes && verifyRes.ok && Array.isArray(verifyRes.models)) {
+              model = model && verifyRes.models.includes(model) ? model : verifyRes.models[0] || model;
+              populateModelDropdown(verifyRes.models, model);
+              if (llmModelInput) llmModelInput.disabled = false;
+            }
+
             const body = { model };
             if (apiKey && !apiKey.startsWith('…')) {
               body.apiKey = apiKey;
@@ -807,6 +845,7 @@
             }
             await loadAiSettings();
           } catch (err) {
+            if (llmModelInput) llmModelInput.disabled = true;
             if (aiNotice) {
               aiNotice.textContent = err.message;
               aiNotice.classList.remove('hidden');
