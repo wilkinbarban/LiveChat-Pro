@@ -36,9 +36,9 @@ Chain strategy: stacked-to-main
 
 ## Phase 2: HMAC Decoupling (PR 2)
 
-- [ ] 2.1 [RED] Rewrite boot-without-token.test.js L49-95: secret always data/.admin-secret 0600; token param ignored; rotation keeps cookies V: wu2
-- [ ] 2.2 [GREEN] admin-auth.js: drop telegramToken branch (L18-21) + createAdminAuth param (L44-53); remove arg server.js:246 V: same
-- [ ] 2.3 [REFACTOR] one-time re-login note V: `npm test`
+- [x] 2.1 [RED] Rewrite boot-without-token.test.js L49-95: secret always data/.admin-secret 0600; token param ignored; rotation keeps cookies V: wu2
+- [x] 2.2 [GREEN] admin-auth.js: drop telegramToken branch (L18-21) + createAdminAuth param (L44-53); remove arg server.js:246 V: same
+- [x] 2.3 [REFACTOR] one-time re-login note V: `npm test`
 
 ## Phase 3: Bot Module Core (PR 3)
 
