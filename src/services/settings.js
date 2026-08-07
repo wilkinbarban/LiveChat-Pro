@@ -73,7 +73,7 @@ function createSettingsService(deps = {}) {
   let configSnapshot = Object.freeze({});
 
   async function get(key, defaultValue = null) {
-    if (!db) return defaultValue;
+    if (!db && !stmts?.getSetting) return defaultValue;
     let row;
     if (stmts?.getSetting) {
       row = await stmts.getSetting.get(key);
@@ -84,7 +84,7 @@ function createSettingsService(deps = {}) {
   }
 
   async function set(key, value) {
-    if (!db) return;
+    if (!db && !stmts?.setSetting) return;
     const strVal = String(value);
     const now = Date.now();
     if (stmts?.setSetting) {
@@ -112,7 +112,7 @@ function createSettingsService(deps = {}) {
   }
 
   async function remove(key) {
-    if (!db) return;
+    if (!db && !stmts?.deleteSetting) return;
     if (stmts?.deleteSetting) {
       await stmts.deleteSetting.run(key);
     } else if (typeof db.run === 'function') {
@@ -130,7 +130,7 @@ function createSettingsService(deps = {}) {
   }
 
   async function loadAll() {
-    if (!db) return configSnapshot;
+    if (!db && !stmts?.getAllSettings) return configSnapshot;
     let rows = [];
     if (stmts?.getAllSettings) {
       rows = await stmts.getAllSettings.all();

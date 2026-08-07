@@ -159,4 +159,48 @@ describe('Settings Service & AES-256-GCM Crypto', () => {
     assert.equal(service.getConfig()['llm.default'], 'anthropic');
     assert.ok(Object.isFrozen(service.getConfig()));
   });
+
+  it('persists and reads with stmts only (production wiring, no db object)', async () => {
+    // Regression: server.js builds createSettingsService({ stmts }) without a db
+    // handle. The service MUST still read/write through the statement facade
+    // instead of silently no-op'ing (previously every get returned the default
+    // and every set was a no-op, so provider keys never persisted).
+    const store = new Map();
+    const stmts = {
+      getSetting: {
+        get: async (key) => {
+          const v = store.get(key);
+          return v ? { value: v.value } : undefined;
+        },
+      },
+      setSetting: {
+        run: async (params) => {
+          const key = params['@key'] !== undefined ? params['@key'] : params.key;
+          const value = params['@value'] !== undefined ? params['@value'] : params.value;
+          store.set(key, { value, updated_at: Date.now() });
+        },
+      },
+      deleteSetting: {
+        run: async (key) => store.delete(key),
+      },
+      getAllSettings: {
+        all: async () => Array.from(store.entries()).map(([k, v]) => ({ key: k, value: v.value, updated_at: v.updated_at })),
+      },
+    };
+
+    const service = createSettingsService({ stmts });
+
+    await service.setJSON('llm.provider.deepseek', { encKey: 'v1.encrypted', model: 'deepseek-chat' });
+    const readBack = await service.getJSON('llm.provider.deepseek');
+    assert.deepEqual(readBack, { encKey: 'v1.encrypted', model: 'deepseek-chat' });
+
+    await service.set('llm.default_provider', 'deepseek');
+    assert.equal(await service.get('llm.default_provider'), 'deepseek');
+
+    await service.delete('llm.provider.deepseek');
+    assert.equal(await service.getJSON('llm.provider.deepseek'), null);
+
+    const loaded = await service.loadAll();
+    assert.equal(loaded['llm.default_provider'], 'deepseek');
+  });
 });
