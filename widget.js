@@ -148,7 +148,7 @@
     fetch(SERVER_URL + '/config-public').then(r => r.json()).then(cfg => {
       primaryColor = cfg.primaryColor || primaryColor;
       buttonStyle = cfg.buttonStyle || buttonStyle;
-      applyTheme(primaryColor);
+      applyTheme(primaryColor, cfg.theme);
       if (buttonStyle === 'hidden') toggleBtn.style.display = 'none';
       wrap.classList.toggle('lcp-persistent', buttonStyle === 'persistent');
     }).catch(() => { });
@@ -531,7 +531,28 @@
       };
     }
 
-    function applyTheme(color) {
+    function applyThemeVars(theme) {
+      if (!theme) return;
+      wrap.style.setProperty('--lcp-font-family', theme.font);
+      wrap.style.setProperty('--lcp-color', theme.color);
+      wrap.style.setProperty('--lcp-panel-bg', theme.panelBg);
+      wrap.style.setProperty('--lcp-surface-bg', theme.surfaceBg);
+      wrap.style.setProperty('--lcp-input-bg', theme.inputBg);
+      wrap.style.setProperty('--lcp-input-text-color', theme.inputTextColor);
+      wrap.style.setProperty('--lcp-input-placeholder-color', theme.inputPlaceholderColor);
+      wrap.style.setProperty('--lcp-text-color', theme.textColor);
+      wrap.style.setProperty('--lcp-muted-color', theme.mutedColor);
+      wrap.style.setProperty('--lcp-border-color', theme.borderColor);
+      wrap.style.setProperty('--lcp-header-bg', theme.headerBg);
+      wrap.style.setProperty('--lcp-header-color', theme.headerColor);
+      wrap.style.setProperty('--lcp-shadow', theme.shadow);
+    }
+
+    function applyTheme(color, customTheme) {
+      if (customTheme && customTheme.name !== 'auto' && customTheme.vars) {
+        applyThemeVars(customTheme.vars);
+        return;
+      }
       const theme = WIDGET_OPTIONS.theme === 'auto' ? readSiteTheme(color) : {
         font: 'Sora, Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
         color,
@@ -547,19 +568,7 @@
         headerColor: '#fff',
         shadow: '0 24px 80px rgba(0,0,0,.18)',
       };
-      wrap.style.setProperty('--lcp-font-family', theme.font);
-      wrap.style.setProperty('--lcp-color', theme.color);
-      wrap.style.setProperty('--lcp-panel-bg', theme.panelBg);
-      wrap.style.setProperty('--lcp-surface-bg', theme.surfaceBg);
-      wrap.style.setProperty('--lcp-input-bg', theme.inputBg);
-      wrap.style.setProperty('--lcp-input-text-color', theme.inputTextColor);
-      wrap.style.setProperty('--lcp-input-placeholder-color', theme.inputPlaceholderColor);
-      wrap.style.setProperty('--lcp-text-color', theme.textColor);
-      wrap.style.setProperty('--lcp-muted-color', theme.mutedColor);
-      wrap.style.setProperty('--lcp-border-color', theme.borderColor);
-      wrap.style.setProperty('--lcp-header-bg', theme.headerBg);
-      wrap.style.setProperty('--lcp-header-color', theme.headerColor);
-      wrap.style.setProperty('--lcp-shadow', theme.shadow);
+      applyThemeVars(theme);
     }
 
     function isMobileViewport() {
@@ -935,6 +944,15 @@
 
     socket.on('banned', () => {
       win.innerHTML = `<div style="padding:40px;text-align:center;color:#ef4444;font-family:inherit;"><b>${uiText.banned}</b></div>`;
+    });
+
+    socket.on('theme:update', (data) => {
+      if (!data) return;
+      if (data.name === 'auto' || !data.vars) {
+        applyThemeVars(readSiteTheme(primaryColor));
+      } else {
+        applyThemeVars(data.vars);
+      }
     });
 
     socket.connect();

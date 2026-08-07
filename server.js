@@ -31,6 +31,8 @@ const { parseCookies } = require('./src/utils/cookies');
 const { createHttpRateLimiters, createMsgRateLimiter } = require('./src/utils/rate-limiters');
 const { createAdminAuth } = require('./src/security/admin-auth');
 const translator = require('./src/services/translator');
+const { createSettingsService } = require('./src/services/settings');
+const { createThemesService } = require('./src/services/themes');
 const { createSessionService } = require('./src/services/sessions');
 const { createAdminChatService } = require('./src/services/admin-chat');
 const { createAttachmentService } = require('./src/services/attachments');
@@ -648,12 +650,17 @@ app.get('/demo', (_req, res) => {
   res.redirect('./');
 });
 
-app.get('/config-public', publicApiLimiter, (_req, res) => {
+const settingsService = createSettingsService({ stmts });
+const themesService = createThemesService({ settingsService });
+
+app.get('/config-public', publicApiLimiter, async (_req, res) => {
+  const theme = await themesService.getActiveTheme();
   // Only expose visual widget settings that are safe for public embedded pages.
   res.json({
     primaryColor: widgetCfg.primaryColor,
     buttonStyle: widgetCfg.buttonStyle,
-    apiKey: widgetCfg.apiKey
+    apiKey: widgetCfg.apiKey,
+    theme,
   });
 });
 
@@ -666,6 +673,8 @@ app.use(createAdminRouter({
   io,
   sessions,
   stmts,
+  settingsService,
+  themesService,
   logger,
   ensureCsrfCookie,
   verifyAdminToken,
