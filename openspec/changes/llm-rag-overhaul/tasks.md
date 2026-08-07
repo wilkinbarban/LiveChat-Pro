@@ -109,8 +109,8 @@ Rollback boundary: ai-bot.js rewiring; `BOT_MODE=knowledge-base` path still pres
 
 ### 2.6 LLM admin endpoints + AI tab
 **Objective**: endpoint inventory rows for AI (GET `/api/admin/llm`, PUT providers/:name with verify-then-save, PUT default, PUT enabled) + AI tab in admin.html.
-- [ ] 2.6.1 RED: `tests/admin-llm.test.js` (new) — 401 without admin cookie, 403 without CSRF on mutations; verify→encrypt→save happy path (mock provider 1-token call); 401 from provider leaves config unchanged; unknown provider rejected; masked key only in responses; global on/off honored by `isEnabled()`.
-- [ ] 2.6.2 GREEN: routes in `src/routes/admin.js` under `requireAdmin`+`requireCsrf`; AI tab in `public/admin.html` with `data-i18n` keys added to all 5 dictionaries (English fallback), CSP-inline.
+- [x] 2.6.1 RED: `tests/admin-llm.test.js` (new) — 401 without admin cookie, 403 without CSRF on mutations; verify→encrypt→save happy path (mock provider 1-token call); 401 from provider leaves config unchanged; unknown provider rejected; masked key only in responses; global on/off honored by `isEnabled()`.
+- [x] 2.6.2 GREEN: routes in `src/routes/admin.js` under `requireAdmin`+`requireCsrf`; AI tab in `public/admin.html` with `data-i18n` keys added to all 5 dictionaries (English fallback), CSP-inline.
 Files: `src/routes/admin.js`, `public/admin.html`, `tests/admin-llm.test.js` (new).
 Tests first: `tests/admin-llm.test.js`.
 Verify: `npm test`.
