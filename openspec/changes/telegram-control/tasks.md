@@ -49,9 +49,9 @@ Chain strategy: stacked-to-main
 
 ## Phase 4: Server Wiring (PR 4)
 
-- [ ] 4.1 [RED] api.test.js: FakeTelegraf boot without getMe; /health reflects reconfigure V: wu4
-- [ ] 4.2 [GREEN] server.js start(): resolveTelegramToken after initDb; pass token+source; reconcile L491 vs start() V: same
-- [ ] 4.3 [GREEN] drop telegramReady var (L271/550/553/562); health getter getTelegramStatus().status==='running' (L489) V: wu4
+- [x] 4.1 [RED] api.test.js: FakeTelegraf boot without getMe; /health reflects reconfigure V: wu4
+- [x] 4.2 [GREEN] server.js start(): resolveTelegramToken after initDb; pass token+source; reconcile L491 vs start() V: same
+- [x] 4.3 [GREEN] drop telegramReady var (L271/550/553/562); health getter getTelegramStatus().status==='running' (L489) V: wu4
 - [ ] 4.4 [REFACTOR] createAdminAuth call clean V: `npm test`
 
 ## Phase 5: Admin Routes (PR 5)
