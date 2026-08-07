@@ -1,5 +1,6 @@
 const { Telegraf } = require('telegraf');
 const { escapeTelegramHtml } = require('../utils/sanitizer');
+const { maskSecret } = require('../services/settings');
 
 // The bot module keeps a singleton Telegraf instance because Telegram long
 // polling/webhook ownership is process-wide. setupTelegramBot wires runtime
@@ -7,16 +8,23 @@ const { escapeTelegramHtml } = require('../utils/sanitizer');
 let bot = null;
 let _token = null;
 let _adminId = null;
+let _tokenSource = null;
 let _logger = null;
 let _clusterState = null;
 let _status = 'stopped';
 let _deps = null;
+
+// Lazy bot identity (ADR-9): populated only by refreshTelegramIdentity(), never
+// at setup/launch, so FakeTelegraf-based integration tests boot without getMe.
+const TELEGRAM_IDENTITY_CACHE_MS = 5 * 60 * 1000;
+let _identity = { username: null, firstName: null, fetchedAt: 0 };
 
 function setupTelegramBot(deps) {
   _deps = deps;
   const {
     token,
     adminId,
+    tokenSource,
     logger,
     sessions,
     clusterState,
@@ -32,8 +40,12 @@ function setupTelegramBot(deps) {
 
   _token = token || null;
   _adminId = adminId || null;
+  _tokenSource = _token ? (tokenSource || 'env') : null;
   _logger = logger || null;
   _clusterState = clusterState || null;
+  // Identity belongs to the current instance: rebuilds (reconfigure/start)
+  // invalidate the cache so the next status refresh fetches the NEW bot.
+  _identity = { username: null, firstName: null, fetchedAt: 0 };
 
   if (!_token) {
     bot = null;
@@ -196,6 +208,67 @@ function setupTelegramBot(deps) {
   return bot;
 }
 
+// Throwaway token verification used by the admin save flow (ADR-3): builds a
+// fresh Telegraf client, calls getMe, and discards it. Never polls, never
+// throws — errors resolve as { ok: false, error }.
+async function verifyTelegramToken(token) {
+  try {
+    const me = await new Telegraf(token).telegram.getMe();
+    return {
+      ok: true,
+      id: me.id ?? null,
+      username: me.username ?? null,
+      first_name: me.first_name ?? null,
+    };
+  } catch (error) {
+    return { ok: false, error: error?.message || String(error) };
+  }
+}
+
+// Boot-time token resolution (ADR-2): settings-backed (decrypted) wins over
+// env; a decrypt failure warns and falls back to env; neither yields none.
+async function resolveTelegramToken({ settingsService, envToken = null, logger = null } = {}) {
+  if (settingsService) {
+    try {
+      const stored = await settingsService.getJSON('telegram.token', null);
+      if (stored?.encKey) {
+        const decrypted = await settingsService.decryptSecret(stored.encKey);
+        if (decrypted) {
+          return { token: decrypted, tokenSource: 'settings' };
+        }
+      }
+    } catch (error) {
+      logger?.warn?.({ err: error }, 'No se pudo descifrar el token de Telegram; usando variable de entorno');
+    }
+  }
+  if (envToken) {
+    return { token: envToken, tokenSource: 'env' };
+  }
+  return { token: null, tokenSource: 'none' };
+}
+
+// Lazy identity fetch (ADR-9): the only getMe call besides verifyTelegramToken.
+// Runs on explicit status refresh only, caches ~5 minutes, and fails safe to
+// null when getMe is unavailable or errors (FakeTelegraf boot safety).
+async function refreshTelegramIdentity() {
+  if (!_token || !bot) return null;
+  const now = Date.now();
+  if (_identity.fetchedAt && now - _identity.fetchedAt < TELEGRAM_IDENTITY_CACHE_MS) {
+    return _identity;
+  }
+  try {
+    const me = await bot.telegram.getMe();
+    _identity = {
+      username: me.username ?? null,
+      firstName: me.first_name ?? null,
+      fetchedAt: now,
+    };
+  } catch {
+    _identity = { username: null, firstName: null, fetchedAt: 0 };
+  }
+  return _identity;
+}
+
 function launchTelegramBot(timeoutMs) {
   if (!_token || !bot) {
     _status = 'not-configured';
@@ -267,10 +340,27 @@ async function resolveTelegramReplySessionId(message) {
 }
 
 function getTelegramStatus() {
+  const base = { adminId: _adminId || null };
   if (!_token) {
-    return { status: 'not-configured', adminId: _adminId || null, configured: false };
+    return {
+      ...base,
+      status: 'not-configured',
+      configured: false,
+      maskedToken: null,
+      tokenSource: null,
+      botUsername: null,
+      botFirstName: null,
+    };
   }
-  return { status: _status, adminId: _adminId || null, configured: true };
+  return {
+    ...base,
+    status: _status,
+    configured: true,
+    maskedToken: maskSecret(_token),
+    tokenSource: _tokenSource || 'env',
+    botUsername: _identity.username,
+    botFirstName: _identity.firstName,
+  };
 }
 
 async function startTelegramBot(timeoutMs = 10000) {
@@ -280,7 +370,10 @@ async function startTelegramBot(timeoutMs = 10000) {
   if (_status === 'running') {
     return { status: 'running' };
   }
-  if (!bot && _deps) {
+  // Always rebuild from _deps (ADR-4): a token/adminId changed while stopped
+  // (reconfigureTelegramBot) must reach the launched instance. Recreating the
+  // Telegraf instance is harmless when no polling is active.
+  if (_deps) {
     setupTelegramBot(_deps);
   }
   await launchTelegramBot(timeoutMs);
@@ -308,6 +401,27 @@ function setTelegramAdminId(adminId) {
   _adminId = adminId ? String(adminId) : null;
 }
 
+// Runtime reconfigure (ADR-3 / admin-settings spec): stops a running bot,
+// swaps the given credentials in _deps, rebuilds the Telegraf instance and
+// optionally relaunches. launch:true is the live-apply path for token saves;
+// launch:false swaps credentials while stopped (clear/empty-save path).
+async function reconfigureTelegramBot({ token, adminId, launch = false } = {}) {
+  if (_status === 'running') {
+    await stopTelegramBot();
+  }
+  const nextDeps = {
+    ...(_deps || {}),
+    ...(token !== undefined ? { token } : {}),
+    ...(adminId !== undefined ? { adminId } : {}),
+  };
+  _deps = nextDeps;
+  setupTelegramBot(_deps);
+  if (launch && token) {
+    await launchTelegramBot();
+  }
+  return { status: _status };
+}
+
 module.exports = {
   setupTelegramBot,
   launchTelegramBot,
@@ -319,4 +433,8 @@ module.exports = {
   startTelegramBot,
   stopTelegramBot,
   setTelegramAdminId,
+  verifyTelegramToken,
+  reconfigureTelegramBot,
+  resolveTelegramToken,
+  refreshTelegramIdentity,
 };

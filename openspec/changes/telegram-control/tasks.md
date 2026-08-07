@@ -42,10 +42,10 @@ Chain strategy: stacked-to-main
 
 ## Phase 3: Bot Module Core (PR 3)
 
-- [ ] 3.1 [RED] New tests/telegram-bot.test.js: verifyTelegramToken ok/fail; resolveTelegramToken precedence+decrypt-fail; reconfigureTelegramBot stop→setup→launch V: wu3
-- [ ] 3.2 [GREEN] bot.js: add verifyTelegramToken/reconfigureTelegramBot/resolveTelegramToken/refreshTelegramIdentity (cache 5min); startTelegramBot always re-setup (L283) V: same
-- [ ] 3.3 [GREEN] getTelegramStatus +botUsername/botFirstName/maskedToken/tokenSource; setup accepts tokenSource V: wu3
-- [ ] 3.4 [REFACTOR] no getMe at boot/launch (FakeTelegraf-safe) V: `npm test`
+- [x] 3.1 [RED] New tests/telegram-bot.test.js: verifyTelegramToken ok/fail; resolveTelegramToken precedence+decrypt-fail; reconfigureTelegramBot stop→setup→launch V: wu3
+- [x] 3.2 [GREEN] bot.js: add verifyTelegramToken/reconfigureTelegramBot/resolveTelegramToken/refreshTelegramIdentity (cache 5min); startTelegramBot always re-setup (L283) V: same
+- [x] 3.3 [GREEN] getTelegramStatus +botUsername/botFirstName/maskedToken/tokenSource; setup accepts tokenSource V: wu3
+- [x] 3.4 [REFACTOR] no getMe at boot/launch (FakeTelegraf-safe) V: `npm test`
 
 ## Phase 4: Server Wiring (PR 4)
 
