@@ -2,6 +2,7 @@
 
 const crypto = require('crypto');
 const { diceCoefficient } = require('./text-match.js');
+const { getLastInsertId } = require('../utils/sqlite-result');
 
 /**
  * Splitting text into overlapping chunks (~900 chars / 150 overlap)
@@ -120,18 +121,24 @@ function createRagService(deps = {}) {
         content_hash: contentHash,
         created_at: now,
       });
-      documentId = res.lastID || res.id;
+      documentId = getLastInsertId(res);
     } else if (db?.run) {
       const res = await db.run(
         'INSERT INTO rag_documents (source, source_type, title, content_hash, created_at) VALUES (?, ?, ?, ?, ?)',
         [source, sourceType, title || null, contentHash, now]
       );
-      documentId = res.lastID || res.id;
+      documentId = getLastInsertId(res);
     }
 
     if (!documentId) {
-      // Fallback query if lastID wasn't returned directly
-      const created = await db.get('SELECT id FROM rag_documents WHERE content_hash = ?', [contentHash]);
+      // Fallback query if the insert id wasn't returned directly. Prefer the
+      // statement facade (works without a db handle in production wiring).
+      let created;
+      if (stmts?.getRagDocumentByHash) {
+        created = await stmts.getRagDocumentByHash.get(contentHash);
+      } else if (db?.get) {
+        created = await db.get('SELECT id FROM rag_documents WHERE content_hash = ?', [contentHash]);
+      }
       documentId = created?.id;
     }
 

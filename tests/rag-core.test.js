@@ -165,3 +165,97 @@ describe('RAG Core — SQLite Tables & Service Storage', () => {
     assert.equal(chunkCount.count, 0, 'Los chunks deben haberse borrado en cascada');
   });
 });
+
+describe('RAG Core — node:sqlite result shape (lastInsertRowid) without db handle', () => {
+  it('ingestText persists via stmts-only wiring using getLastInsertId normalization', async () => {
+    // Regression: production wiring builds createRagService({ stmts }) without a
+    // db handle (server.js does not pass db to the admin router), and the
+    // container runs the node:sqlite fallback whose run() returns
+    // { changes, lastInsertRowid } — never lastID. Previously documentId stayed
+    // undefined and the fallback hit db.get on an undefined db, crashing the
+    // PDF upload with 500 "Cannot read properties of undefined (reading 'get')".
+    const rows = [];
+    const stmts = {
+      getRagDocumentByHash: {
+        get: async (contentHash) => rows.find((r) => r.content_hash === contentHash),
+      },
+      insertRagDocument: {
+        run: async (params) => {
+          const row = {
+            id: rows.length + 1,
+            source: params['@source'] !== undefined ? params['@source'] : params.source,
+            source_type: params['@source_type'] !== undefined ? params['@source_type'] : params.source_type,
+            title: params['@title'] !== undefined ? params['@title'] : params.title,
+            content_hash: params['@content_hash'] !== undefined ? params['@content_hash'] : params.content_hash,
+            created_at: params['@created_at'] !== undefined ? params['@created_at'] : params.created_at,
+          };
+          rows.push(row);
+          // node:sqlite fallback shape — no lastID, no id
+          return { changes: 1, lastInsertRowid: row.id };
+        },
+      },
+      insertRagChunk: {
+        run: async () => ({ changes: 1 }),
+      },
+      getAllRagChunks: {
+        all: async () => rows.flatMap((doc) => [{ id: doc.id * 100, document_id: doc.id, seq: 1, text: 'texto', title: doc.title, source: doc.source, source_type: doc.source_type }]),
+      },
+      getAllRagDocuments: {
+        all: async () => rows,
+      },
+    };
+
+    const ragService = createRagService({ stmts });
+
+    const result = await ragService.ingestText({
+      sourceType: 'pdf',
+      source: 'manual.pdf',
+      title: 'Manual',
+      text: 'Contenido del manual para el test de lastInsertRowid.',
+    });
+
+    assert.ok(result.documentId, `documentId debe resolverse, recibido: ${result.documentId}`);
+    assert.equal(result.documentId, 1);
+    assert.equal(rows.length, 1, 'El documento debe persistirse');
+
+    const docs = await ragService.listDocuments();
+    assert.equal(docs.length, 1);
+    assert.equal(docs[0].title, 'Manual');
+  });
+
+  it('ingestText dedupe path works with stmts-only wiring when hash already exists', async () => {
+    const crypto = require('node:crypto');
+    const dupText = 'Texto duplicado para dedupe';
+    const dupHash = crypto.createHash('sha256').update(dupText).digest('hex');
+    const rows = [
+      {
+        id: 7,
+        source: 'dup.pdf',
+        source_type: 'pdf',
+        title: 'Duplicado',
+        content_hash: dupHash,
+        created_at: 1,
+      },
+    ];
+    const stmts = {
+      getRagDocumentByHash: {
+        get: async (contentHash) => rows.find((r) => r.content_hash === contentHash),
+      },
+      insertRagDocument: { run: async () => ({ changes: 1, lastInsertRowid: 99 }) },
+      insertRagChunk: { run: async () => ({ changes: 1 }) },
+      getAllRagChunks: { all: async () => [] },
+      getAllRagDocuments: { all: async () => rows },
+    };
+
+    const ragService = createRagService({ stmts });
+    const result = await ragService.ingestText({
+      sourceType: 'pdf',
+      source: 'dup.pdf',
+      title: 'Duplicado',
+      text: dupText,
+    });
+
+    assert.equal(result.documentId, 7, 'Debe reutilizar el documento existente por content_hash');
+    assert.equal(rows.length, 1, 'No debe insertar un segundo documento');
+  });
+});
