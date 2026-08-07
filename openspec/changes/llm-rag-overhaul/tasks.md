@@ -100,8 +100,8 @@ Rollback boundary: new `src/services/llm/` dir + test; not yet consumed by ai-bo
 
 ### 2.5 AiBot orchestrator + runtime reconfigure
 **Objective**: `AiBot` becomes thin orchestrator: master prompt + RAG context → active LLM adapter; atomic `configure()` snapshot swaps (ADR-6); `isEnabled()` reads snapshot (`ai.enabled` && default provider ready), not boot env; stable `getReply(session, text)` → `{reply, confidence, escalate}`; fail-open on provider error; sentiment high-priority bypass preserved.
-- [ ] 2.5.1 RED: extend `tests/ai-bot.test.js` — runtime provider switch applies to next `getReply` without restart; `isEnabled()` flips with global switch; provider failure returns escalating/no-reply without crashing; high-priority bypass untouched (dedicated test per proposal risk table).
-- [ ] 2.5.2 GREEN: rewire `src/services/ai-bot.js` to llm registry + settings snapshots (RAG context hook present but no-op until Phase 3); keep signatures.
+- [x] 2.5.1 RED: extend `tests/ai-bot.test.js` — runtime provider switch applies to next `getReply` without restart; `isEnabled()` flips with global switch; provider failure returns escalating/no-reply without crashing; high-priority bypass untouched (dedicated test per proposal risk table).
+- [x] 2.5.2 GREEN: rewire `src/services/ai-bot.js` to llm registry + settings snapshots (RAG context hook present but no-op until Phase 3); keep signatures.
 Files: `src/services/ai-bot.js`, `tests/ai-bot.test.js`.
 Tests first: extended `tests/ai-bot.test.js`.
 Verify: `npm test`; socket flow contract unchanged (regression: `tests/api.test.js`, `tests/telegram-routing.test.js`).
