@@ -70,7 +70,9 @@ function setupTestApp(overrides = {}) {
       };
       return map[provider] || [];
     },
-    async verifyConnection(provider, apiKey, _model) {
+    lastVerifiedModel: null,
+    async verifyConnection(provider, apiKey, model) {
+      this.lastVerifiedModel = model;
       if (apiKey === 'invalid-key') {
         return { ok: false, error: 'Invalid API Key' };
       }
@@ -188,7 +190,7 @@ test('LLM Admin Endpoints — Authentication and CSRF enforcement', async (t) =>
 });
 
 test('LLM Admin Endpoints — Verification endpoint', async (t) => {
-  const { app } = setupTestApp();
+  const { app, mockLlmService } = setupTestApp();
   const authHeaders = { 'x-csrf-token': 'valid-csrf' };
   const authCookies = { admin_token: 'valid-admin-token' };
 
@@ -224,23 +226,36 @@ test('LLM Admin Endpoints — Verification endpoint', async (t) => {
     assert.equal(res.json.ok, true);
     assert.deepEqual(res.json.models, ['gpt-4o', 'gpt-4o-mini', 'o1-mini']);
   });
+
+  await t.test('omitted model in verify-key resolves to provider catalog default model', async () => {
+    const res = await makeRequest(app, 'POST', '/api/admin/settings/llm/verify-key', {
+      headers: authHeaders,
+      cookies: authCookies,
+      body: { provider: 'deepseek', apiKey: 'sk-deepseek-valid' },
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.json.ok, true);
+    assert.equal(mockLlmService.lastVerifiedModel, 'deepseek-chat');
+  });
 });
 
 test('LLM Admin Endpoints — Get settings with masked keys', async (t) => {
   const { app } = setupTestApp();
   const authCookies = { admin_token: 'valid-admin-token' };
 
-  await t.test('returns default structure when fresh including provider model lists', async () => {
+  await t.test('returns default structure when fresh including provider model lists and null keyless defaultProvider', async () => {
     const res = await makeRequest(app, 'GET', '/api/admin/settings/llm', {
       cookies: authCookies,
     });
     assert.equal(res.status, 200);
     assert.equal(res.json.ok, true);
     assert.equal(res.json.enabled, false);
-    assert.equal(res.json.defaultProvider, 'openai');
+    assert.equal(res.json.defaultProvider, null);
     assert.ok(res.json.providers);
     assert.equal(res.json.providers.openai.configured, false);
     assert.equal(res.json.providers.openai.maskedKey, '');
+    assert.equal(res.json.providers.deepseek.model, 'deepseek-chat');
+    assert.equal(res.json.providers.kimi.model, 'moonshot-v1-8k');
     assert.deepEqual(res.json.providers.openai.models, ['gpt-4o', 'gpt-4o-mini', 'o1-mini']);
     assert.deepEqual(res.json.providers.anthropic.models, ['claude-3-5-sonnet-20241022', 'claude-3-haiku-20240307']);
   });
@@ -274,6 +289,17 @@ test('LLM Admin Endpoints — Update provider, default, enabled', async (t) => {
     assert.ok(rawVal.encKey.startsWith('v1.'));
     const decrypted = settingsService.decryptSecret(rawVal.encKey);
     assert.equal(decrypted, 'sk-proj-super-secret-key-9999');
+  });
+
+  await t.test('PUT provider without model resolves to provider catalog default', async () => {
+    const res = await makeRequest(app, 'PUT', '/api/admin/settings/llm/providers/deepseek', {
+      headers: authHeaders,
+      cookies: authCookies,
+      body: { apiKey: 'sk-deepseek-secret' },
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.json.ok, true);
+    assert.equal(res.json.model, 'deepseek-chat');
   });
 
   await t.test('failed key verification blocks saving and leaves config unchanged', async () => {

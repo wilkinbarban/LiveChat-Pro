@@ -1,12 +1,11 @@
-# Spec for llm-providers
+# Delta for llm-providers
 
-Multi-provider LLM configuration managed at runtime from the admin panel, replacing the OpenAI-only, env-configured bot.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Multi-Provider Registry
 
 The system MUST support six LLM providers: OpenAI, Anthropic, OpenRouter, DeepSeek, Kimi, and Qwen, rendered as a visual Provider Cards Grid in the AI Management Dashboard. Each card MUST display provider status (`Configurado` / `Sin configurar`), `Proveedor Principal` badge for the active provider, current model name, 1-click default selection button, and modal editor trigger. Exactly one provider+model SHALL be the active default when at least one provider has `configured: true`. When no provider is configured, `GET /api/admin/settings/llm` MUST return `defaultProvider: null` (or empty string), and unconfigured providers MUST return their own default catalog model from `getProviderModels(provider)[0]`. OpenAI-compatible providers (OpenAI, OpenRouter, DeepSeek, Kimi, Qwen) SHALL be served through a shared OpenAI-protocol adapter with configurable base URL; Anthropic SHALL be served through a native `/v1/messages` adapter.
+(Previously: Default provider defaulted to OpenAI even when no API keys were configured, causing false active provider badges.)
 
 #### Scenario: Select a default provider
 
@@ -38,28 +37,10 @@ The system MUST support six LLM providers: OpenAI, Anthropic, OpenRouter, DeepSe
 - AND each card MUST display `Configurado` if API key is present or `Sin configurar` if missing
 - AND the active provider card MUST display the `Proveedor Principal` badge
 
-### Requirement: 1-Click Default Provider Selection
-
-The system MUST provide a 1-click "Establecer como Principal" button on each configured provider card that is not currently set as default. Clicking the button MUST send a `PUT /api/admin/llm/default` request to set the selected provider as active default and immediately update the card grid badges and summary header without a page refresh.
-
-#### Scenario: 1-click default switch for configured provider
-
-- GIVEN Anthropic is configured with a valid key and model but is not default
-- WHEN the admin clicks "Establecer como Principal" on the Anthropic provider card
-- THEN the system MUST issue `PUT /api/admin/llm/default` with provider `anthropic`
-- AND upon success, the Anthropic card MUST display the `Proveedor Principal` badge
-- AND the summary header MUST update to display `Anthropic` and its selected model
-
-#### Scenario: Disabled 1-click action for unconfigured provider
-
-- GIVEN a provider card with status `Sin configurar`
-- WHEN rendered in the provider grid
-- THEN the 1-click default selection button MUST be disabled or hidden
-- AND clicking it MUST NOT send a default update request
-
 ### Requirement: API Key Management with Connection Verification
 
 The system MUST verify an API key with a live test call to the provider before activating it, managed via a dedicated Provider Editor Modal/Drawer. A key that fails verification MUST NOT become active. When the verification model parameter is empty or omitted, the system MUST resolve the default test model to `getProviderModels(provider)[0]` for the target provider and MUST NOT pass `gpt-4o-mini` to non-OpenAI providers. On successful verification (`POST /api/admin/settings/llm/verify-key`), the response MUST include `{ ok: true, models: [...] }` containing the supported model catalog. The Provider Editor Modal MUST display masked API keys (`...1234`) and support both "Verificar y Guardar API Key" and "Guardar Modelo" (`PUT /api/admin/llm/providers/:name`). Active configuration endpoints (`GET /api/admin/settings/llm`) MUST also return the supported model catalog. Keys SHALL be persisted in the settings store and MUST NOT be exposed in plain text.
+(Previously: Verification default model defaulted to `gpt-4o-mini` regardless of provider, causing non-OpenAI verification failures when model was empty.)
 
 #### Scenario: Valid key verified and saved
 
@@ -99,6 +80,7 @@ The system MUST verify an API key with a live test call to the provider before a
 ### Requirement: Dynamic Model Selection Input
 
 The Admin UI MUST render `#llm-model` as a `<select>` dropdown element instead of a free-text input, preventing manual model entry. When opening the Provider Editor Modal or entering an API key, the system MUST enable `#llm-model` and populate its options with provider catalog models from `getProviderModels(provider)` BEFORE key verification is executed. Upon API key verification or when loading saved provider settings, the system MUST preserve or update selectable options dynamically from the provider model catalog. If key verification fails or returns an error, pre-populated catalog options MAY remain in `#llm-model`, but verification errors MUST be displayed to the admin.
+(Previously: `#llm-model` remained disabled until key verification succeeded or saved settings were loaded.)
 
 #### Scenario: Pre-verification model dropdown population and enablement
 
@@ -139,49 +121,3 @@ The Admin UI MUST render `#llm-model` as a `<select>` dropdown element instead o
 - WHEN key verification fails or returns an error response
 - THEN the system MUST display the verification error message
 - AND MUST NOT activate the key or persist the provider configuration
-
-### Requirement: Global AI On/Off Without Restart
-
-The system MUST provide a global AI enable/disable switch in the admin panel that takes effect at runtime without a process restart. When disabled, the bot MUST NOT reply to any session.
-
-#### Scenario: AI turned off mid-session
-
-- GIVEN an active visitor session that previously received bot replies
-- WHEN the admin disables AI globally
-- THEN the next visitor message MUST NOT trigger a bot reply
-- AND human admin flow (Telegram notification, manual reply) SHALL continue normally
-
-#### Scenario: AI re-enabled at runtime
-
-- GIVEN AI globally disabled
-- WHEN the admin re-enables AI
-- THEN subsequent visitor messages SHALL be handled by the bot again without a restart
-
-### Requirement: Stable Bot Service Contract
-
-The bot service MUST keep the existing `isEnabled()` and `getReply(session, text)` signatures. `getReply` SHALL return an object containing at least `reply`, `confidence`, and `escalate`. `isEnabled()` MUST reflect the global runtime switch, not only boot-time env config.
-
-#### Scenario: Socket flow consumes unchanged contract
-
-- GIVEN the multi-provider service active
-- WHEN a visitor message arrives and `isEnabled()` is true and the session is bot-handled
-- THEN `getReply(session, text)` SHALL resolve `{reply, confidence, escalate}`
-- AND the reply SHALL be persisted with `from_role='bot'` and emitted to the session room as before
-
-#### Scenario: Provider call failure fails open
-
-- GIVEN the active provider is unreachable or returns an error
-- WHEN `getReply` is invoked
-- THEN the system SHALL NOT crash the socket handler
-- AND SHALL return an escalating/no-reply result so the visitor flow degrades gracefully
-
-### Requirement: Sentiment High-Priority Bypass Preserved
-
-Sessions flagged high-priority by sentiment analysis MUST bypass the bot entirely, exactly as before this change.
-
-#### Scenario: High-priority message skips the bot
-
-- GIVEN AI globally enabled and a valid default provider
-- WHEN a visitor message is classified `isHighPriority`
-- THEN the system MUST NOT call `getReply`
-- AND the session SHALL be marked priority and routed to the human admin path

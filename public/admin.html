@@ -808,10 +808,14 @@
 
         const activeProviderEl = $('ai-active-provider-name');
         if (activeProviderEl) {
-          const defP = llmState.defaultProvider || 'openai';
-          const pInfo = (llmState.providers && llmState.providers[defP]) || {};
-          const modelName = pInfo.model || '';
-          activeProviderEl.textContent = modelName ? `${defP.toUpperCase()} - ${modelName}` : defP.toUpperCase();
+          if (!llmState.defaultProvider) {
+            activeProviderEl.textContent = t('ai.card.unconfigured') || 'Sin configurar';
+          } else {
+            const defP = llmState.defaultProvider;
+            const pInfo = (llmState.providers && llmState.providers[defP]) || {};
+            const modelName = pInfo.model || '';
+            activeProviderEl.textContent = modelName ? `${defP.toUpperCase()} - ${modelName}` : defP.toUpperCase();
+          }
         }
       }
 
@@ -822,11 +826,11 @@
 
         const supportedProviders = ['openai', 'anthropic', 'openrouter', 'deepseek', 'kimi', 'qwen'];
         const providersObj = llmState.providers || {};
-        const defaultP = llmState.defaultProvider || 'openai';
+        const defaultP = llmState.defaultProvider || null;
 
         supportedProviders.forEach(providerKey => {
           const pInfo = providersObj[providerKey] || {};
-          const isDefault = (providerKey === defaultP);
+          const isDefault = defaultP !== null && (providerKey === defaultP);
           const isConfigured = Boolean(pInfo.configured);
 
           const card = document.createElement('article');
@@ -931,7 +935,7 @@
         const selectedModel = pInfo.model || models[0] || '';
         populateModelDropdown(models, selectedModel);
         if (llmModelInput) {
-          llmModelInput.disabled = !pInfo.configured;
+          llmModelInput.disabled = (models.length === 0);
         }
         if (llmApiKeyInput) llmApiKeyInput.value = pInfo.maskedKey || '';
       }
@@ -1022,6 +1026,10 @@
           const provider = activeModalProvider || aiProviderSelect.value;
           const apiKey = llmApiKeyInput.value.trim();
           let model = llmModelInput.value ? llmModelInput.value.trim() : '';
+          const catalogModels = (llmState && llmState.providers && llmState.providers[provider]) ? (llmState.providers[provider].models || []) : [];
+          if (!model && catalogModels.length > 0) {
+            model = catalogModels[0];
+          }
 
           showLoading(t('syncing'));
           if (aiNotice) aiNotice.classList.add('hidden');

@@ -43,12 +43,18 @@ test('Admin Panel AI Tab — HTML Structure and Component Verification', async (
     assert.match(html, /<select[^>]*id="llm-model"[^>]*disabled/i);
   });
 
-  await t.test('admin.html JS updates provider fields with dynamic select options and disabled state toggles', () => {
+  await t.test('admin.html JS updates provider fields with dynamic select options and enables dropdown before key verification', () => {
     assert.match(html, /function\s+populateModelDropdown/);
     assert.match(html, /updateProviderFields/);
-    assert.match(html, /llmModelInput\.disabled\s*=\s*!pInfo\.configured/);
+    assert.match(html, /llmModelInput\.disabled\s*=\s*\(?models\.length\s*===\s*0\)?/);
     assert.match(html, /verify-key/);
     assert.match(html, /populateModelDropdown\(verifyRes\.models/);
+  });
+
+  await t.test('admin.html JS btnVerifyLlm resolves empty model selection to catalog default prior to verify-key payload', () => {
+    assert.match(html, /btnVerifyLlm/);
+    assert.match(html, /verifyPayload/);
+    assert.match(html, /catalogModels|models\[0\]/);
   });
 
   await t.test('AI Management Dashboard containers and CSS classes exist in admin.html (ADR / Design)', () => {

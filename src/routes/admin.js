@@ -290,16 +290,19 @@ function createAdminRouter(deps) {
     try {
       const enabledVal = await settingsService.getJSON('ai.enabled', null);
       const enabled = enabledVal !== null ? Boolean(enabledVal) : aiBot.isEnabled();
-      const defaultProvider = (await settingsService.get('llm.default_provider')) || 'openai';
+      const rawDefaultProvider = await settingsService.get('llm.default_provider');
       const supported = llmService.getSupportedProviders();
       const providers = {};
+      let hasConfiguredProvider = false;
 
       for (const provider of supported) {
         const raw = await settingsService.getJSON(`llm.provider.${provider}`, null);
         const models = typeof llmService.getProviderModels === 'function'
           ? llmService.getProviderModels(provider)
           : [];
+        const catalogDefault = models[0] || 'gpt-4o-mini';
         if (raw && (raw.encKey || raw.apiKey)) {
+          hasConfiguredProvider = true;
           let plainKey = '';
           if (raw.encKey) {
             try { plainKey = settingsService.decryptSecret(raw.encKey); } catch {}
@@ -309,18 +312,20 @@ function createAdminRouter(deps) {
           providers[provider] = {
             configured: true,
             maskedKey: settingsService.maskSecret(plainKey),
-            model: raw.model || 'gpt-4o-mini',
+            model: raw.model || catalogDefault,
             models,
           };
         } else {
           providers[provider] = {
             configured: false,
             maskedKey: '',
-            model: provider === 'anthropic' ? 'claude-3-5-sonnet-20241022' : 'gpt-4o-mini',
+            model: catalogDefault,
             models,
           };
         }
       }
+
+      const defaultProvider = rawDefaultProvider || (hasConfiguredProvider ? 'openai' : null);
 
       return res.json({ ok: true, enabled, defaultProvider, providers });
     } catch (err) {
@@ -342,12 +347,16 @@ function createAdminRouter(deps) {
         return res.status(400).json({ ok: false, error: `Unsupported provider: ${provider}` });
       }
 
-      const verifyRes = await llmService.verifyConnection(normProvider, apiKey, model || 'gpt-4o-mini');
+      const catalogModels = typeof llmService.getProviderModels === 'function' ? llmService.getProviderModels(normProvider) : [];
+      const catalogDefault = catalogModels[0] || 'gpt-4o-mini';
+      const resolvedModel = model || catalogDefault;
+
+      const verifyRes = await llmService.verifyConnection(normProvider, apiKey, resolvedModel);
       if (!verifyRes.ok) {
         return res.status(400).json({ ok: false, error: verifyRes.error || 'Key verification failed' });
       }
 
-      const models = verifyRes.models || (typeof llmService.getProviderModels === 'function' ? llmService.getProviderModels(normProvider) : []);
+      const models = verifyRes.models || catalogModels;
       return res.json({ ok: true, models });
     } catch (err) {
       logger.error?.({ err }, 'Error verifying LLM key');
@@ -365,8 +374,10 @@ function createAdminRouter(deps) {
         return res.status(400).json({ ok: false, error: `Unsupported provider: ${provider}` });
       }
 
+      const catalogModels = typeof llmService.getProviderModels === 'function' ? llmService.getProviderModels(normProvider) : [];
+      const catalogDefault = catalogModels[0] || 'gpt-4o-mini';
       const apiKey = req.body?.apiKey || req.body?.key;
-      const model = req.body?.model || 'gpt-4o-mini';
+      const model = req.body?.model || catalogDefault;
 
       if (apiKey) {
         const verifyRes = await llmService.verifyConnection(normProvider, apiKey, model);
