@@ -323,7 +323,7 @@ test('Telegram Admin Endpoints — Token Save Dispatch (verify → encrypt → r
     assert.ok(Number.isFinite(stored.verifiedAt));
 
     assert.equal(reconfigureCalls.length, 1);
-    assert.deepEqual(reconfigureCalls[0], { token: VALID_TOKEN, adminId: '123456789', launch: true });
+    assert.deepEqual(reconfigureCalls[0], { token: VALID_TOKEN, adminId: '123456789', launch: true, tokenSource: 'settings' });
   });
 
   await t.test('PUT /api/admin/telegram/admin-id alias also saves a verified token', async () => {
@@ -376,7 +376,7 @@ test('Telegram Admin Endpoints — Token Save Dispatch (verify → encrypt → r
     assert.equal(res.body.tokenSource, 'env');
     assert.equal(res.body.maskedToken, '…4321');
     assert.equal(await envSettings.getJSON('telegram.token', 'MISSING'), 'MISSING', 'stored token removed');
-    assert.deepEqual(reconfigureCalls.at(-1), { token: 'env-token-4321', adminId: '123456789', launch: false });
+    assert.deepEqual(reconfigureCalls.at(-1), { token: 'env-token-4321', adminId: '123456789', launch: false, tokenSource: 'env' });
   });
 
   await t.test('PUT with an empty token and no env falls back to none', async () => {

@@ -17,6 +17,12 @@ const getMeCalls = [];
 const createdTokens = [];
 let getMeResult = { id: 8609135566, username: 'ChatVivo_Wilkin_bot', first_name: 'LiveChat Pro' };
 let getMeError = null;
+// Simulates real Telegraf launch latency (async getUpdates handshake). The
+// default launch() resolves synchronously, which would mask the
+// reconfigure launch-timeout regression (setTimeout with no delay fires
+// before a real network handshake). Tests set this >0 to prove the default
+// timeout param lets reconfigure's launch:true path succeed.
+let launchDelayMs = 0;
 
 require.cache[telegrafPath] = {
   id: telegrafPath,
@@ -42,7 +48,11 @@ require.cache[telegrafPath] = {
       }
       command() { return this; }
       on() { return this; }
-      async launch() {}
+      async launch() {
+        if (launchDelayMs > 0) {
+          await new Promise((r) => setTimeout(r, launchDelayMs));
+        }
+      }
       stop() {}
     },
   },
@@ -77,6 +87,7 @@ async function resetBot() {
   getMeCalls.length = 0;
   createdTokens.length = 0;
   getMeError = null;
+  launchDelayMs = 0;
   getMeResult = { id: 8609135566, username: 'ChatVivo_Wilkin_bot', first_name: 'LiveChat Pro' };
 }
 
@@ -191,6 +202,45 @@ test('reconfigureTelegramBot solo adminId conserva el token', async () => {
 
   assert.equal(getTelegramStatus().adminId, '999');
   assert.equal(getBot().token, TOKEN_A);
+});
+
+test('reconfigureTelegramBot con launch:true no dispara timeout por defecto con lanzamiento lento', async () => {
+  await resetBot();
+  // Real Telegraf launch is async (getUpdates handshake); the default-timeout
+  // regression made launchTelegramBot() inside reconfigure reject immediately
+  // (setTimeout with no delay fires before the handshake).
+  launchDelayMs = 25;
+  try {
+    setupTelegramBot({ token: TOKEN_A, adminId: '111', tokenSource: 'env', logger: null });
+    await launchTelegramBot(1000);
+    assert.equal(getTelegramStatus().status, 'running');
+
+    await reconfigureTelegramBot({ token: TOKEN_B, adminId: '222', launch: true, tokenSource: 'settings' });
+
+    const status = getTelegramStatus();
+    assert.equal(status.status, 'running');
+    assert.equal(status.tokenSource, 'settings');
+    assert.equal(status.maskedToken, '…BBBB');
+    assert.equal(getBot().token, TOKEN_B);
+  } finally {
+    launchDelayMs = 0;
+  }
+});
+
+test('reconfigureTelegramBot propaga tokenSource al estado', async () => {
+  await resetBot();
+  setupTelegramBot({ token: TOKEN_A, adminId: '111', logger: null });
+
+  await reconfigureTelegramBot({ token: TOKEN_B, launch: false, tokenSource: 'settings' });
+  assert.equal(getTelegramStatus().tokenSource, 'settings');
+
+  await reconfigureTelegramBot({ token: TOKEN_A, launch: false, tokenSource: 'env' });
+  assert.equal(getTelegramStatus().tokenSource, 'env');
+
+  await reconfigureTelegramBot({ token: null, launch: false, tokenSource: 'none' });
+  const cleared = getTelegramStatus();
+  assert.equal(cleared.status, 'not-configured');
+  assert.equal(cleared.tokenSource, null);
 });
 
 // ── startTelegramBot stale-token regression (ADR-4) ─────────

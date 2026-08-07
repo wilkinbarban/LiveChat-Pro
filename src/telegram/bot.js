@@ -269,7 +269,7 @@ async function refreshTelegramIdentity() {
   return _identity;
 }
 
-function launchTelegramBot(timeoutMs) {
+function launchTelegramBot(timeoutMs = 10000) {
   if (!_token || !bot) {
     _status = 'not-configured';
     return Promise.resolve();
@@ -405,13 +405,14 @@ function setTelegramAdminId(adminId) {
 // swaps the given credentials in _deps, rebuilds the Telegraf instance and
 // optionally relaunches. launch:true is the live-apply path for token saves;
 // launch:false swaps credentials while stopped (clear/empty-save path).
-async function reconfigureTelegramBot({ token, adminId, launch = false } = {}) {
+async function reconfigureTelegramBot({ token, adminId, launch = false, tokenSource } = {}) {
   if (_status === 'running') {
     await stopTelegramBot();
   }
   const nextDeps = {
     ...(_deps || {}),
     ...(token !== undefined ? { token } : {}),
+    ...(tokenSource !== undefined ? { tokenSource } : {}),
     ...(adminId !== undefined ? { adminId } : {}),
   };
   _deps = nextDeps;

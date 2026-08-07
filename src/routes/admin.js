@@ -612,6 +612,7 @@ function createAdminRouter(deps) {
         token: envToken || null,
         adminId: (await currentTelegramAdminId()) || undefined,
         launch: false,
+        tokenSource: envToken ? 'env' : 'none',
       });
       const botStatus = telegramBot.getTelegramStatus?.() || {};
       return res.json({
@@ -634,6 +635,7 @@ function createAdminRouter(deps) {
       token,
       adminId: (await currentTelegramAdminId()) || undefined,
       launch: true,
+      tokenSource: 'settings',
     });
 
     const botStatus = telegramBot.getTelegramStatus?.() || {};
