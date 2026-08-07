@@ -165,6 +165,12 @@ async function createDb() {
 
     CREATE INDEX IF NOT EXISTS idx_attachments_message ON attachments(message_id, deleted_at);
     CREATE INDEX IF NOT EXISTS idx_attachments_session ON attachments(session_id, deleted_at);
+
+    CREATE TABLE IF NOT EXISTS settings (
+      key        TEXT    PRIMARY KEY,
+      value      TEXT    NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
   `);
 
   // Migrations for existing databases (idempotent). SQLite raises when a column
@@ -378,6 +384,16 @@ const stmts = {
     WHERE session_id NOT IN (SELECT DISTINCT session_id FROM messages)
       AND last_active < ?
   `),
+
+  // Settings
+  getSetting: createStatement('SELECT value FROM settings WHERE key = ?'),
+  setSetting: createStatement(`
+    INSERT INTO settings (key, value, updated_at)
+    VALUES (@key, @value, @updated_at)
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+  `),
+  deleteSetting: createStatement('DELETE FROM settings WHERE key = ?'),
+  getAllSettings: createStatement('SELECT key, value, updated_at FROM settings'),
 
 };
 
