@@ -33,6 +33,8 @@ const { createAdminAuth } = require('./src/security/admin-auth');
 const translator = require('./src/services/translator');
 const { createSettingsService } = require('./src/services/settings');
 const { createThemesService } = require('./src/services/themes');
+const { createMasterPromptService } = require('./src/services/master-prompt');
+const { createRagService } = require('./src/services/rag');
 const { createSessionService } = require('./src/services/sessions');
 const { createAdminChatService } = require('./src/services/admin-chat');
 const { createAttachmentService } = require('./src/services/attachments');
@@ -438,6 +440,11 @@ app.get('/demo', (_req, res) => {
 
 const settingsService = createSettingsService({ stmts });
 const themesService = createThemesService({ settingsService });
+// Shared services (ADR 6): created once at module scope so the admin router and
+// the aiBot rehydration at boot use the SAME instances (factory fallbacks inside
+// createAdminRouter stay for tests that do not pass them).
+const masterPromptService = createMasterPromptService({ settingsService });
+const ragService = createRagService({ stmts });
 
 app.get('/config-public', publicApiLimiter, async (_req, res) => {
   const theme = await themesService.getActiveTheme();
@@ -461,6 +468,8 @@ app.use(createAdminRouter({
   stmts,
   settingsService,
   themesService,
+  masterPromptService,
+  ragService,
   logger,
   ensureCsrfCookie,
   verifyAdminToken,
@@ -525,6 +534,23 @@ async function start() {
   // the health endpoint or local development.
   logger.info('Iniciando base de datos SQLite...');
   await initDb();
+  // Boot rehydration (ADR 5): after the DB is ready, load persisted LLM settings
+  // and apply them once. Decrypt failure or missing settings resolves to null and
+  // the env-only init above stays untouched (no clobber). Never throws — boot
+  // must succeed even when nothing is persisted.
+  try {
+    const llmBootConfig = await aiBot.resolveLlmBootConfig({ settingsService, logger });
+    if (llmBootConfig) {
+      aiBot.configure({
+        ...llmBootConfig,
+        masterPromptService,
+        ragService,
+      });
+      logger.info({ provider: llmBootConfig.provider, model: llmBootConfig.model }, 'Bot LLM rehidratado desde settings');
+    }
+  } catch (error) {
+    logger.warn({ err: error }, 'No se pudo rehidratar la config LLM; usando variable de entorno');
+  }
   if (config.redis.enabled) {
     logger.info('Conectando con el estado del cluster (Redis)...');
   }

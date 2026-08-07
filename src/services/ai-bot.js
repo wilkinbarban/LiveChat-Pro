@@ -221,11 +221,10 @@ class AiBot {
 
       if (provider && apiKey) {
         const messages = this.buildLLMContext(session, text);
-        let systemPrompt = await this.getSystemPrompt(session, text);
+        // RAG context is fetched FIRST and fed into the prompt template via the
+        // {rag_context} placeholder (ADR 7) — never appended after the prompt.
         const ragContext = await this.getRAGContext(session, text);
-        if (ragContext) {
-          systemPrompt = `${systemPrompt}\n\n${ragContext}`;
-        }
+        const systemPrompt = await this.getSystemPrompt(session, text, { rag_context: ragContext || '' });
 
         try {
           const res = await activeLlmService.chat({
@@ -282,12 +281,13 @@ class AiBot {
     return { reply: null, confidence: 0, escalate: true };
   }
 
-  async getSystemPrompt(session, text) {
+  async getSystemPrompt(session, text, extra = {}) {
     if (typeof this.config.masterPromptService?.getFormattedPrompt === 'function') {
       return await this.config.masterPromptService.getFormattedPrompt({
         visitor_name: session?.visitorName || session?.name,
         site_title: this.config.siteTitle,
         current_language: session?.lang || session?.browserLang || 'es',
+        rag_context: extra.rag_context || '',
       });
     }
     if (typeof this.config.masterPromptService?.getPrompt === 'function') {
@@ -480,5 +480,45 @@ class AiBot {
   }
 }
 
+// Boot-time LLM config resolution (ADR 5): settings-backed (decrypted) wins;
+// default-provider only, no failover chain (ADR 8). Any missing/invalid piece
+// resolves to null so the caller keeps the env-only init config untouched.
+async function resolveLlmBootConfig(deps = {}) {
+  const settingsService = deps?.settingsService;
+  const logger = deps?.logger;
+  if (!settingsService) return null;
+  try {
+    const defaultProvider = String((await settingsService.get('llm.default_provider')) || '').trim().toLowerCase();
+    if (!defaultProvider) return null;
+
+    const raw = await settingsService.getJSON(`llm.provider.${defaultProvider}`, null);
+    if (!raw) return null;
+
+    let apiKey = '';
+    if (raw.encKey) {
+      apiKey = await settingsService.decryptSecret(raw.encKey);
+    } else {
+      apiKey = String(raw.apiKey || '');
+    }
+    if (!apiKey) return null;
+
+    const resolved = {
+      provider: defaultProvider,
+      defaultProvider,
+      apiKey,
+      model: raw.model || null,
+    };
+    const enabledVal = await settingsService.getJSON('ai.enabled', null);
+    if (enabledVal !== null) {
+      resolved.enabled = Boolean(enabledVal);
+    }
+    return resolved;
+  } catch (error) {
+    logger?.warn?.({ err: error }, 'No se pudo descifrar la configuración LLM; usando variable de entorno');
+    return null;
+  }
+}
+
 module.exports = new AiBot();
+module.exports.resolveLlmBootConfig = resolveLlmBootConfig;
 
