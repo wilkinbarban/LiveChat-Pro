@@ -94,7 +94,52 @@ async function callOpenAiCompatible({
   }
 }
 
+/**
+ * Lists available models from an OpenAI-compatible provider.
+ * Never throws: returns [] on 404/405/network errors or missing fetch.
+ *
+ * @param {Object} params
+ * @param {string} params.provider - Provider key (openai, openrouter, deepseek, kimi, qwen)
+ * @param {string} params.apiKey - Provider API key
+ * @param {string} [params.baseURL] - Custom base URL override
+ * @param {Function} [params.fetchImpl] - Optional custom fetch implementation (for testing)
+ * @returns {Promise<string[]>} - Model ids from GET {base}/models
+ */
+async function listOpenAiCompatibleModels({ provider, apiKey, baseURL, fetchImpl }) {
+  try {
+    const fetchFn = fetchImpl || globalThis.fetch;
+    if (typeof fetchFn !== 'function') {
+      return [];
+    }
+
+    const resolvedBaseURL = (baseURL || DEFAULT_BASE_URLS[provider] || DEFAULT_BASE_URLS.openai).replace(/\/+$/, '');
+    const endpoint = `${resolvedBaseURL}/models`;
+
+    const res = await fetchFn(endpoint, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+      },
+    });
+
+    if (!res.ok) {
+      return [];
+    }
+
+    const data = typeof res.json === 'function' ? await res.json() : {};
+    if (!Array.isArray(data.data)) {
+      return [];
+    }
+    return data.data
+      .map((item) => (item && typeof item.id === 'string' ? item.id : ''))
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
 module.exports = {
   DEFAULT_BASE_URLS,
   callOpenAiCompatible,
+  listOpenAiCompatibleModels,
 };
