@@ -50,13 +50,13 @@ Verify: admin-ai-tab test + biome
 ## Phase 3: Slice C — Boot rehydration + {rag_context} (PR 3)
 Verify: ai-bot + boot-without-token tests + biome
 
-- [ ] 3.1 [RED] ai-bot.test.js: resolveLlmBootConfig precedence, decrypt-fail→null, no default→null
-- [ ] 3.2 [RED] ai-bot.test.js: getReply rag_context inside getFormattedPrompt vars; empty→''
-- [ ] 3.3 [GREEN] ai-bot.js: export resolveLlmBootConfig({settingsService, logger}) → {provider, model, defaultProvider, enabled, masterPromptService, ragService} | null
-- [ ] 3.4 [GREEN] ai-bot.js getReply L224-228: RAG first; pass {rag_context}; remove append
-- [ ] 3.5 [GREEN] ai-bot.js getSystemPrompt L285: extra forwards rag_context
-- [ ] 3.6 [GREEN] server.js: masterPromptService+ragService near L439, admin deps L453; start() after initDb L527 once-only try/catch → aiBot.configure; env init untouched
-- [ ] 3.7 [REFACTOR] run phase verify; env-only init not clobbered
+- [x] 3.1 [RED] ai-bot.test.js: resolveLlmBootConfig precedence, decrypt-fail→null, no default→null
+- [x] 3.2 [RED] ai-bot.test.js: getReply rag_context inside getFormattedPrompt vars; empty→''
+- [x] 3.3 [GREEN] ai-bot.js: export resolveLlmBootConfig({settingsService, logger}) → {provider, model, defaultProvider, enabled, masterPromptService, ragService} | null
+- [x] 3.4 [GREEN] ai-bot.js getReply L224-228: RAG first; pass {rag_context}; remove append
+- [x] 3.5 [GREEN] ai-bot.js getSystemPrompt L285: extra forwards rag_context
+- [x] 3.6 [GREEN] server.js: masterPromptService+ragService near L439, admin deps L453; start() after initDb L527 once-only try/catch → aiBot.configure; env init untouched
+- [x] 3.7 [REFACTOR] run phase verify; env-only init not clobbered
 
 ## Phase 4: Full verification
 
