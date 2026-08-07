@@ -106,6 +106,20 @@
     @media (prefers-color-scheme:dark) { input,textarea { color-scheme:light; } }
     @media (max-width:1100px) { .app { grid-template-columns:1fr; } .sidebar { min-height:auto; } .main { min-height:780px; } .detail-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
     @media (max-width:680px) { .sidebar,.main { padding:12px; } .topbar,.detail-head,.filters { grid-template-columns:1fr; display:grid; } .metrics,.detail-grid { grid-template-columns:1fr; } .message { max-width:100%; } }
+    .theme-card { display:flex; flex-direction:column; gap:10px; padding:14px; border:1px solid var(--line); border-radius:8px; background:var(--surface); cursor:pointer; }
+    .theme-card input[type="radio"] { width:auto; padding:0; border:none; box-shadow:none; }
+    .theme-card:has(input:checked) { border-color:var(--accent); box-shadow:0 0 0 2px rgba(37,99,235,.15); }
+    .theme-card strong { font-size:.9rem; }
+    .theme-preview { height:72px; display:grid; grid-template-rows:18px 1fr 16px; border:1px solid var(--lcp-border-color,var(--line)); border-radius:8px; overflow:hidden; background:var(--lcp-panel-bg,var(--soft)); }
+    .theme-preview__header { display:flex; align-items:center; padding:0 6px; background:var(--lcp-header-bg,var(--accent)); }
+    .theme-preview__dot { width:8px; height:8px; border-radius:50%; background:var(--lcp-header-color,#fff); opacity:.8; }
+    .theme-preview__panel { display:flex; flex-direction:column; justify-content:center; gap:4px; padding:4px 6px; background:var(--lcp-panel-bg,var(--soft)); }
+    .theme-preview__bubble { max-width:62%; padding:2px 6px; border-radius:8px; font-size:8px; line-height:1.4; }
+    .theme-preview__bubble--bot { align-self:flex-start; background:var(--lcp-surface-bg,var(--soft)); color:var(--lcp-text-color,var(--ink)); }
+    .theme-preview__bubble--user { align-self:flex-end; background:var(--lcp-color,var(--accent)); color:var(--lcp-header-color,#fff); }
+    .theme-preview__input { background:var(--lcp-input-bg,var(--field-bg)); border-top:1px solid var(--lcp-border-color,var(--line)); }
+    .theme-preview__input::after { content:''; display:block; height:4px; margin:3px 6px; border-radius:2px; background:var(--lcp-input-text-color,var(--muted)); opacity:.35; }
+    .theme-preview--auto { display:flex; align-items:center; justify-content:center; gap:6px; border:1.5px dashed var(--muted); background:var(--soft); color:var(--muted); font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; }
   </style>
 </head>
 <body>
@@ -400,38 +414,7 @@
           </div>
           <div id="themeNotice" class="notice hidden"></div>
 
-          <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:16px;" id="theme-presets-container">
-            <label class="theme-card" style="border:1px solid var(--border); border-radius:8px; padding:16px; cursor:pointer; display:flex; flex-direction:column; gap:8px;" data-theme="auto">
-              <input type="radio" name="theme-preset" value="auto" checked>
-              <strong data-i18n="theme.auto">Auto (Muestreo del sitio)</strong>
-              <span class="muted" style="font-size:0.85rem;">Adaptativo al sitio hospedador</span>
-            </label>
-            <label class="theme-card" style="border:1px solid var(--border); border-radius:8px; padding:16px; cursor:pointer; display:flex; flex-direction:column; gap:8px;" data-theme="classic">
-              <input type="radio" name="theme-preset" value="classic">
-              <strong data-i18n="theme.classic">Classic Indigo</strong>
-              <span class="muted" style="font-size:0.85rem;">Púrpura / Índigo clásico</span>
-            </label>
-            <label class="theme-card" style="border:1px solid var(--border); border-radius:8px; padding:16px; cursor:pointer; display:flex; flex-direction:column; gap:8px;" data-theme="light-aurora">
-              <input type="radio" name="theme-preset" value="light-aurora">
-              <strong data-i18n="theme.light_aurora">Light Aurora</strong>
-              <span class="muted" style="font-size:0.85rem;">Verde azulado claro</span>
-            </label>
-            <label class="theme-card" style="border:1px solid var(--border); border-radius:8px; padding:16px; cursor:pointer; display:flex; flex-direction:column; gap:8px;" data-theme="light-mint">
-              <input type="radio" name="theme-preset" value="light-mint">
-              <strong data-i18n="theme.light_mint">Light Mint</strong>
-              <span class="muted" style="font-size:0.85rem;">Menta fresco</span>
-            </label>
-            <label class="theme-card" style="border:1px solid var(--border); border-radius:8px; padding:16px; cursor:pointer; display:flex; flex-direction:column; gap:8px;" data-theme="dark-midnight">
-              <input type="radio" name="theme-preset" value="dark-midnight">
-              <strong data-i18n="theme.dark_midnight">Dark Midnight</strong>
-              <span class="muted" style="font-size:0.85rem;">Azul noche oscuro</span>
-            </label>
-            <label class="theme-card" style="border:1px solid var(--border); border-radius:8px; padding:16px; cursor:pointer; display:flex; flex-direction:column; gap:8px;" data-theme="dark-ember">
-              <input type="radio" name="theme-preset" value="dark-ember">
-              <strong data-i18n="theme.dark_ember">Dark Ember</strong>
-              <span class="muted" style="font-size:0.85rem;">Carbón y rojo oscuro</span>
-            </label>
-          </div>
+          <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:16px;" id="theme-presets-container"></div>
 
           <div>
             <button id="btn-save-theme" class="btn-primary" type="button" data-i18n="theme.save">Guardar tema</button>
@@ -1533,13 +1516,67 @@
       const btnSaveTheme = $('btn-save-theme');
       const themeNotice = $('themeNotice');
 
+      // Renders one card per preset from the name-keyed GET theme payload.
+      // `presets` is the THEME_PRESETS map ({name: {name, label, type, vars}});
+      // `active` is the persisted theme name. Card selection keeps radio
+      // semantics so the existing save handler can PUT the checked value.
+      function renderPresetCards(presets, active) {
+        const container = $('theme-presets-container');
+        if (!container) return;
+        container.innerHTML = '';
+        const entries = Object.entries(presets || {});
+        for (const [name, preset] of entries) {
+          const labelKey = 'theme.' + name.replace(/-/g, '_');
+          const translated = t(labelKey);
+          // t() returns the raw key when missing; never render it (spec), so
+          // fall back to the payload label (English) instead.
+          const labelText = translated === labelKey ? preset.label : translated;
+
+          const card = document.createElement('label');
+          card.className = 'theme-card';
+          card.dataset.theme = name;
+
+          const radio = document.createElement('input');
+          radio.type = 'radio';
+          radio.name = 'theme-preset';
+          radio.value = name;
+          if (name === active) radio.checked = true;
+          card.appendChild(radio);
+
+          const preview = document.createElement('div');
+          preview.className = 'theme-preview';
+          if (preset.vars) {
+            for (const [varName, varValue] of Object.entries(preset.vars)) {
+              preview.style.setProperty('--lcp-' + varName.replace(/[A-Z]/g, (m) => '-' + m.toLowerCase()), varValue);
+            }
+            preview.innerHTML = [
+              '<div class="theme-preview__header"><span class="theme-preview__dot"></span></div>',
+              '<div class="theme-preview__panel">',
+              '<div class="theme-preview__bubble theme-preview__bubble--bot">Hi</div>',
+              '<div class="theme-preview__bubble theme-preview__bubble--user">Hello</div>',
+              '</div>',
+              '<div class="theme-preview__input"></div>',
+            ].join('');
+          } else {
+            preview.classList.add('theme-preview--auto');
+            preview.textContent = 'auto';
+          }
+          card.appendChild(preview);
+
+          const title = document.createElement('strong');
+          title.textContent = labelText;
+          card.appendChild(title);
+
+          container.appendChild(card);
+        }
+      }
+
       async function loadThemeSettings() {
         if (themeNotice) themeNotice.classList.add('hidden');
         try {
           const res = await api('/api/admin/settings/theme');
-          if (res && res.ok && res.active) {
-            const radio = document.querySelector(`input[name="theme-preset"][value="${res.active}"]`);
-            if (radio) radio.checked = true;
+          if (res && res.ok) {
+            renderPresetCards(res.presets, res.active);
           }
         } catch (err) {
           if (themeNotice) {

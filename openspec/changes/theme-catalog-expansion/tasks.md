@@ -33,8 +33,8 @@ Chain strategy: stacked-to-main
 
 ## Phase 2: Dynamic cards + thumbnails (RED → GREEN → verify)
 
-- [ ] 2.1 RED `tests/admin-theme-tab.test.js`: rewrite L17-26 → renderer-contract asserts (file-content, no DOM): `renderPresetCards` defined; iterates payload (Object.entries); radio per preset (`name="theme-preset"`); `.theme-preview` via `setProperty('--lcp-…')`; auto placeholder (`.theme-preview--auto`); i18n-guard fallback to `preset.label` (no raw key); static `data-theme="…"` labels gone.
-- [ ] 2.2 GREEN `public/admin.html`: delete static cards L402-431; add `renderPresetCards(presets, active)` → `#theme-presets-container` (checked when active; label via `t('theme.'+name.replace(/-/g,'_'))` guarded by dict-key presence → `preset.label`); ~40-line `.theme-preview` CSS in `<style>` (L8); `loadThemeSettings` (L1468-1482) → `renderPresetCards(res.presets, res.active)`; save handler (L1484-1508) unchanged.
+- [x] 2.1 RED `tests/admin-theme-tab.test.js`: rewrite L17-26 → renderer-contract asserts (file-content, no DOM): `renderPresetCards` defined; iterates payload (Object.entries); radio per preset (`name="theme-preset"`); `.theme-preview` via `setProperty('--lcp-…')`; auto placeholder (`.theme-preview--auto`); i18n-guard fallback to `preset.label` (no raw key); static `data-theme="…"` labels gone.
+- [x] 2.2 GREEN `public/admin.html`: delete static cards L402-431; add `renderPresetCards(presets, active)` → `#theme-presets-container` (checked when active; label via `t('theme.'+name.replace(/-/g,'_'))` guarded by dict-key presence → `preset.label`); ~40-line `.theme-preview` CSS in `<style>` (L8); `loadThemeSettings` (L1468-1482) → `renderPresetCards(res.presets, res.active)`; save handler (L1484-1508) unchanged.
 - [ ] 2.3 VERIFY: `node --test tests/admin-theme-tab.test.js` && `npm test` && `npx biome check .`
 - Rollback: revert admin.html render commit restores static cards.
 
