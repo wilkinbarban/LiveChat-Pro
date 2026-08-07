@@ -50,6 +50,34 @@ test('Admin Panel AI Tab — HTML Structure and Component Verification', async (
     assert.match(html, /verify-key/);
     assert.match(html, /populateModelDropdown\(verifyRes\.models/);
   });
+
+  await t.test('AI Management Dashboard containers and CSS classes exist in admin.html (ADR / Design)', () => {
+    assert.match(html, /\.ai-summary-card/, 'Missing .ai-summary-card CSS class');
+    assert.match(html, /\.provider-grid/, 'Missing .provider-grid CSS class');
+    assert.match(html, /\.provider-card/, 'Missing .provider-card CSS class');
+    assert.match(html, /\.badge-status/, 'Missing .badge-status CSS class');
+    assert.match(html, /\.badge-default/, 'Missing .badge-default CSS class');
+    assert.match(html, /\.modal-overlay/, 'Missing .modal-overlay CSS class');
+
+    assert.match(html, /id="ai-summary-header"|class="[^"]*ai-summary-card[^"]*"/, 'Missing AI summary header container');
+    assert.match(html, /id="ai-provider-grid"|class="[^"]*provider-grid[^"]*"/, 'Missing AI provider cards grid container');
+    assert.match(html, /id="ai-modal-overlay"|class="[^"]*modal-overlay[^"]*"/, 'Missing AI provider editor modal drawer');
+    assert.match(html, /id="btn-save-model-only"|id="btn-modal-save-model"/, 'Missing Guardar Modelo button in editor modal');
+  });
+
+  await t.test('admin.html JS controller manages llmState, renders 6 provider cards, and handles 1-click default switch', () => {
+    assert.match(html, /let\s+llmState|const\s+llmState/, 'Missing llmState object');
+    assert.match(html, /function\s+renderProviderCards|const\s+renderProviderCards\s*=/, 'Missing renderProviderCards function');
+    assert.match(html, /function\s+setDefaultProvider|function\s+setAsDefault|api\(['"]\/api\/admin\/llm\/default['"]/, 'Missing 1-click setDefaultProvider handler');
+    assert.match(html, /renderSummaryHeader/, 'Missing renderSummaryHeader function');
+  });
+
+  await t.test('admin.html JS controller handles provider modal editor, masked API keys, verify-key, and save-model without verification', () => {
+    assert.match(html, /function\s+openProviderModal|const\s+openProviderModal\s*=/, 'Missing openProviderModal function');
+    assert.match(html, /btnModalSaveModel\.addEventListener\(['"]click['"]|function\s+handleSaveModel/, 'Missing Save Model click handler binding');
+    assert.match(html, /\/api\/admin\/settings\/llm\/providers\//, 'Missing PUT /providers/:name API call');
+    assert.match(html, /closeProviderModal/, 'Missing closeProviderModal helper');
+  });
 });
 
 test('Admin Panel AI Tab — i18n Dictionaries Verification across 5 Languages', async (t) => {
@@ -80,6 +108,23 @@ test('Admin Panel AI Tab — i18n Dictionaries Verification across 5 Languages',
       assert.ok(dict['ai.api_key'] || dict['llm.api_key'], `Missing AI API key label in '${lang}'`);
       assert.ok(dict['ai.verify_key'] || dict['llm.test_connection'] || dict['ai.test_connection'], `Missing test/verify key button text in '${lang}'`);
       assert.ok(dict['ai.enable_bot'] || dict['llm.global_enable'] || dict['ai.global_toggle'], `Missing global enable toggle key in '${lang}'`);
+
+      // 5-Language AI Dashboard Keys (specs / design)
+      assert.ok(dict['ai.header.title'], `Missing 'ai.header.title' in '${lang}'`);
+      assert.ok(dict['ai.header.status_on'], `Missing 'ai.header.status_on' in '${lang}'`);
+      assert.ok(dict['ai.header.status_off'], `Missing 'ai.header.status_off' in '${lang}'`);
+      assert.ok(dict['ai.header.active_badge'], `Missing 'ai.header.active_badge' in '${lang}'`);
+      assert.ok(dict['ai.card.configured'], `Missing 'ai.card.configured' in '${lang}'`);
+      assert.ok(dict['ai.card.unconfigured'], `Missing 'ai.card.unconfigured' in '${lang}'`);
+      assert.ok(dict['ai.card.principal'], `Missing 'ai.card.principal' in '${lang}'`);
+      assert.ok(dict['ai.card.set_default'], `Missing 'ai.card.set_default' in '${lang}'`);
+      assert.ok(dict['ai.card.edit'], `Missing 'ai.card.edit' in '${lang}'`);
+      assert.ok(dict['ai.modal.title'], `Missing 'ai.modal.title' in '${lang}'`);
+      assert.ok(dict['ai.modal.api_key'], `Missing 'ai.modal.api_key' in '${lang}'`);
+      assert.ok(dict['ai.modal.model'], `Missing 'ai.modal.model' in '${lang}'`);
+      assert.ok(dict['ai.modal.verify_save_key'], `Missing 'ai.modal.verify_save_key' in '${lang}'`);
+      assert.ok(dict['ai.modal.save_model'], `Missing 'ai.modal.save_model' in '${lang}'`);
+      assert.ok(dict['ai.modal.close'], `Missing 'ai.modal.close' in '${lang}'`);
     });
   }
 });
