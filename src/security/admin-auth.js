@@ -1,13 +1,41 @@
 'use strict';
 
+const fs = require('fs');
+const path = require('path');
 const crypto = require('crypto');
 const {
   shouldUseSecureAdminCookie,
   sameSiteForRequest: resolveSameSiteForRequest,
 } = require('../utils/cookies');
 
+const DEFAULT_SECRET_FILE = path.join(__dirname, '..', '..', 'data', '.admin-secret');
+
 function isHexToken(value, size) {
   return typeof value === 'string' && new RegExp(`^[a-f0-9]{${size}}$`, 'i').test(value);
+}
+
+function resolveAdminSigningSecret(opts = {}) {
+  const telegramToken = opts.telegramToken;
+  if (telegramToken && typeof telegramToken === 'string' && telegramToken.trim() !== '') {
+    return telegramToken;
+  }
+
+  const secretFilePath = opts.secretFilePath || DEFAULT_SECRET_FILE;
+  if (fs.existsSync(secretFilePath)) {
+    const content = fs.readFileSync(secretFilePath, 'utf8').trim();
+    if (/^[a-f0-9]{64}$/i.test(content)) {
+      return content;
+    }
+  }
+
+  const dir = path.dirname(secretFilePath);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+
+  const newSecret = crypto.randomBytes(32).toString('hex');
+  fs.writeFileSync(secretFilePath, newSecret, { mode: 0o600 });
+  return newSecret;
 }
 
 // Builds all admin authentication helpers around the configured cookie names and
@@ -20,12 +48,15 @@ function createAdminAuth({
   adminCookieName,
   csrfCookieName,
   cookieSameSite,
+  secretFilePath,
 }) {
-  // Admin sessions are HMAC-signed with both the Telegram token and panel
-  // password. Rotating either secret invalidates existing cookies.
+  const signingSecret = resolveAdminSigningSecret({ telegramToken, secretFilePath });
+
+  // Admin sessions are HMAC-signed with both the Telegram token (or fallback secret)
+  // and panel password. Rotating either secret invalidates existing cookies.
   function createAdminSignature(payload) {
     return crypto
-      .createHmac('sha256', `${telegramToken}:${adminPanelPassword}`)
+      .createHmac('sha256', `${signingSecret}:${adminPanelPassword}`)
       .update(payload)
       .digest('hex');
   }
@@ -129,5 +160,6 @@ function createAdminAuth({
 
 module.exports = {
   createAdminAuth,
+  resolveAdminSigningSecret,
   isHexToken,
 };
