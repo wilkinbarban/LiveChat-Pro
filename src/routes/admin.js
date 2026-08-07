@@ -40,6 +40,7 @@ function createAdminRouter(deps) {
   const aiBot = deps.aiBot || defaultAiBot;
   const ragService = deps.ragService || createRagService({ db: deps.db, stmts: deps.stmts });
   const masterPromptService = deps.masterPromptService || createMasterPromptService({ settingsService });
+  const telegramBot = deps.telegramBot || require('../telegram/bot');
 
   const {
     rootDir,
@@ -495,6 +496,75 @@ function createAdminRouter(deps) {
   router.get('/api/admin/settings/prompt', requireAdmin, handleGetMasterPrompt);
   router.put('/api/admin/master-prompt', requireAdmin, requireCsrf, handlePutMasterPrompt);
   router.put('/api/admin/settings/prompt', requireAdmin, requireCsrf, handlePutMasterPrompt);
+
+  // ── Telegram Admin Routes ─────────────────────────────────────────
+  async function handleGetTelegramStatus(_req, res) {
+    try {
+      const persistedAdminId = await settingsService.get('telegram.admin_id');
+      const botStatus = telegramBot.getTelegramStatus?.() || { status: 'stopped', adminId: null, configured: false };
+      const adminId = persistedAdminId || botStatus.adminId || null;
+
+      if (persistedAdminId && typeof telegramBot.setTelegramAdminId === 'function') {
+        telegramBot.setTelegramAdminId(persistedAdminId);
+      }
+
+      return res.json({
+        ok: true,
+        status: botStatus.status,
+        adminId: adminId ? String(adminId) : null,
+        configured: Boolean(botStatus.configured),
+      });
+    } catch (err) {
+      logger.error?.({ err }, 'Error fetching Telegram status');
+      return res.status(500).json({ ok: false, error: 'Internal server error' });
+    }
+  }
+
+  router.get('/api/admin/telegram/status', requireAdmin, handleGetTelegramStatus);
+  router.get('/api/admin/settings/telegram', requireAdmin, handleGetTelegramStatus);
+
+  router.post('/api/admin/telegram/start', requireAdmin, requireCsrf, async (_req, res) => {
+    try {
+      const result = await telegramBot.startTelegramBot?.();
+      return res.json({ ok: true, status: result?.status || 'running' });
+    } catch (err) {
+      logger.error?.({ err }, 'Error starting Telegram bot');
+      return res.status(400).json({ ok: false, error: err.message || 'Could not start Telegram bot', status: 'not-configured' });
+    }
+  });
+
+  router.post('/api/admin/telegram/stop', requireAdmin, requireCsrf, async (_req, res) => {
+    try {
+      const result = await telegramBot.stopTelegramBot?.();
+      return res.json({ ok: true, status: result?.status || 'stopped' });
+    } catch (err) {
+      logger.error?.({ err }, 'Error stopping Telegram bot');
+      return res.status(500).json({ ok: false, error: 'Internal server error' });
+    }
+  });
+
+  async function handlePutTelegramAdminId(req, res) {
+    try {
+      const candidate = req.body?.adminId !== undefined ? req.body.adminId : req.body?.admin_id;
+      const str = String(candidate ?? '').trim();
+      if (!str || !/^\d+$/.test(str)) {
+        return res.status(400).json({ ok: false, error: 'Admin ID must be a numeric string' });
+      }
+
+      await settingsService.set('telegram.admin_id', str);
+      if (typeof telegramBot.setTelegramAdminId === 'function') {
+        telegramBot.setTelegramAdminId(str);
+      }
+
+      return res.json({ ok: true, adminId: str });
+    } catch (err) {
+      logger.error?.({ err }, 'Error setting Telegram admin ID');
+      return res.status(500).json({ ok: false, error: 'Internal server error' });
+    }
+  }
+
+  router.put('/api/admin/telegram/admin-id', requireAdmin, requireCsrf, handlePutTelegramAdminId);
+  router.put('/api/admin/settings/telegram', requireAdmin, requireCsrf, handlePutTelegramAdminId);
 
   // ── RAG Admin Routes ──────────────────────────────────────────────
   router.get('/api/admin/rag/documents', requireAdmin, async (_req, res) => {

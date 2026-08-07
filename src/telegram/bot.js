@@ -5,11 +5,15 @@ const { escapeTelegramHtml } = require('../utils/sanitizer');
 // polling/webhook ownership is process-wide. setupTelegramBot wires runtime
 // dependencies after server.js has created services and sockets.
 let bot = null;
+let _token = null;
 let _adminId = null;
 let _logger = null;
 let _clusterState = null;
+let _status = 'stopped';
+let _deps = null;
 
 function setupTelegramBot(deps) {
+  _deps = deps;
   const {
     token,
     adminId,
@@ -26,19 +30,28 @@ function setupTelegramBot(deps) {
     aiBot,
   } = deps;
 
-  bot = new Telegraf(token);
-  _adminId = adminId;
-  _logger = logger;
-  _clusterState = clusterState;
+  _token = token || null;
+  _adminId = adminId || null;
+  _logger = logger || null;
+  _clusterState = clusterState || null;
+
+  if (!_token) {
+    bot = null;
+    _status = 'not-configured';
+    return null;
+  }
+
+  bot = new Telegraf(_token);
+  _status = 'stopped';
 
   // Lists only live sessions so the admin can choose where to reply from
   // Telegram without opening the web panel.
   bot.command('usuarios', async (ctx) => {
-    if (ctx.from.id !== adminId) return;
+    if (String(ctx.from.id) !== String(_adminId)) return;
     const active = (await listSessionsForAdmin()).filter(s => s.connected);
     if (!active.length) return ctx.reply('No hay usuarios activos ahora mismo.');
     const list = active.map(s =>
-      `• <b>${escapeTelegramHtml(s.name || 'Sin nombre')}</b> <code>${escapeTelegramHtml(s.sessionId.slice(0,8))}</code> — ${escapeTelegramHtml(s.geo?.city || '?')}, ${escapeTelegramHtml(s.geo?.country || '?')}`
+      `• <b>${escapeTelegramHtml(s.name || 'Sin nombre')}</b> <code>${escapeTelegramHtml(s.sessionId.slice(0,8))}</code> — ${escapeTelegramHtml(s.geo?.city || '?')} ${escapeTelegramHtml(s.geo?.country || '?')}`
     ).join('\n');
     ctx.replyWithHTML(`👥 <b>Usuarios activos (${active.length})</b>\n\n${list}`);
   });
@@ -46,7 +59,7 @@ function setupTelegramBot(deps) {
   // Telegram-side ban mirrors the web admin ban flow: persist, update shared
   // state, disconnect visitor sockets and remove local cache.
   bot.command('ban', async (ctx) => {
-    if (ctx.from.id !== adminId) return;
+    if (String(ctx.from.id) !== String(_adminId)) return;
     const id = ctx.message.text.split(' ')[1];
     if (!id) return ctx.reply('Uso: /ban [sessionId]');
     const sid = await findSessionIdByPrefix(id);
@@ -74,7 +87,7 @@ function setupTelegramBot(deps) {
 
   // Diagnostic session detail for support work directly from Telegram.
   bot.command('info', async (ctx) => {
-    if (ctx.from.id !== adminId) return;
+    if (String(ctx.from.id) !== String(_adminId)) return;
     const id = ctx.message.text.split(' ')[1];
     if (!id) return ctx.reply('Uso: /info [sessionId]');
     const sid = await findSessionIdByPrefix(id);
@@ -98,7 +111,7 @@ function setupTelegramBot(deps) {
 
   // Manual cleanup trims stale in-memory sessions and empty old database rows.
   bot.command('clean', async (ctx) => {
-    if (ctx.from.id !== adminId) return;
+    if (String(ctx.from.id) !== String(_adminId)) return;
     const threshold = Date.now() - 3600000;
     let memCount = 0;
     for (const [id, s] of sessions) {
@@ -118,9 +131,8 @@ function setupTelegramBot(deps) {
     ctx.reply(`🧹 ${memCount} sesiones eliminadas de memoria, ${dbCount} de la base de datos.`);
   });
 
-
   bot.command('bot', async (ctx) => {
-    if (ctx.from.id !== adminId) return;
+    if (String(ctx.from.id) !== String(_adminId)) return;
     const parts = ctx.message.text.split(' ');
     const action = parts[1];
     const prefix = parts[2];
@@ -131,7 +143,7 @@ function setupTelegramBot(deps) {
 
     const sid = prefix
       ? await findSessionIdByPrefix(prefix)
-      : await clusterState.getPendingReply(adminId);
+      : await clusterState.getPendingReply(_adminId);
     if (!sid) return ctx.reply('❓ Sesión no encontrada. Usa /usuarios para ver las activas.');
 
     const session = await ensureSessionLoaded(sid);
@@ -150,14 +162,14 @@ function setupTelegramBot(deps) {
   // to a specific notification, that Telegram message id wins; otherwise the
   // latest pending session is used.
   bot.on('message', async (ctx) => {
-    if (ctx.from.id !== adminId) return;
+    if (String(ctx.from.id) !== String(_adminId)) return;
     if (ctx.message.text?.startsWith('/')) return;
 
     const replyText = ctx.message.text;
     if (!replyText) return;
 
     const repliedSessionId = await resolveTelegramReplySessionId(ctx.message);
-    const sessionId = repliedSessionId || await clusterState.getPendingReply(adminId);
+    const sessionId = repliedSessionId || await clusterState.getPendingReply(_adminId);
     if (!sessionId) return ctx.reply('❓ No hay sesión activa. Usa /usuarios para ver las activas.');
 
     const session = await ensureSessionLoaded(sessionId);
@@ -166,7 +178,7 @@ function setupTelegramBot(deps) {
     const result = await sendAdminReplyToSession(session, replyText);
     if (!result.ok) return ctx.reply(`⚠️ ${result.error}`);
 
-    await clusterState.setPendingReply(adminId, sessionId);
+    await clusterState.setPendingReply(_adminId, sessionId);
 
     // Silence AI bot for this session when human takes over
     if (aiBot?.isEnabled?.()) {
@@ -185,6 +197,10 @@ function setupTelegramBot(deps) {
 }
 
 function launchTelegramBot(timeoutMs) {
+  if (!_token || !bot) {
+    _status = 'not-configured';
+    return Promise.resolve();
+  }
   // Telegraf launch can hang on network issues. The timeout lets the HTTP server
   // start and exposes Telegram readiness through /health.
   return new Promise((resolve, reject) => {
@@ -200,6 +216,7 @@ function launchTelegramBot(timeoutMs) {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
+      if (fn === resolve) _status = 'running';
       fn(value);
     };
 
@@ -207,7 +224,7 @@ function launchTelegramBot(timeoutMs) {
       .then(() => settle(resolve))
       .catch(error => {
         if (settled) {
-          _logger.error({ err: error }, 'El bot de Telegram se detuvo con error');
+          _logger?.error({ err: error }, 'El bot de Telegram se detuvo con error');
           return;
         }
         settle(reject, error);
@@ -226,7 +243,7 @@ async function sendToAdmin(text, extra = {}, sessionId = null) {
     }
     return message;
   } catch (e) {
-    _logger.error({ err: e }, 'Telegram send error');
+    _logger?.error({ err: e }, 'Telegram send error');
   }
 }
 
@@ -249,11 +266,57 @@ async function resolveTelegramReplySessionId(message) {
   return _clusterState.getTelegramMessageSession(_adminId, replyToMessageId);
 }
 
+function getTelegramStatus() {
+  if (!_token) {
+    return { status: 'not-configured', adminId: _adminId || null, configured: false };
+  }
+  return { status: _status, adminId: _adminId || null, configured: true };
+}
+
+async function startTelegramBot(timeoutMs = 10000) {
+  if (!_token) {
+    throw new Error('Telegram bot token is not configured');
+  }
+  if (_status === 'running') {
+    return { status: 'running' };
+  }
+  if (!bot && _deps) {
+    setupTelegramBot(_deps);
+  }
+  await launchTelegramBot(timeoutMs);
+  _status = 'running';
+  return { status: 'running' };
+}
+
+async function stopTelegramBot() {
+  if (!_token) {
+    _status = 'not-configured';
+    return { status: 'not-configured' };
+  }
+  if (bot && typeof bot.stop === 'function') {
+    try {
+      await bot.stop();
+    } catch (_err) {
+      // ignore if already stopped
+    }
+  }
+  _status = 'stopped';
+  return { status: 'stopped' };
+}
+
+function setTelegramAdminId(adminId) {
+  _adminId = adminId ? String(adminId) : null;
+}
+
 module.exports = {
   setupTelegramBot,
   launchTelegramBot,
   sendToAdmin,
   sessionCard,
   resolveTelegramReplySessionId,
-  getBot: () => bot
+  getBot: () => bot,
+  getTelegramStatus,
+  startTelegramBot,
+  stopTelegramBot,
+  setTelegramAdminId,
 };
