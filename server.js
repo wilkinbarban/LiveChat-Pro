@@ -49,7 +49,9 @@ const {
   sendToAdmin,
   sessionCard,
   getBot,
-  resolveTelegramReplySessionId
+  getTelegramStatus,
+  resolveTelegramReplySessionId,
+  resolveTelegramToken,
 } = require('./src/telegram/bot');
 
 const logLevel = (process.env.LOG_LEVEL || 'info').replace(/['"]/g, '').trim().toLowerCase();
@@ -265,9 +267,6 @@ const {
 });
 
 app.use('/api/admin', adminLimiter);
-
-// ── Telegram Bot ─────────────────────────────────────────────
-let telegramReady = false;
 
 // ── In-memory state (cache over the DB) ───────────────────────
 // sessions: local session cache with history hydrated from SQLite
@@ -485,8 +484,24 @@ app.use(createAdminRouter({
   sessionRoom,
 }));
 
-app.use(createHealthRouter({ sessions, clusterState, get telegramReady() { return telegramReady; }, config }));
+app.use(createHealthRouter({
+  sessions,
+  clusterState,
+  config,
+  // ADR-7: /health telegramReady reflects the live bot singleton instead of a
+  // manually tracked var, so a reconfigure (stop/start/token swap) shows up
+  // immediately. Before the first launch the status is 'stopped'/'not-configured'.
+  get telegramReady() {
+    const status = getTelegramStatus();
+    return Boolean(status && status.status === 'running');
+  },
+}));
 
+// Boot-time default wiring with the env token. start() re-setups with the token
+// resolved from settings (ADR-2) and is the ONLY launcher — this call never
+// launches, so the earlier Telegraf instance is replaced before any polling
+// starts (no double-instance leak). Kept so requiring server.js without start()
+// (tests, tooling) still leaves a configured singleton.
 setupTelegramBot({
   token: TELEGRAM_TOKEN,
   adminId: ADMIN_ID,
@@ -530,8 +545,18 @@ async function start() {
 
   void (async () => {
     try {
+      // Boot token resolution (ADR-2): settings-backed decrypted token wins over
+      // env; a decrypt failure warns and falls back to env; neither yields none.
+      // The module-level setup above is only boot-time default wiring (env); this
+      // re-setup with the resolved token wins, and launch happens ONLY here.
+      const resolved = await resolveTelegramToken({
+        settingsService,
+        envToken: TELEGRAM_TOKEN,
+        logger,
+      });
       setupTelegramBot({
-        token: TELEGRAM_TOKEN,
+        token: resolved.token,
+        tokenSource: resolved.tokenSource,
         adminId: ADMIN_ID,
         logger,
         sessions,
@@ -546,10 +571,8 @@ async function start() {
         aiBot,
       });
       await launchTelegramBot(TELEGRAM_LAUNCH_TIMEOUT_MS);
-      telegramReady = true;
       logger.info('Telegram bot activo');
     } catch (error) {
-      telegramReady = false;
       logger.error({ err: error }, 'No se pudo iniciar el bot de Telegram');
     }
   })();
@@ -558,7 +581,7 @@ async function start() {
 async function shutdown(signal) {
   // Close external resources that can otherwise keep the process alive during
   // tests, Docker stops or local Ctrl+C.
-  if (telegramReady) {
+  if (getTelegramStatus()?.status === 'running') {
     try {
       getBot()?.stop(signal);
     } catch (error) {
