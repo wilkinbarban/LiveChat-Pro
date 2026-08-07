@@ -163,8 +163,8 @@ Rollback boundary: prompt service additive; unset key falls back to built-in def
 
 ### 4.2 Telegram admin module
 **Objective**: status/start/stop/admin-id endpoints (token stays env-bootstrap, never displayed — proposal decision d); Telegram tab; runtime control without restart; reply routing + Spanish translation + auto-silence preserved.
-- [ ] 4.2.1 RED: `tests/telegram-admin.test.js` (new) — status transitions running/stopped/not-configured; start/stop at runtime with sockets+admin panel unaffected; non-numeric admin ID rejected; token absent from every response body; existing `tests/telegram-routing.test.js` + `tests/translation-cache.test.js` green unchanged.
-- [ ] 4.2.2 GREEN: runtime start/stop + settings-driven admin ID in `src/telegram/bot.js`; routes; Telegram tab (data-i18n).
+- [x] 4.2.1 RED: `tests/telegram-admin.test.js` (new) — status transitions running/stopped/not-configured; start/stop at runtime with sockets+admin panel unaffected; non-numeric admin ID rejected; token absent from every response body; existing `tests/telegram-routing.test.js` + `tests/translation-cache.test.js` green unchanged.
+- [x] 4.2.2 GREEN: runtime start/stop + settings-driven admin ID in `src/telegram/bot.js`; routes; Telegram tab (data-i18n).
 Files: `src/telegram/bot.js`, `src/routes/admin.js`, `public/admin.html`, `tests/telegram-admin.test.js` (new).
 Tests first: `tests/telegram-admin.test.js`.
 Verify: `npm test`.
