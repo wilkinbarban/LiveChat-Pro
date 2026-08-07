@@ -138,11 +138,16 @@ function createConfig({ logger = console } = {}) {
   };
 }
 
-function validateConfig(config) {
+function validateConfig(config, { logger = console } = {}) {
   const errors = [];
-  if (!config.telegram.token) errors.push('TELEGRAM_TOKEN es requerido');
-  if (!Number.isFinite(config.telegram.adminId)) errors.push('TELEGRAM_ADMIN_ID debe ser numérico');
-  if (!Number.isFinite(config.server.port) || config.server.port <= 0) errors.push('PORT debe ser numérico y mayor que 0');
+  if (!config.telegram.token) {
+    logger?.warn?.('TELEGRAM_TOKEN no está configurado (Telegram deshabilitado)');
+  } else if (!Number.isFinite(config.telegram.adminId)) {
+    errors.push('TELEGRAM_ADMIN_ID debe ser numérico');
+  }
+  if (!Number.isFinite(config.server.port) || config.server.port <= 0) {
+    errors.push('PORT debe ser numérico y mayor que 0');
+  }
   return errors;
 }
 
