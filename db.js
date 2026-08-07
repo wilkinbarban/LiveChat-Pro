@@ -171,6 +171,25 @@ async function createDb() {
       value      TEXT    NOT NULL,
       updated_at INTEGER NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS rag_documents (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      source       TEXT    NOT NULL,
+      source_type  TEXT    NOT NULL CHECK(source_type IN ('url','pdf','kb-migration')),
+      title        TEXT,
+      content_hash TEXT    NOT NULL UNIQUE,
+      created_at   INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS rag_chunks (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      document_id INTEGER NOT NULL REFERENCES rag_documents(id) ON DELETE CASCADE,
+      seq         INTEGER NOT NULL,
+      text        TEXT    NOT NULL,
+      created_at  INTEGER NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_rag_chunks_doc ON rag_chunks(document_id, seq);
   `);
 
   // Migrations for existing databases (idempotent). SQLite raises when a column
@@ -394,6 +413,26 @@ const stmts = {
   `),
   deleteSetting: createStatement('DELETE FROM settings WHERE key = ?'),
   getAllSettings: createStatement('SELECT key, value, updated_at FROM settings'),
+
+  // RAG Documents & Chunks
+  insertRagDocument: createStatement(`
+    INSERT INTO rag_documents (source, source_type, title, content_hash, created_at)
+    VALUES (@source, @source_type, @title, @content_hash, @created_at)
+  `),
+  getRagDocumentByHash: createStatement('SELECT * FROM rag_documents WHERE content_hash = ?'),
+  getRagDocumentById: createStatement('SELECT * FROM rag_documents WHERE id = ?'),
+  getAllRagDocuments: createStatement('SELECT * FROM rag_documents ORDER BY created_at DESC'),
+  deleteRagDocument: createStatement('DELETE FROM rag_documents WHERE id = ?'),
+  insertRagChunk: createStatement(`
+    INSERT INTO rag_chunks (document_id, seq, text, created_at)
+    VALUES (@document_id, @seq, @text, @created_at)
+  `),
+  getRagChunksByDocument: createStatement('SELECT * FROM rag_chunks WHERE document_id = ? ORDER BY seq ASC'),
+  getAllRagChunks: createStatement(`
+    SELECT c.*, d.source, d.source_type, d.title
+    FROM rag_chunks c
+    JOIN rag_documents d ON c.document_id = d.id
+  `),
 
 };
 
