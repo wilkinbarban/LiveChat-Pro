@@ -1,11 +1,34 @@
 'use strict';
 
 const path = require('path');
+const multer = require('multer');
 const { Router } = require('express');
 const { sanitizeText } = require('../utils/sanitizer');
 const { createSettingsService } = require('../services/settings');
 const { llmService: defaultLlmService } = require('../services/llm');
 const defaultAiBot = require('../services/ai-bot');
+const { createRagService } = require('../services/rag');
+const { extractPdfText } = require('../utils/pdf');
+
+function stripHtml(html) {
+  return String(html || '')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, ' ')
+    .replace(/<\/(h[1-6]|p|li|div|section|article|br|tr)>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+\n/g, '\n')
+    .replace(/\n\s+/g, '\n')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
 
 // Admin routes expose the single-operator web panel and all privileged chat
 // mutations. Authentication and CSRF helpers are injected from server.js so tests
@@ -14,6 +37,7 @@ function createAdminRouter(deps) {
   const settingsService = deps.settingsService || createSettingsService({ db: deps.db, stmts: deps.stmts });
   const llmService = deps.llmService || defaultLlmService;
   const aiBot = deps.aiBot || defaultAiBot;
+  const ragService = deps.ragService || createRagService({ db: deps.db, stmts: deps.stmts });
 
   const {
     rootDir,
@@ -441,6 +465,164 @@ function createAdminRouter(deps) {
       return res.status(500).json({ ok: false, error: 'Internal server error' });
     }
   });
+
+  // ── RAG Admin Routes ──────────────────────────────────────────────
+  router.get('/api/admin/rag/documents', requireAdmin, async (_req, res) => {
+    try {
+      const documents = await ragService.listDocuments();
+      return res.json({ ok: true, documents });
+    } catch (err) {
+      logger.error?.({ err }, 'Error listing RAG documents');
+      return res.status(500).json({ ok: false, error: 'Internal server error' });
+    }
+  });
+
+  router.delete('/api/admin/rag/documents/:id', requireAdmin, requireCsrf, async (req, res) => {
+    try {
+      const id = req.params.id;
+      await ragService.deleteDocument(id);
+      return res.json({ ok: true });
+    } catch (err) {
+      logger.error?.({ err }, 'Error deleting RAG document');
+      return res.status(500).json({ ok: false, error: 'Internal server error' });
+    }
+  });
+
+  async function handleIngestText(req, res) {
+    try {
+      const { title, text } = req.body || {};
+      if (!text || typeof text !== 'string' || !text.trim()) {
+        return res.status(400).json({ ok: false, error: 'El contenido de texto es requerido' });
+      }
+      const result = await ragService.ingestText({
+        sourceType: 'text',
+        source: title || 'Texto manual',
+        title: title || 'Texto manual',
+        text: text.trim(),
+      });
+      return res.json({ ok: true, documentId: result.documentId, chunkCount: result.chunkCount });
+    } catch (err) {
+      logger.error?.({ err }, 'Error ingesting RAG text');
+      return res.status(500).json({ ok: false, error: err.message || 'Internal server error' });
+    }
+  }
+  router.post('/api/admin/rag/documents/text', requireAdmin, requireCsrf, handleIngestText);
+  router.post('/api/admin/rag/ingest-text', requireAdmin, requireCsrf, handleIngestText);
+
+  async function handleIngestUrl(req, res) {
+    try {
+      const { url, title } = req.body || {};
+      if (!url || typeof url !== 'string' || !/^https?:\/\//i.test(url.trim())) {
+        return res.status(400).json({ ok: false, error: 'URL inválida o no proporcionada' });
+      }
+      const cleanUrl = url.trim();
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 10000);
+
+      let response;
+      try {
+        response = await fetch(cleanUrl, {
+          signal: controller.signal,
+          headers: { 'User-Agent': 'LiveChat-Pro/1.0' },
+        });
+      } catch (fetchErr) {
+        clearTimeout(timer);
+        return res.status(400).json({ ok: false, error: `Error de conexión al obtener la URL: ${fetchErr.message}` });
+      }
+      clearTimeout(timer);
+
+      if (!response.ok) {
+        return res.status(400).json({ ok: false, error: `La URL respondió con código HTTP ${response.status}` });
+      }
+
+      const rawText = await response.text();
+      const contentType = response.headers.get('content-type') || '';
+      const textContent = contentType.includes('html') ? stripHtml(rawText) : rawText.trim();
+
+      if (!textContent) {
+        return res.status(400).json({ ok: false, error: 'No se obtuvo contenido de texto ejecutable de la URL' });
+      }
+
+      const result = await ragService.ingestText({
+        sourceType: 'url',
+        source: cleanUrl,
+        title: title || cleanUrl,
+        text: textContent,
+      });
+      return res.json({ ok: true, documentId: result.documentId, chunkCount: result.chunkCount });
+    } catch (err) {
+      logger.error?.({ err }, 'Error ingesting RAG URL');
+      return res.status(500).json({ ok: false, error: err.message || 'Internal server error' });
+    }
+  }
+  router.post('/api/admin/rag/documents/url', requireAdmin, requireCsrf, handleIngestUrl);
+  router.post('/api/admin/rag/ingest-url', requireAdmin, requireCsrf, handleIngestUrl);
+
+  const uploadPdfMiddleware = multer({
+    storage: multer.memoryStorage(),
+    limits: {
+      fileSize: 5 * 1024 * 1024,
+      files: 1,
+    },
+    fileFilter: (_req, file, cb) => {
+      if (file.mimetype !== 'application/pdf' && !file.originalname.toLowerCase().endsWith('.pdf')) {
+        return cb(Object.assign(new Error('Formato de archivo no soportado. Solo se admiten archivos PDF.'), { status: 415 }));
+      }
+      return cb(null, true);
+    },
+  }).single('file');
+
+  function runPdfUpload(upload) {
+    return (req, res, next) => {
+      upload(req, res, (error) => {
+        if (!error) return next();
+        const status = error.code === 'LIMIT_FILE_SIZE' ? 413 : (error.status || 400);
+        return res.status(status).json({
+          ok: false,
+          error: status === 413 ? 'El archivo supera el límite de 5 MB' : error.message,
+        });
+      });
+    };
+  }
+
+  async function handleIngestPdf(req, res) {
+    try {
+      if (!req.file || !req.file.buffer) {
+        return res.status(400).json({ ok: false, error: 'No se subió ningún archivo PDF' });
+      }
+      const buffer = req.file.buffer;
+      if (buffer.length < 5 || buffer.toString('utf8', 0, 5) !== '%PDF-') {
+        return res.status(415).json({ ok: false, error: 'Formato de archivo no soportado. Solo se admiten archivos PDF.' });
+      }
+
+      let pdfText;
+      try {
+        pdfText = await extractPdfText(buffer);
+      } catch (pdfErr) {
+        return res.status(400).json({ ok: false, error: `Error procesando PDF: ${pdfErr.message}` });
+      }
+
+      if (!pdfText || !pdfText.trim()) {
+        return res.status(400).json({ ok: false, error: 'El archivo PDF no contiene texto legible' });
+      }
+
+      const originalName = req.file.originalname || 'documento.pdf';
+      const result = await ragService.ingestText({
+        sourceType: 'pdf',
+        source: originalName,
+        title: originalName,
+        text: pdfText.trim(),
+      });
+      return res.json({ ok: true, documentId: result.documentId, chunkCount: result.chunkCount });
+    } catch (err) {
+      logger.error?.({ err }, 'Error ingesting RAG PDF file');
+      return res.status(500).json({ ok: false, error: err.message || 'Internal server error' });
+    }
+  }
+
+  const uploadPdf = runPdfUpload(uploadPdfMiddleware);
+  router.post('/api/admin/rag/documents/file', requireAdmin, requireCsrf, uploadPdf, handleIngestPdf);
+  router.post('/api/admin/rag/ingest-pdf', requireAdmin, requireCsrf, uploadPdf, handleIngestPdf);
 
   return router;
 }
