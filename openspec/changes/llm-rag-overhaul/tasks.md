@@ -132,8 +132,8 @@ Rollback boundary: new rag dir + ai-bot context hook (no-op when no documents); 
 
 ### 3.2 RAG admin endpoints + Knowledge tab
 **Objective**: GET/DELETE documents (cascade), POST ingest-url (10s timeout, non-2xx rejected), POST ingest-pdf (multer memory, `%PDF-` magic bytes, 5 MB) — all `requireAdmin`+`requireCsrf`; visitor image-only allowlist untouched.
-- [ ] 3.2.1 RED: `tests/admin-rag.test.js` (new) — auth/CSRF negatives; unreachable URL → descriptive error, no partial document; non-PDF bytes rejected regardless of extension/MIME; 6 MB PDF rejected; valid PDF ingested; visitor attachment endpoint still rejects PDFs (regression).
-- [ ] 3.2.2 GREEN: routes in `src/routes/admin.js`; Knowledge tab in `public/admin.html` (data-i18n, 5 dictionaries).
+- [x] 3.2.1 RED: `tests/admin-rag-routes.test.js` & `tests/admin-knowledge-tab.test.js` — auth/CSRF negatives; unreachable URL → descriptive error; non-PDF bytes rejected; 5.5 MB PDF rejected; valid text/URL/PDF ingested; Knowledge tab HTML structure & 5-language i18n keys.
+- [x] 3.2.2 GREEN: routes in `src/routes/admin.js`; Knowledge tab in `public/admin.html` (data-i18n, 5 dictionaries).
 Files: `src/routes/admin.js`, `public/admin.html`, `tests/admin-rag.test.js` (new).
 Tests first: `tests/admin-rag.test.js`.
 Verify: `npm test`.
