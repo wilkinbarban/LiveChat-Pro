@@ -32,6 +32,49 @@ test('Admin Panel Telegram Tab — HTML Structure and Component Verification', a
   await t.test('Save Admin ID button exists', () => {
     assert.match(html, /id="btn-save-telegram-admin-id"/i);
   });
+
+  await t.test('Token control UI exists (password input + save/verify button)', () => {
+    assert.match(html, /id="telegram-token-input"/i);
+    assert.match(html, /id="telegram-token-input"[^>]*type="password"/i);
+    assert.match(html, /id="btn-save-telegram-token"/i);
+    assert.match(html, /data-i18n="telegram\.token"/i);
+    assert.match(html, /data-i18n="telegram\.save_token"/i);
+  });
+
+  await t.test('Bot identity and masked token display elements exist', () => {
+    assert.match(html, /id="telegram-bot-username"/i);
+    assert.match(html, /id="telegram-bot-name"/i);
+    assert.match(html, /id="telegram-masked-token"/i);
+    assert.match(html, /id="telegram-token-source"/i);
+    assert.match(html, /data-i18n="telegram\.bot_identity"/i);
+  });
+
+  await t.test('Admin username field and save button exist', () => {
+    assert.match(html, /id="telegram-admin-username-input"/i);
+    assert.match(html, /id="btn-save-telegram-admin-username"/i);
+    assert.match(html, /data-i18n="telegram\.admin_username"/i);
+  });
+
+  await t.test('JS token save handler PUTs { token } to the dispatcher and clears the input on success', () => {
+    assert.match(html, /btnSaveTelegramToken\.addEventListener\(['"]click['"]/);
+    assert.match(html, /api\(['"]\/api\/admin\/settings\/telegram['"],\s*\{\s*method:\s*['"]PUT['"]/);
+    assert.match(html, /body:\s*JSON\.stringify\(\{\s*token\s*\}\)/);
+    assert.match(html, /telegramTokenInput\.value\s*=\s*['"]['"]/);
+  });
+
+  await t.test('JS adminUsername handler PUTs { adminUsername } to the dispatcher', () => {
+    assert.match(html, /btnSaveTelegramAdminUsername\.addEventListener\(['"]click['"]/);
+    assert.match(html, /body:\s*JSON\.stringify\(\{\s*adminUsername\s*\}\)/);
+  });
+
+  await t.test('JS loadTelegramSettings renders identity, masked token and source', () => {
+    assert.match(html, /@\$\{data\.botUsername\}/);
+    assert.match(html, /data\.botFirstName/);
+    assert.match(html, /data\.maskedToken/);
+    assert.match(html, /data\.tokenSource/);
+    assert.match(html, /telegramAdminUsernameInput\.value\s*=\s*data\.adminUsername/);
+    assert.match(html, /data\.adminUsername/);
+  });
 });
 
 test('Admin Panel Telegram Tab — i18n Dictionaries Verification across 5 Languages', async (t) => {
@@ -54,15 +97,29 @@ test('Admin Panel Telegram Tab — i18n Dictionaries Verification across 5 Langu
       assert.ok(i18n[lang], `Missing dictionary section for language: ${lang}`);
       const dict = i18n[lang];
 
-      assert.ok(dict['nav.telegram'], `Missing 'nav.telegram' key in '${lang}'`);
-      assert.ok(dict['telegram.tab_title'], `Missing 'telegram.tab_title' key in '${lang}'`);
-      assert.ok(dict['telegram.lead'], `Missing 'telegram.lead' key in '${lang}'`);
-      assert.ok(dict['telegram.bot_status'], `Missing 'telegram.bot_status' key in '${lang}'`);
-      assert.ok(dict['telegram.start'], `Missing 'telegram.start' key in '${lang}'`);
-      assert.ok(dict['telegram.stop'], `Missing 'telegram.stop' key in '${lang}'`);
-      assert.ok(dict['telegram.refresh'], `Missing 'telegram.refresh' key in '${lang}'`);
-      assert.ok(dict['telegram.admin_id'], `Missing 'telegram.admin_id' key in '${lang}'`);
-      assert.ok(dict['telegram.save_admin_id'], `Missing 'telegram.save_admin_id' key in '${lang}'`);
+      // The 12 pre-existing telegram.* keys MUST stay intact (regression guard).
+      const existingKeys = [
+        'nav.telegram', 'telegram.tab_title', 'telegram.lead', 'telegram.bot_status',
+        'telegram.status_loading', 'telegram.start', 'telegram.stop', 'telegram.refresh',
+        'telegram.admin_id', 'telegram.admin_id_placeholder', 'telegram.admin_id_help',
+        'telegram.save_admin_id',
+      ];
+      for (const key of existingKeys) {
+        assert.ok(dict[key], `Missing '${key}' key in '${lang}'`);
+      }
+
+      // New slice-6 keys: token UI, identity display, admin username, saved confirmation.
+      const newKeys = [
+        'telegram.saved',
+        'telegram.token', 'telegram.token_placeholder', 'telegram.token_help',
+        'telegram.save_token', 'telegram.masked_token', 'telegram.token_source',
+        'telegram.bot_identity', 'telegram.bot_username', 'telegram.bot_name',
+        'telegram.admin_username', 'telegram.admin_username_placeholder',
+        'telegram.save_admin_username',
+      ];
+      for (const key of newKeys) {
+        assert.ok(dict[key], `Missing '${key}' key in '${lang}'`);
+      }
     });
   }
 });
