@@ -154,8 +154,8 @@ Rollback boundary: script + test only; DB rows removable via DELETE endpoint; `.
 
 ### 4.1 Master prompt module (ADR-9 step 4)
 **Objective**: `src/services/master-prompt.js` — editable prompt persisted in settings (`master_prompt.text`), safe built-in default when unset, **identity answers ported from kb-trainer `fixed-entries.js` (condensed, 6 langs)**; GET/PUT endpoints; Prompt tab; injected as system prompt combined with RAG context.
-- [ ] 4.1.1 RED: `tests/master-prompt.test.js` (new) — default fallback on fresh install; edit applies to next `getReply` without restart; 401/403 negatives; identity question ("who are you?", supported langs) answered from ported content with no kb-trainer dependency.
-- [ ] 4.1.2 GREEN: service + routes (`requireAdmin`+`requireCsrf` on PUT) + Prompt tab (data-i18n, 5 dictionaries); AiBot consumes prompt service.
+- [x] 4.1.1 RED: `tests/master-prompt.test.js` (new) — default fallback on fresh install; edit applies to next `getReply` without restart; 401/403 negatives; identity question ("who are you?", supported langs) answered from ported content with no kb-trainer dependency.
+- [x] 4.1.2 GREEN: service + routes (`requireAdmin`+`requireCsrf` on PUT) + Prompt tab (data-i18n, 5 dictionaries); AiBot consumes prompt service.
 Files: `src/services/master-prompt.js` (new), `src/routes/admin.js`, `public/admin.html`, `src/services/ai-bot.js`, `tests/master-prompt.test.js` (new).
 Tests first: `tests/master-prompt.test.js`.
 Verify: `npm test`.
