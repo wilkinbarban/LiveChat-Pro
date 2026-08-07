@@ -110,6 +110,7 @@
       <nav class="nav-tabs tab-bar" id="adminTabs">
         <button class="tab-btn active" data-tab="chats" type="button" data-i18n="nav.chats">Chats</button>
         <button class="tab-btn" data-tab="ai" type="button" data-i18n="nav.ai">AI</button>
+        <button class="tab-btn" data-tab="knowledge" id="tab-btn-knowledge" type="button" data-i18n="nav.knowledge">Conocimiento</button>
       </nav>
       <div id="sidebar-chats-content">
         <section class="filters">
@@ -205,6 +206,60 @@
           </div>
         </div>
       </section>
+
+      <section id="tab-knowledge" class="tab-pane hidden panel" style="padding:24px; display:grid; gap:20px;">
+        <div>
+          <h2 data-i18n="knowledge.tab_title">Base de Conocimiento RAG</h2>
+          <p class="muted" data-i18n="knowledge.lead">Gestión de documentos, URLs y PDFs para búsqueda contextual del bot.</p>
+        </div>
+
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:16px;">
+          <!-- Manual Text Form -->
+          <form id="form-rag-text" class="metric" style="padding:16px; display:grid; gap:10px;" onsubmit="return false;">
+            <h3 style="margin:0;" data-i18n="knowledge.add_text">Añadir texto manual</h3>
+            <input id="rag-text-title" type="text" placeholder="Título" data-i18n-placeholder="knowledge.title" required>
+            <textarea id="rag-text-content" rows="4" placeholder="Contenido de texto" data-i18n-placeholder="knowledge.add_text" required style="resize:vertical;"></textarea>
+            <button id="btn-rag-add-text" class="btn-primary" type="submit" data-i18n="knowledge.ingest">Ingestar</button>
+          </form>
+
+          <!-- URL Ingest Form -->
+          <form id="form-rag-url" class="metric" style="padding:16px; display:grid; gap:10px;" onsubmit="return false;">
+            <h3 style="margin:0;" data-i18n="knowledge.add_url">Ingestar desde URL</h3>
+            <input id="rag-url-title" type="text" placeholder="Título (opcional)" data-i18n-placeholder="knowledge.title">
+            <input id="rag-url-input" type="url" placeholder="https://ejemplo.com/faq" data-i18n-placeholder="knowledge.add_url" required>
+            <button id="btn-rag-add-url" class="btn-primary" type="submit" data-i18n="knowledge.ingest">Ingestar</button>
+          </form>
+
+          <!-- PDF Upload Form -->
+          <form id="form-rag-file" class="metric" style="padding:16px; display:grid; gap:10px;" onsubmit="return false;">
+            <h3 style="margin:0;" data-i18n="knowledge.add_pdf">Subir PDF (Máx. 5 MB)</h3>
+            <input id="rag-file-input" type="file" accept="application/pdf,.pdf" required>
+            <button id="btn-rag-add-pdf" class="btn-primary" type="submit" data-i18n="knowledge.upload">Subir</button>
+          </form>
+        </div>
+
+        <div id="ragNotice" class="notice hidden"></div>
+
+        <div>
+          <h3 style="margin-bottom:12px;" data-i18n="knowledge.doc_list">Documentos ingestados</h3>
+          <div style="overflow-x:auto;">
+            <table id="rag-doc-table" style="width:100%; border-collapse:collapse; text-align:left;">
+              <thead>
+                <tr style="border-bottom:1px solid var(--border-color, #ccc);">
+                  <th style="padding:8px;" data-i18n="knowledge.source">Origen</th>
+                  <th style="padding:8px;" data-i18n="knowledge.title">Título</th>
+                  <th style="padding:8px;" data-i18n="knowledge.type">Tipo</th>
+                  <th style="padding:8px;" data-i18n="knowledge.created">Fecha</th>
+                  <th style="padding:8px;" data-i18n="knowledge.actions">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="rag-doc-tbody">
+                <tr><td colspan="5" style="padding:12px; text-align:center;" class="muted" data-i18n="knowledge.no_docs">No hay documentos ingestados.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
     </main>
   </div>
   <div id="loadingBadge" class="loading hidden">Sincronizando...</div>
@@ -231,11 +286,11 @@
         });
       }
       const i18n = {
-        es: { loginTitle:'Acceso administrador', loginLead:'Panel privado para gestionar chats, usuarios y estado general del sistema.', password:'Contraseña del panel', loginNotice:'Inicia sesión para cargar el panel.', enter:'Entrar', singleAdmin:'Admin único', chats:'Chats', directManage:'Gestión directa de conversaciones.', logout:'Salir', search:'Buscar nombre, ID, IP, país, página', online:'Online', all:'Todos', refresh:'Recargar', users:'Usuarios', connected:'Conectados', offline:'Desconectados', unread:'Sin leer', messages:'Mensajes', blocked:'Bloqueados', selectChat:'Selecciona un chat', detailHere:'El detalle aparecerá aquí.', geo:'Geolocalización', page:'Página actual', language:'Idioma', created:'Creado', lastActive:'Última actividad', clear:'Limpiar chat', block:'Bloquear', ban:'Banear', delete:'Eliminar', history:'Historial', reply:'Responder', ready:'Listo.', send:'Enviar', writeReply:'Escribe tu respuesta', syncing:'Sincronizando...', noCsrf:'No se encontró token CSRF. Recarga la página.', network:'Error de red', unnamed:'Sin nombre', unknown:'Desconocido', noIp:'sin ip', noSelection:'Sin selección', noMessages:'No hay mensajes todavía.', msgCount:n=>`${n} mensajes`, unreadCount:n=>`${n} sin leer`, read:'Leído', priority:'Prioridad', loading:'Cargando...', loadingChats:'Cargando chats...', loadingChat:'Cargando chat...', loggedIn:'Sesión iniciada.', loginRequired:'Inicia sesión para cargar el panel.', loginInvalid:'Sesión expirada o no iniciada.', connectedReply:'Cliente conectado. Puedes responder.', offlineReply:'Cliente offline. La respuesta quedará pendiente.', bannedUser:'Usuario bloqueado.', savedPending:'Respuesta guardada. Se entregará cuando el usuario vuelva.', sent:'Respuesta enviada.', emptyReply:'Escribe una respuesta.', clearConfirm:'¿Limpiar el historial de este chat?', blockConfirm:'¿Bloquear este usuario?', banConfirm:'¿Banear este usuario y desconectarlo?', deleteConfirm:'¿Eliminar este usuario y todo su historial?', clearing:'Limpiando chat...', blocking:'Bloqueando usuario...', banning:'Baneando usuario...', deleting:'Eliminando usuario...', 'nav.chats':'Chats', 'nav.ai':'IA', 'ai.tab_title':'Configuración de Inteligencia Artificial', 'ai.lead':'Gestión de proveedores LLM, claves de API y estado global del bot.', 'ai.provider':'Proveedor de LLM', 'ai.api_key':'Clave de API', 'ai.verify_key':'Verificar y guardar', 'ai.enable_bot':'Activar Bot Globalmente', 'ai.global_toggle':'Estado Global del Bot', 'ai.model':'Modelo por defecto' },
-        en: { loginTitle:'Admin access', loginLead:'Private panel to manage chats, users and general system status.', password:'Panel password', loginNotice:'Sign in to load the panel.', enter:'Enter', singleAdmin:'Single admin', chats:'Chats', directManage:'Direct conversation management.', logout:'Logout', search:'Search name, ID, IP, country, page', online:'Online', all:'All', refresh:'Refresh', users:'Users', connected:'Connected', offline:'Offline', unread:'Unread', messages:'Messages', blocked:'Blocked', selectChat:'Select a chat', detailHere:'Details will appear here.', geo:'Geolocation', page:'Current page', language:'Language', created:'Created', lastActive:'Last activity', clear:'Clear chat', block:'Block', ban:'Ban', delete:'Delete', history:'History', reply:'Reply', ready:'Ready.', send:'Send', writeReply:'Write your reply', syncing:'Syncing...', noCsrf:'CSRF token was not found. Reload the page.', network:'Network error', unnamed:'No name', unknown:'Unknown', noIp:'no ip', noSelection:'No selection', noMessages:'No messages yet.', msgCount:n=>`${n} messages`, unreadCount:n=>`${n} unread`, read:'Read', priority:'Priority', loading:'Loading...', loadingChats:'Loading chats...', loadingChat:'Loading chat...', loggedIn:'Signed in.', loginRequired:'Sign in to load the panel.', loginInvalid:'Session expired or not started.', connectedReply:'Client connected. You can reply.', offlineReply:'Client offline. The reply will stay pending.', bannedUser:'User blocked.', savedPending:'Reply saved. It will be delivered when the user returns.', sent:'Reply sent.', emptyReply:'Write a reply.', clearConfirm:'Clear this chat history?', blockConfirm:'Block this user?', banConfirm:'Ban this user and disconnect them?', deleteConfirm:'Delete this user and all history?', clearing:'Clearing chat...', blocking:'Blocking user...', banning:'Banning user...', deleting:'Deleting user...', 'nav.chats':'Chats', 'nav.ai':'AI', 'ai.tab_title':'Artificial Intelligence Settings', 'ai.lead':'Manage LLM providers, API keys and global bot status.', 'ai.provider':'LLM Provider', 'ai.api_key':'API Key', 'ai.verify_key':'Verify and save', 'ai.enable_bot':'Enable Bot Globally', 'ai.global_toggle':'Global Bot Status', 'ai.model':'Default Model' },
-        pt: { loginTitle:'Acesso admin', loginLead:'Painel privado para gerenciar chats, usuários e estado geral do sistema.', password:'Senha do painel', loginNotice:'Entre para carregar o painel.', enter:'Entrar', singleAdmin:'Admin único', chats:'Chats', directManage:'Gestão direta de conversas.', logout:'Sair', search:'Buscar nome, ID, IP, país, página', online:'Online', all:'Todos', refresh:'Recarregar', users:'Usuários', connected:'Conectados', offline:'Offline', unread:'Não lidas', messages:'Mensagens', blocked:'Bloqueados', selectChat:'Selecione um chat', detailHere:'Os detalhes aparecerão aqui.', geo:'Geolocalização', page:'Página atual', language:'Idioma', created:'Criado', lastActive:'Última atividade', clear:'Limpar chat', block:'Bloquear', ban:'Banir', delete:'Excluir', history:'Histórico', reply:'Responder', ready:'Pronto.', send:'Enviar', writeReply:'Escreva sua resposta', syncing:'Sincronizando...', noCsrf:'Token CSRF não encontrado. Recarregue a página.', network:'Erro de rede', unnamed:'Sem nome', unknown:'Desconhecido', noIp:'sem ip', noSelection:'Sem seleção', noMessages:'Ainda não há mensagens.', msgCount:n=>`${n} mensagens`, unreadCount:n=>`${n} não lidas`, read:'Lido', priority:'Prioridade', loading:'Carregando...', loadingChats:'Carregando chats...', loadingChat:'Carregando chat...', loggedIn:'Sessão iniciada.', loginRequired:'Entre para carregar o painel.', loginInvalid:'Sessão expirada ou não iniciada.', connectedReply:'Cliente conectado. Você pode responder.', offlineReply:'Cliente offline. A resposta ficará pendente.', bannedUser:'Usuário bloqueado.', savedPending:'Resposta salva. Será entregue quando o usuário voltar.', sent:'Resposta enviada.', emptyReply:'Escreva uma resposta.', clearConfirm:'Limpar o histórico deste chat?', blockConfirm:'Bloquear este usuário?', banConfirm:'Banir este usuário e desconectá-lo?', deleteConfirm:'Excluir este usuário e todo o histórico?', clearing:'Limpando chat...', blocking:'Bloqueando usuário...', banning:'Banindo usuário...', deleting:'Excluindo usuário...', 'nav.chats':'Chats', 'nav.ai':'IA', 'ai.tab_title':'Configurações de Inteligência Artificial', 'ai.lead':'Gerenciar provedores LLM, chaves de API e status global do bot.', 'ai.provider':'Provedor LLM', 'ai.api_key':'Chave da API', 'ai.verify_key':'Verificar e salvar', 'ai.enable_bot':'Ativar Bot Globalmente', 'ai.global_toggle':'Status Global do Bot', 'ai.model':'Modelo Padrão' },
-        fr: { loginTitle:'Accès admin', loginLead:'Panneau privé pour gérer les chats, les utilisateurs et l’état général du système.', password:'Mot de passe du panneau', loginNotice:'Connectez-vous pour charger le panneau.', enter:'Entrer', singleAdmin:'Admin unique', chats:'Chats', directManage:'Gestion directe des conversations.', logout:'Sortir', search:'Rechercher nom, ID, IP, pays, page', online:'Online', all:'Tous', refresh:'Actualiser', users:'Utilisateurs', connected:'Connectés', offline:'Hors ligne', unread:'Non lus', messages:'Messages', blocked:'Bloqués', selectChat:'Sélectionnez un chat', detailHere:'Le détail apparaîtra ici.', geo:'Géolocalisation', page:'Page actuelle', language:'Langue', created:'Créé', lastActive:'Dernière activité', clear:'Vider le chat', block:'Bloquer', ban:'Bannir', delete:'Supprimer', history:'Historique', reply:'Répondre', ready:'Prêt.', send:'Envoyer', writeReply:'Écrivez votre réponse', syncing:'Synchronisation...', noCsrf:'Token CSRF introuvable. Rechargez la page.', network:'Erreur réseau', unnamed:'Sans nom', unknown:'Inconnu', noIp:'sans ip', noSelection:'Aucune sélection', noMessages:'Aucun message pour le moment.', msgCount:n=>`${n} messages`, unreadCount:n=>`${n} non lus`, read:'Lu', priority:'Priorité', loading:'Chargement...', loadingChats:'Chargement des chats...', loadingChat:'Chargement du chat...', loggedIn:'Session ouverte.', loginRequired:'Connectez-vous pour charger le panneau.', loginInvalid:'Session expirée ou non ouverte.', connectedReply:'Client connecté. Vous pouvez répondre.', offlineReply:'Client hors ligne. La réponse restera en attente.', bannedUser:'Utilisateur bloqué.', savedPending:'Réponse enregistrée. Elle sera livrée au retour de l’utilisateur.', sent:'Réponse envoyée.', emptyReply:'Écrivez une réponse.', clearConfirm:'Vider l’historique de ce chat ?', blockConfirm:'Bloquer cet utilisateur ?', banConfirm:'Bannir cet utilisateur et le déconnecter ?', deleteConfirm:'Supprimer cet utilisateur et tout son historique ?', clearing:'Nettoyage du chat...', blocking:'Blocage utilisateur...', banning:'Bannissement utilisateur...', deleting:'Suppression utilisateur...', 'nav.chats':'Chats', 'nav.ai':'IA', 'ai.tab_title':'Paramètres d’Intelligence Artificielle', 'ai.lead':'Gérer les fournisseurs LLM, les clés API et le statut global du bot.', 'ai.provider':'Fournisseur LLM', 'ai.api_key':'Clé API', 'ai.verify_key':'Vérifier et enregistrer', 'ai.enable_bot':'Activer le Bot Globalement', 'ai.global_toggle':'Statut Global du Bot', 'ai.model':'Modèle par Défaut' },
-        de: { loginTitle:'Admin-Zugang', loginLead:'Privates Panel zur Verwaltung von Chats, Benutzern und Systemstatus.', password:'Panel-Passwort', loginNotice:'Melde dich an, um das Panel zu laden.', enter:'Anmelden', singleAdmin:'Einzeladmin', chats:'Chats', directManage:'Direkte Gesprächsverwaltung.', logout:'Abmelden', search:'Name, ID, IP, Land, Seite suchen', online:'Online', all:'Alle', refresh:'Aktualisieren', users:'Benutzer', connected:'Verbunden', offline:'Offline', unread:'Ungelesen', messages:'Nachrichten', blocked:'Blockiert', selectChat:'Chat auswählen', detailHere:'Details erscheinen hier.', geo:'Geolokalisierung', page:'Aktuelle Seite', language:'Sprache', created:'Erstellt', lastActive:'Letzte Aktivität', clear:'Chat leeren', block:'Blockieren', ban:'Bannen', delete:'Löschen', history:'Verlauf', reply:'Antworten', ready:'Bereit.', send:'Senden', writeReply:'Antwort schreiben', syncing:'Synchronisiere...', noCsrf:'CSRF-Token nicht gefunden. Seite neu laden.', network:'Netzwerkfehler', unnamed:'Ohne Namen', unknown:'Unbekannt', noIp:'keine IP', noSelection:'Keine Auswahl', noMessages:'Noch keine Nachrichten.', msgCount:n=>`${n} Nachrichten`, unreadCount:n=>`${n} ungelesen`, read:'Gelesen', priority:'Priorität', loading:'Lade...', loadingChats:'Lade Chats...', loadingChat:'Lade Chat...', loggedIn:'Angemeldet.', loginRequired:'Melde dich an, um das Panel zu laden.', loginInvalid:'Sitzung abgelaufen oder nicht gestartet.', connectedReply:'Client verbunden. Du kannst antworten.', offlineReply:'Client offline. Die Antwort bleibt ausstehend.', bannedUser:'Benutzer blockiert.', savedPending:'Antwort gespeichert. Sie wird beim Zurückkommen zugestellt.', sent:'Antwort gesendet.', emptyReply:'Schreibe eine Antwort.', clearConfirm:'Diesen Chatverlauf leeren?', blockConfirm:'Diesen Benutzer blockieren?', banConfirm:'Diesen Benutzer bannen und trennen?', deleteConfirm:'Diesen Benutzer und den gesamten Verlauf löschen?', clearing:'Chat wird geleert...', blocking:'Benutzer wird blockiert...', banning:'Benutzer wird gebannt...', deleting:'Benutzer wird gelöscht...', 'nav.chats':'Chats', 'nav.ai':'KI', 'ai.tab_title':'Künstliche Intelligenz Einstellungen', 'ai.lead':'Verwalten Sie LLM-Anbieter, API-Schlüssel und den globalen Bot-Status.', 'ai.provider':'LLM-Anbieter', 'ai.api_key':'API-Schlüssel', 'ai.verify_key':'Überprüfen und speichern', 'ai.enable_bot':'Bot global aktivieren', 'ai.global_toggle':'Globaler Bot-Status', 'ai.model':'Standard-Modell' },
+        es: { loginTitle:'Acceso administrador', loginLead:'Panel privado para gestionar chats, usuarios y estado general del sistema.', password:'Contraseña del panel', loginNotice:'Inicia sesión para cargar el panel.', enter:'Entrar', singleAdmin:'Admin único', chats:'Chats', directManage:'Gestión directa de conversaciones.', logout:'Salir', search:'Buscar nombre, ID, IP, país, página', online:'Online', all:'Todos', refresh:'Recargar', users:'Usuarios', connected:'Conectados', offline:'Desconectados', unread:'Sin leer', messages:'Mensajes', blocked:'Bloqueados', selectChat:'Selecciona un chat', detailHere:'El detalle aparecerá aquí.', geo:'Geolocalización', page:'Página actual', language:'Idioma', created:'Creado', lastActive:'Última actividad', clear:'Limpiar chat', block:'Bloquear', ban:'Banear', delete:'Eliminar', history:'Historial', reply:'Responder', ready:'Listo.', send:'Enviar', writeReply:'Escribe tu respuesta', syncing:'Sincronizando...', noCsrf:'No se encontró token CSRF. Recarga la página.', network:'Error de red', unnamed:'Sin nombre', unknown:'Desconocido', noIp:'sin ip', noSelection:'Sin selección', noMessages:'No hay mensajes todavía.', msgCount:n=>`${n} mensajes`, unreadCount:n=>`${n} sin leer`, read:'Leído', priority:'Prioridad', loading:'Cargando...', loadingChats:'Cargando chats...', loadingChat:'Cargando chat...', loggedIn:'Sesión iniciada.', loginRequired:'Inicia sesión para cargar el panel.', loginInvalid:'Sesión expirada o no iniciada.', connectedReply:'Cliente conectado. Puedes responder.', offlineReply:'Cliente offline. La respuesta quedará pendiente.', bannedUser:'Usuario bloqueado.', savedPending:'Respuesta guardada. Se entregará cuando el usuario vuelva.', sent:'Respuesta enviada.', emptyReply:'Escribe una respuesta.', clearConfirm:'¿Limpiar el historial de este chat?', blockConfirm:'¿Bloquear este usuario?', banConfirm:'¿Banear este usuario y desconectarlo?', deleteConfirm:'¿Eliminar este usuario y todo su historial?', clearing:'Limpiando chat...', blocking:'Bloqueando usuario...', banning:'Banear usuario...', deleting:'Eliminando usuario...', 'nav.chats':'Chats', 'nav.ai':'AI', 'nav.knowledge':'Conocimiento', 'ai.tab_title':'Configuración de Inteligencia Artificial', 'ai.lead':'Gestión de proveedores LLM, claves de API y estado global del bot.', 'ai.provider':'Proveedor de LLM', 'ai.api_key':'Clave de API', 'ai.verify_key':'Verificar y guardar', 'ai.enable_bot':'Activar Bot Globalmente', 'ai.global_toggle':'Estado Global del Bot', 'ai.model':'Modelo por defecto', 'knowledge.tab_title':'Base de Conocimiento RAG', 'knowledge.lead':'Gestión de documentos, URLs y PDFs para búsqueda contextual del bot.', 'knowledge.add_text':'Añadir texto manual', 'knowledge.add_url':'Ingestar desde URL', 'knowledge.add_pdf':'Subir PDF (Máx. 5 MB)', 'knowledge.doc_list':'Documentos ingestados', 'knowledge.title':'Título', 'knowledge.source':'Origen', 'knowledge.type':'Tipo', 'knowledge.created':'Fecha', 'knowledge.actions':'Acciones', 'knowledge.ingest':'Ingestar', 'knowledge.upload':'Subir', 'knowledge.delete':'Eliminar', 'knowledge.no_docs':'No hay documentos ingestados.' },
+        en: { loginTitle:'Admin access', loginLead:'Private panel to manage chats, users and general system status.', password:'Panel password', loginNotice:'Sign in to load the panel.', enter:'Enter', singleAdmin:'Single admin', chats:'Chats', directManage:'Direct conversation management.', logout:'Logout', search:'Search name, ID, IP, country, page', online:'Online', all:'All', refresh:'Refresh', users:'Users', connected:'Connected', offline:'Offline', unread:'Unread', messages:'Messages', blocked:'Blocked', selectChat:'Select a chat', detailHere:'Details will appear here.', geo:'Geolocation', page:'Current page', language:'Language', created:'Created', lastActive:'Last activity', clear:'Clear chat', block:'Block', ban:'Ban', delete:'Delete', history:'History', reply:'Reply', ready:'Ready.', send:'Send', writeReply:'Write your reply', syncing:'Syncing...', noCsrf:'CSRF token was not found. Reload the page.', network:'Network error', unnamed:'No name', unknown:'Unknown', noIp:'no ip', noSelection:'No selection', noMessages:'No messages yet.', msgCount:n=>`${n} messages`, unreadCount:n=>`${n} unread`, read:'Read', priority:'Priority', loading:'Loading...', loadingChats:'Loading chats...', loadingChat:'Loading chat...', loggedIn:'Signed in.', loginRequired:'Sign in to load the panel.', loginInvalid:'Session expired or not started.', connectedReply:'Client connected. You can reply.', offlineReply:'Client offline. The reply will stay pending.', bannedUser:'User blocked.', savedPending:'Reply saved. It will be delivered when the user returns.', sent:'Reply sent.', emptyReply:'Write a reply.', clearConfirm:'Clear this chat history?', blockConfirm:'Block this user?', banConfirm:'Ban this user and disconnect them?', deleteConfirm:'Delete this user and all history?', clearing:'Clearing chat...', blocking:'Blocking user...', banning:'Banning user...', deleting:'Deleting user...', 'nav.chats':'Chats', 'nav.ai':'AI', 'nav.knowledge':'Knowledge', 'ai.tab_title':'Artificial Intelligence Settings', 'ai.lead':'Manage LLM providers, API keys and global bot status.', 'ai.provider':'LLM Provider', 'ai.api_key':'API Key', 'ai.verify_key':'Verify and save', 'ai.enable_bot':'Enable Bot Globally', 'ai.global_toggle':'Global Bot Status', 'ai.model':'Default Model', 'knowledge.tab_title':'RAG Knowledge Base', 'knowledge.lead':'Manage documents, URLs, and PDFs for bot contextual search.', 'knowledge.add_text':'Add manual text', 'knowledge.add_url':'Ingest from URL', 'knowledge.add_pdf':'Upload PDF (Max 5 MB)', 'knowledge.doc_list':'Ingested documents', 'knowledge.title':'Title', 'knowledge.source':'Source', 'knowledge.type':'Type', 'knowledge.created':'Date', 'knowledge.actions':'Actions', 'knowledge.ingest':'Ingest', 'knowledge.upload':'Upload', 'knowledge.delete':'Delete', 'knowledge.no_docs':'No ingested documents.' },
+        pt: { loginTitle:'Acesso admin', loginLead:'Painel privado para gerenciar chats, usuários e estado geral do sistema.', password:'Senha do painel', loginNotice:'Entre para carregar o painel.', enter:'Entrar', singleAdmin:'Admin único', chats:'Chats', directManage:'Gestão direta de conversas.', logout:'Sair', search:'Buscar nome, ID, IP, país, página', online:'Online', all:'Todos', refresh:'Recarregar', users:'Usuários', connected:'Conectados', offline:'Offline', unread:'Não lidas', messages:'Mensagens', blocked:'Bloqueados', selectChat:'Selecione um chat', detailHere:'Os detalhes aparecerão aqui.', geo:'Geolocalização', page:'Página atual', language:'Idioma', created:'Criado', lastActive:'Última atividade', clear:'Limpar chat', block:'Bloquear', ban:'Banir', delete:'Excluir', history:'Histórico', reply:'Responder', ready:'Pronto.', send:'Enviar', writeReply:'Escreva sua resposta', syncing:'Sincronizando...', noCsrf:'Token CSRF não encontrado. Recarregue a página.', network:'Erro de rede', unnamed:'Sem nome', unknown:'Desconhecido', noIp:'sem ip', noSelection:'Sem seleção', noMessages:'Ainda não há mensagens.', msgCount:n=>`${n} mensagens`, unreadCount:n=>`${n} não lidas`, read:'Lido', priority:'Prioridade', loading:'Carregando...', loadingChats:'Carregando chats...', loadingChat:'Carregando chat...', loggedIn:'Sessão iniciada.', loginRequired:'Entre para carregar o painel.', loginInvalid:'Sessão expirada ou não iniciada.', connectedReply:'Cliente conectado. Você pode responder.', offlineReply:'Cliente offline. A resposta ficará pendente.', bannedUser:'Usuário bloqueado.', savedPending:'Resposta salva. Será entregue quando o usuário voltar.', sent:'Resposta enviada.', emptyReply:'Escreva uma resposta.', clearConfirm:'Limpar o histórico deste chat?', blockConfirm:'Bloquear este usuário?', banConfirm:'Banir este usuário e desconectá-lo?', deleteConfirm:'Excluir este usuário e todo o histórico?', clearing:'Limpando chat...', blocking:'Bloqueando usuário...', banning:'Banindo usuário...', deleting:'Excluindo usuário...', 'nav.chats':'Chats', 'nav.ai':'IA', 'nav.knowledge':'Conhecimento', 'ai.tab_title':'Configurações de Inteligência Artificial', 'ai.lead':'Gerenciar provedores LLM, chaves de API e status global do bot.', 'ai.provider':'Provedor LLM', 'ai.api_key':'Chave da API', 'ai.verify_key':'Verificar e salvar', 'ai.enable_bot':'Ativar Bot Globalmente', 'ai.global_toggle':'Status Global do Bot', 'ai.model':'Modelo Padrão', 'knowledge.tab_title':'Base de Conhecimento RAG', 'knowledge.lead':'Gerencie documentos, URLs e PDFs para a busca contextual do bot.', 'knowledge.add_text':'Adicionar texto manual', 'knowledge.add_url':'Ingerir da URL', 'knowledge.add_pdf':'Enviar PDF (Máx. 5 MB)', 'knowledge.doc_list':'Documentos ingeridos', 'knowledge.title':'Título', 'knowledge.source':'Origem', 'knowledge.type':'Tipo', 'knowledge.created':'Data', 'knowledge.actions':'Ações', 'knowledge.ingest':'Ingerir', 'knowledge.upload':'Enviar', 'knowledge.delete':'Excluir', 'knowledge.no_docs':'Nenhum documento ingerido.' },
+        fr: { loginTitle:'Accès admin', loginLead:'Panneau privé pour gérer les chats, les utilisateurs et l’état général du système.', password:'Mot de passe du panneau', loginNotice:'Connectez-vous pour charger le panneau.', enter:'Entrer', singleAdmin:'Admin unique', chats:'Chats', directManage:'Gestion directe des conversations.', logout:'Sortir', search:'Rechercher nom, ID, IP, pays, page', online:'Online', all:'Tous', refresh:'Actualiser', users:'Utilisateurs', connected:'Connectés', offline:'Hors ligne', unread:'Non lus', messages:'Messages', blocked:'Bloqués', selectChat:'Sélectionnez un chat', detailHere:'Le détail apparaîtra ici.', geo:'Géolocalisation', page:'Page actuelle', language:'Langue', created:'Créé', lastActive:'Dernière activité', clear:'Vider le chat', block:'Bloquer', ban:'Bannir', delete:'Supprimer', history:'Historique', reply:'Répondre', ready:'Prêt.', send:'Envoyer', writeReply:'Écrivez votre réponse', syncing:'Synchronisation...', noCsrf:'Token CSRF introuvable. Rechargez la page.', network:'Erreur réseau', unnamed:'Sans nom', unknown:'Inconnu', noIp:'sans ip', noSelection:'Aucune sélection', noMessages:'Aucun message pour le moment.', msgCount:n=>`${n} messages`, unreadCount:n=>`${n} non lus`, read:'Lu', priority:'Priorité', loading:'Chargement...', loadingChats:'Chargement des chats...', loadingChat:'Chargement du chat...', loggedIn:'Session ouverte.', loginRequired:'Connectez-vous pour charger le panneau.', loginInvalid:'Session expirée ou non ouverte.', connectedReply:'Client connecté. Vous pouvez répondre.', offlineReply:'Client hors ligne. La réponse restera en attente.', bannedUser:'Utilisateur bloqué.', savedPending:'Réponse enregistrée. Elle sera livrée au retour de l’utilisateur.', sent:'Réponse envoyée.', emptyReply:'Écrivez une réponse.', clearConfirm:'Vider l’historique de ce chat ?', blockConfirm:'Bloquer cet utilisateur ?', banConfirm:'Bannir cet utilisateur et le déconnecter ?', deleteConfirm:'Supprimer cet utilisateur et tout son historique ?', clearing:'Nettoyage du chat...', blocking:'Blocage utilisateur...', banning:'Bannissement utilisateur...', deleting:'Suppression utilisateur...', 'nav.chats':'Chats', 'nav.ai':'IA', 'nav.knowledge':'Connaissances', 'ai.tab_title':'Paramètres d’Intelligence Artificielle', 'ai.lead':'Gérer les fournisseurs LLM, les clés API et le statut global du bot.', 'ai.provider':'Fournisseur LLM', 'ai.api_key':'Clé API', 'ai.verify_key':'Vérifier et enregistrer', 'ai.enable_bot':'Activer le Bot Globalement', 'ai.global_toggle':'Statut Global du Bot', 'ai.model':'Modèle par Défaut', 'knowledge.tab_title':'Base de connaissances RAG', 'knowledge.lead':'Gérez les documents, les URL et les PDF pour la recherche contextuelle du bot.', 'knowledge.add_text':'Ajouter du texte manuel', 'knowledge.add_url':'Ingérer depuis une URL', 'knowledge.add_pdf':'Téléverser un PDF (Max 5 Mo)', 'knowledge.doc_list':'Documents ingérés', 'knowledge.title':'Titre', 'knowledge.source':'Source', 'knowledge.type':'Type', 'knowledge.created':'Date', 'knowledge.actions':'Actions', 'knowledge.ingest':'Ingérer', 'knowledge.upload':'Téléverser', 'knowledge.delete':'Supprimer', 'knowledge.no_docs':'Aucun document ingéré.' },
+        de: { loginTitle:'Admin-Zugang', loginLead:'Privates Panel zur Verwaltung von Chats, Benutzern und Systemstatus.', password:'Panel-Passwort', loginNotice:'Melde dich an, um das Panel zu laden.', enter:'Anmelden', singleAdmin:'Einzeladmin', chats:'Chats', directManage:'Direkte Gesprächsverwaltung.', logout:'Abmelden', search:'Name, ID, IP, Land, Seite suchen', online:'Online', all:'Alle', refresh:'Aktualisieren', users:'Benutzer', connected:'Verbunden', offline:'Offline', unread:'Ungelesen', messages:'Nachrichten', blocked:'Blockiert', selectChat:'Chat auswählen', detailHere:'Details erscheinen hier.', geo:'Geolokalisierung', page:'Aktuelle Seite', language:'Sprache', created:'Erstellt', lastActive:'Letzte Aktivität', clear:'Chat leeren', block:'Blockieren', ban:'Bannen', delete:'Löschen', history:'Verlauf', reply:'Antworten', ready:'Bereit.', send:'Senden', writeReply:'Antwort schreiben', syncing:'Synchronisiere...', noCsrf:'CSRF-Token nicht gefunden. Seite neu laden.', network:'Netzwerkfehler', unnamed:'Ohne Namen', unknown:'Unbekannt', noIp:'keine IP', noSelection:'Keine Auswahl', noMessages:'Noch keine Nachrichten.', msgCount:n=>`${n} Nachrichten`, unreadCount:n=>`${n} ungelesen`, read:'Gelesen', priority:'Priorität', loading:'Lade...', loadingChats:'Lade Chats...', loadingChat:'Lade Chat...', loggedIn:'Angemeldet.', loginRequired:'Melde dich an, um das Panel zu laden.', loginInvalid:'Sitzung abgelaufen oder nicht gestartet.', connectedReply:'Client verbunden. Du kannst antworten.', offlineReply:'Client offline. Die Antwort bleibt ausstehend.', bannedUser:'Benutzer blockiert.', savedPending:'Antwort gespeichert. Sie wird beim Zurückkommen zugestellt.', sent:'Antwort gesendet.', emptyReply:'Schreibe eine Antwort.', clearConfirm:'Diesen Chatverlauf leeren?', blockConfirm:'Diesen Benutzer blockieren?', banConfirm:'Diesen Benutzer bannen und trennen?', deleteConfirm:'Diesen Benutzer und den gesamten Verlauf löschen?', clearing:'Chat wird geleert...', blocking:'Benutzer wird blockiert...', banning:'Benutzer wird gebannt...', deleting:'Benutzer wird gelöscht...', 'nav.chats':'Chats', 'nav.ai':'KI', 'nav.knowledge':'Wissen', 'ai.tab_title':'Künstliche Intelligenz Einstellungen', 'ai.lead':'Verwalten Sie LLM-Anbieter, API-Schlüssel und den globalen Bot-Status.', 'ai.provider':'LLM-Anbieter', 'ai.api_key':'API-Schlüssel', 'ai.verify_key':'Überprüfen und speichern', 'ai.enable_bot':'Bot global aktivieren', 'ai.global_toggle':'Globaler Bot-Status', 'ai.model':'Standard-Modell', 'knowledge.tab_title':'RAG-Wissensdatenbank', 'knowledge.lead':'Verwalten Sie Dokumente, URLs und PDFs für die kontextbezogene Suche des Bots.', 'knowledge.add_text':'Manuellen Text hinzufügen', 'knowledge.add_url':'Von URL importieren', 'knowledge.add_pdf':'PDF hochladen (Max. 5 MB)', 'knowledge.doc_list':'Importierte Dokumente', 'knowledge.title':'Titel', 'knowledge.source':'Quelle', 'knowledge.type':'Typ', 'knowledge.created':'Datum', 'knowledge.actions':'Aktionen', 'knowledge.ingest':'Importieren', 'knowledge.upload':'Hochladen', 'knowledge.delete':'Löschen', 'knowledge.no_docs':'Keine importierten Dokumente.' },
       };
       const dictionaries = i18n;
       const lang = ['es', 'en', 'pt', 'fr', 'de'].includes((navigator.language || '').split('-')[0]) ? navigator.language.split('-')[0] : 'es';
@@ -546,6 +601,7 @@
             else sidebarContent.classList.add('hidden');
           }
           if (targetTab === 'ai') loadAiSettings().catch(() => {});
+          if (targetTab === 'knowledge') loadRagDocuments().catch(() => {});
         });
       });
 
@@ -641,6 +697,120 @@
           } finally {
             hideLoading();
           }
+        });
+      }
+
+      // ── Knowledge Management (RAG) ──────────────────────────────────
+      const ragNotice = $('ragNotice');
+      const formRagText = $('form-rag-text');
+      const formRagUrl = $('form-rag-url');
+      const formRagFile = $('form-rag-file');
+
+      async function loadRagDocuments() {
+        const tbody = $('rag-doc-tbody');
+        if (!tbody) return;
+        try {
+          const data = await api('/api/admin/rag/documents');
+          const docs = data.documents || [];
+          if (docs.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" style="padding:12px; text-align:center;" class="muted" data-i18n="knowledge.no_docs">${t('knowledge.no_docs')}</td></tr>`;
+            return;
+          }
+          tbody.innerHTML = docs.map(doc => `
+            <tr style="border-bottom:1px solid var(--border-color, #eee);">
+              <td style="padding:8px;" class="mono">${escapeHtml(doc.source)}</td>
+              <td style="padding:8px;">${escapeHtml(doc.title || doc.source)}</td>
+              <td style="padding:8px;">${badge(doc.source_type, 'accent')}</td>
+              <td style="padding:8px;" class="muted">${formatTime(doc.created_at)}</td>
+              <td style="padding:8px;"><button class="btn-danger btn-delete-rag-doc" data-id="${escapeHtml(doc.id)}" type="button">${t('knowledge.delete')}</button></td>
+            </tr>
+          `).join('');
+        } catch (err) {
+          if (ragNotice) {
+            ragNotice.textContent = err.message || t('network');
+            ragNotice.classList.remove('hidden');
+          }
+        }
+      }
+
+      if (formRagText) {
+        formRagText.addEventListener('submit', async event => {
+          event.preventDefault();
+          const title = $('rag-text-title')?.value.trim();
+          const text = $('rag-text-content')?.value.trim();
+          if (!text) return;
+          showLoading(t('syncing'));
+          if (ragNotice) ragNotice.classList.add('hidden');
+          try {
+            await api('/api/admin/rag/documents/text', {
+              method: 'POST',
+              body: JSON.stringify({ title, text }),
+            });
+            if ($('rag-text-title')) $('rag-text-title').value = '';
+            if ($('rag-text-content')) $('rag-text-content').value = '';
+            await loadRagDocuments();
+          } catch (err) {
+            if (ragNotice) { ragNotice.textContent = err.message; ragNotice.classList.remove('hidden'); }
+          } finally { hideLoading(); }
+        });
+      }
+
+      if (formRagUrl) {
+        formRagUrl.addEventListener('submit', async event => {
+          event.preventDefault();
+          const title = $('rag-url-title')?.value.trim();
+          const url = $('rag-url-input')?.value.trim();
+          if (!url) return;
+          showLoading(t('syncing'));
+          if (ragNotice) ragNotice.classList.add('hidden');
+          try {
+            await api('/api/admin/rag/documents/url', {
+              method: 'POST',
+              body: JSON.stringify({ title, url }),
+            });
+            if ($('rag-url-title')) $('rag-url-title').value = '';
+            if ($('rag-url-input')) $('rag-url-input').value = '';
+            await loadRagDocuments();
+          } catch (err) {
+            if (ragNotice) { ragNotice.textContent = err.message; ragNotice.classList.remove('hidden'); }
+          } finally { hideLoading(); }
+        });
+      }
+
+      if (formRagFile) {
+        formRagFile.addEventListener('submit', async event => {
+          event.preventDefault();
+          const fileInput = $('rag-file-input');
+          const file = fileInput && fileInput.files && fileInput.files[0];
+          if (!file) return;
+          const form = new FormData();
+          form.set('file', file);
+          showLoading(t('syncing'));
+          if (ragNotice) ragNotice.classList.add('hidden');
+          try {
+            await uploadApi('/api/admin/rag/documents/file', form);
+            fileInput.value = '';
+            await loadRagDocuments();
+          } catch (err) {
+            if (ragNotice) { ragNotice.textContent = err.message; ragNotice.classList.remove('hidden'); }
+          } finally { hideLoading(); }
+        });
+      }
+
+      const ragDocTable = $('rag-doc-table');
+      if (ragDocTable) {
+        ragDocTable.addEventListener('click', async event => {
+          const btn = event.target.closest('.btn-delete-rag-doc');
+          if (!btn) return;
+          const docId = btn.dataset.id;
+          if (!docId) return;
+          showLoading(t('syncing'));
+          try {
+            await api(`/api/admin/rag/documents/${docId}`, { method: 'DELETE' });
+            await loadRagDocuments();
+          } catch (err) {
+            if (ragNotice) { ragNotice.textContent = err.message; ragNotice.classList.remove('hidden'); }
+          } finally { hideLoading(); }
         });
       }
       async function boot() {
