@@ -34,6 +34,12 @@ function parseInteger(value, fallback) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+// setup.js writes every .env value JSON-quoted, so env reads may carry literal
+// " or ' around the value. Strip both ends and trim; non-strings yield ''.
+function stripEnvQuotes(value) {
+  return typeof value === 'string' ? value.replace(/^["']|["']$/g, '').trim() : '';
+}
+
 // Environment variables represent lists as comma-separated strings. Empty input
 // falls back to the caller-provided defaults.
 function parseCsv(value, fallback = []) {
@@ -77,7 +83,7 @@ function createConfig({ logger = console } = {}) {
     .map(origin => origin.trim())
     .filter(Boolean);
 
-  const telegramToken = process.env.TELEGRAM_TOKEN || legacyConfig?.telegram?.token;
+  const telegramToken = stripEnvQuotes(process.env.TELEGRAM_TOKEN || legacyConfig?.telegram?.token);
   const telegramAdminId = parseInteger(process.env.TELEGRAM_ADMIN_ID || legacyConfig?.telegram?.adminId, NaN);
   const adminLanguage = normalizeAdminLanguage(process.env.ADMIN_LANGUAGE || legacyConfig?.admin?.language || 'es');
 
@@ -104,7 +110,7 @@ function createConfig({ logger = console } = {}) {
       apiKey: process.env.WIDGET_API_KEY || '',
     },
     admin: {
-      password: typeof process.env.ADMIN_PANEL_PASSWORD === 'string' ? process.env.ADMIN_PANEL_PASSWORD.replace(/^["']|["']$/g, '').trim() : '',
+      password: stripEnvQuotes(process.env.ADMIN_PANEL_PASSWORD),
       sessionTtlMs: parseInteger(process.env.ADMIN_SESSION_TTL_HOURS || '12', 12) * 60 * 60 * 1000,
       cookieName: 'lcp_admin',
       csrfCookieName: 'lcp_csrf',
@@ -155,6 +161,7 @@ function validateConfig(config, { logger = console } = {}) {
 module.exports = {
   createConfig,
   validateConfig,
+  stripEnvQuotes,
   normalizeAdminLanguage,
   normalizeUiLanguage,
   languageFromHeader,
