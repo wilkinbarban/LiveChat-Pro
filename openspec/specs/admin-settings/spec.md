@@ -77,8 +77,8 @@ The system MUST render an AI Summary Header at the top of the AI administration 
 
 ### Requirement: Admin Panel i18n Convention
 
-New admin UI modules MUST follow the established `data-i18n` attribute + dictionary convention of `admin.html`, fully covering 5 supported languages: Spanish (`es`), English (`en`), Portuguese (`pt`), French (`fr`), and German (`de`). Modules SHALL remain same-origin and CSP-compliant (no external scripts/styles). The LLM provider editor modal SHALL cover its two-step controls in all five dictionaries: "Comprobar conexión", "Guardar y Cerrar", the model list title, and the "no models found" empty state. The Telegram tab's new controls (token input, identity display, admin username field) and the `telegram.saved` confirmation key SHALL be covered by all five dictionaries. French dictionary entries SHALL use the U+2019 apostrophe (') per existing convention.
-(Previously: convention defined, but the Telegram tab's `telegram.saved` key was missing from all dictionaries; the two-step LLM modal keys were absent.)
+New admin UI modules MUST follow the established `data-i18n` attribute + dictionary convention of `admin.html`, fully covering 5 supported languages: Spanish (`es`), English (`en`), Portuguese (`pt`), French (`fr`), and German (`de`). Modules SHALL remain same-origin and CSP-compliant (no external scripts/styles). The LLM provider editor modal SHALL cover its two-step controls in all five dictionaries: "Comprobar conexión", "Guardar y Cerrar", the model list title, and the "no models found" empty state. The Telegram tab's new controls (token input, identity display, admin username field) and the `telegram.saved` confirmation key SHALL be covered by all five dictionaries. French dictionary entries SHALL use the U+2019 apostrophe (') per existing convention. The expanded theme catalog SHALL define a `theme.<name>` key for each of the 16 presets plus any new UI keys (e.g. `theme.preview`) in all five dictionaries; a missing key MUST fall back to a safe value (preset name or English) without rendering the raw key.
+(Previously: the convention covered the Telegram tab's `telegram.saved` key; theme labels existed for only the original 6 presets, with no required fallback beyond English.)
 
 #### Scenario: Module renders in Spanish
 
@@ -104,3 +104,16 @@ New admin UI modules MUST follow the established `data-i18n` attribute + diction
 - GIVEN the admin switches panel language between `es`, `en`, `pt`, `fr`, and `de`
 - WHEN viewing the LLM provider editor modal
 - THEN "Comprobar conexión", "Guardar y Cerrar", the model list title, and the "no models found" state SHALL render in the selected language
+
+#### Scenario: Theme preset labels render across 5 supported languages
+
+- GIVEN the admin switches panel language between `es`, `en`, `pt`, `fr`, and `de`
+- WHEN viewing the Appearance tab with the expanded catalog
+- THEN each of the 16 presets' `theme.<name>` labels SHALL render in the selected language
+
+#### Scenario: Missing theme key falls back gracefully
+
+- GIVEN a `theme.<name>` key absent from the active dictionary
+- WHEN the Appearance tab renders that preset card
+- THEN the label SHALL fall back to the preset name or English
+- AND SHALL NOT display the raw key string
