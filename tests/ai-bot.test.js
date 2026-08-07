@@ -159,3 +159,188 @@ test('high-priority sentiment bypass is honored by shouldBotHandle', () => {
   assert.equal(aiBot.shouldBotHandle(silencedSession), false);
 });
 
+// ── Boot rehydration: resolveLlmBootConfig (ADR 5, default-only) ────────────
+function makeBootSettingsService(overrides = {}) {
+  const store = new Map(Object.entries(overrides));
+  return {
+    async get(key, defaultValue = null) {
+      return store.has(key) ? store.get(key) : defaultValue;
+    },
+    async getJSON(key, defaultValue = null) {
+      const raw = store.get(key);
+      if (raw === undefined) return defaultValue;
+      try {
+        return JSON.parse(raw);
+      } catch {
+        return defaultValue;
+      }
+    },
+    async decryptSecret(ciphertext) {
+      if (!ciphertext || ciphertext === 'v1.invalid') throw new Error('bad ciphertext');
+      return `decrypted:${ciphertext}`;
+    },
+  };
+}
+
+test('resolveLlmBootConfig returns settings-backed provider, decrypted key, model, and enabled', async () => {
+  const settingsService = makeBootSettingsService({
+    'llm.default_provider': 'deepseek',
+    'llm.provider.deepseek': JSON.stringify({ encKey: 'v1.enc', model: 'deepseek-chat' }),
+    'ai.enabled': 'true',
+  });
+  const resolved = await aiBot.resolveLlmBootConfig({ settingsService });
+  assert.deepEqual(resolved, {
+    provider: 'deepseek',
+    defaultProvider: 'deepseek',
+    apiKey: 'decrypted:v1.enc',
+    model: 'deepseek-chat',
+    enabled: true,
+  });
+});
+
+test('resolveLlmBootConfig falls back to raw apiKey when no encKey is stored', async () => {
+  const settingsService = makeBootSettingsService({
+    'llm.default_provider': 'openrouter',
+    'llm.provider.openrouter': JSON.stringify({ apiKey: 'sk-plain', model: 'openrouter/auto' }),
+  });
+  const resolved = await aiBot.resolveLlmBootConfig({ settingsService });
+  assert.equal(resolved.apiKey, 'sk-plain');
+  assert.equal(resolved.model, 'openrouter/auto');
+});
+
+test('resolveLlmBootConfig leaves enabled undefined when ai.enabled is not stored', async () => {
+  const settingsService = makeBootSettingsService({
+    'llm.default_provider': 'deepseek',
+    'llm.provider.deepseek': JSON.stringify({ encKey: 'v1.enc' }),
+  });
+  const resolved = await aiBot.resolveLlmBootConfig({ settingsService });
+  assert.equal('enabled' in resolved, false);
+  assert.equal(resolved.provider, 'deepseek');
+});
+
+test('resolveLlmBootConfig returns null when decrypting the stored key fails', async () => {
+  const settingsService = makeBootSettingsService({
+    'llm.default_provider': 'deepseek',
+    'llm.provider.deepseek': JSON.stringify({ encKey: 'v1.invalid' }),
+  });
+  const resolved = await aiBot.resolveLlmBootConfig({ settingsService, logger: { warn() {} } });
+  assert.equal(resolved, null);
+});
+
+test('resolveLlmBootConfig returns null when no default provider is configured', async () => {
+  const settingsService = makeBootSettingsService({});
+  const resolved = await aiBot.resolveLlmBootConfig({ settingsService });
+  assert.equal(resolved, null);
+});
+
+test('resolveLlmBootConfig returns null when the default provider row is missing', async () => {
+  const settingsService = makeBootSettingsService({
+    'llm.default_provider': 'anthropic',
+  });
+  const resolved = await aiBot.resolveLlmBootConfig({ settingsService });
+  assert.equal(resolved, null);
+});
+
+test('resolveLlmBootConfig returns null without a settingsService', async () => {
+  assert.equal(await aiBot.resolveLlmBootConfig({}), null);
+  assert.equal(await aiBot.resolveLlmBootConfig(null), null);
+});
+
+// ── {rag_context} substitution inside the formatted prompt (ADR 7) ──────────
+test('getReply feeds rag_context into getFormattedPrompt and never appends it', async () => {
+  let capturedVars = null;
+  let capturedSystemPrompt = null;
+  const masterPromptService = {
+    async getFormattedPrompt(vars) {
+      capturedVars = vars;
+      return `Master: ${vars.visitor_name} [${vars.rag_context}]`;
+    },
+  };
+  const ragService = {
+    async retrieve() {
+      return ['Refund policy is 30 days.'];
+    },
+  };
+  const mockLlmService = {
+    async chat(options) {
+      capturedSystemPrompt = options.systemPrompt;
+      return { ok: true, text: 'Reply from provider' };
+    },
+  };
+
+  aiBot.configure({
+    enabled: true,
+    provider: 'deepseek',
+    apiKey: 'sk-test',
+    model: 'deepseek-chat',
+    llmService: mockLlmService,
+    masterPromptService,
+    ragService,
+  });
+
+  const session = { messages: [], visitorName: 'Ana' };
+  const result = await aiBot.getReply(session, 'refunds');
+  assert.equal(result.reply, 'Reply from provider');
+  assert.ok(capturedVars.rag_context.includes('Refund policy is 30 days.'));
+  assert.ok(capturedVars.rag_context.startsWith('Knowledge context:'));
+  assert.equal(capturedSystemPrompt, 'Master: Ana [Knowledge context:\nRefund policy is 30 days.]');
+  assert.ok(!capturedSystemPrompt.includes('\n\nKnowledge context:'));
+});
+
+test('getReply substitutes empty rag_context when retrieval returns nothing', async () => {
+  let capturedVars = null;
+  const masterPromptService = {
+    async getFormattedPrompt(vars) {
+      capturedVars = vars;
+      return `Master: [${vars.rag_context}]`;
+    },
+  };
+  const ragService = {
+    async retrieve() {
+      return [];
+    },
+  };
+  const mockLlmService = {
+    async chat(_options) {
+      return { ok: true, text: 'No context reply' };
+    },
+  };
+
+  aiBot.configure({
+    enabled: true,
+    provider: 'deepseek',
+    apiKey: 'sk-test',
+    model: 'deepseek-chat',
+    llmService: mockLlmService,
+    masterPromptService,
+    ragService,
+  });
+
+  const session = { messages: [], visitorName: 'Ana' };
+  const result = await aiBot.getReply(session, 'no relevant docs');
+  assert.equal(result.reply, 'No context reply');
+  assert.equal(capturedVars.rag_context, '');
+});
+
+test('getSystemPrompt forwards rag_context into getFormattedPrompt vars', async () => {
+  let capturedVars = null;
+  const masterPromptService = {
+    async getFormattedPrompt(vars) {
+      capturedVars = vars;
+      return `Master: [${vars.rag_context}]`;
+    },
+  };
+
+  aiBot.configure({
+    enabled: true,
+    siteTitle: 'LiveChat Pro',
+    masterPromptService,
+  });
+
+  const session = { visitorName: 'Ana', lang: 'es' };
+  await aiBot.getSystemPrompt(session, 'hola', { rag_context: 'extra knowledge' });
+  assert.equal(capturedVars.visitor_name, 'Ana');
+  assert.equal(capturedVars.current_language, 'es');
+  assert.equal(capturedVars.rag_context, 'extra knowledge');
+});
+
