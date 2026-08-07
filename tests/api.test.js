@@ -185,6 +185,41 @@ describe('Smoke tests', () => {
   });
 });
 
+// ── Telegram server wiring (slice 4) ─────────────────────────
+describe('Telegram server wiring', () => {
+  // Same singleton module server.js configures, so status reflects the live bot.
+  const telegramBot = require('../src/telegram/bot');
+
+  it('boot sin token en settings usa el token de env (tokenSource env) y /health lo reporta activo', async () => {
+    // The server boots with TELEGRAM_TOKEN and no settings-backed token, so the
+    // token resolved in start() (ADR-2: settings > env > none) must be env.
+    const r = await request('/health');
+    assert.equal(r.json?.telegramReady, true);
+
+    const status = telegramBot.getTelegramStatus();
+    assert.equal(status.status, 'running');
+    assert.equal(status.configured, true);
+    assert.equal(status.tokenSource, 'env');
+  });
+
+  it('/health telegramReady refleja el estado vivo del bot (stop → false, start → true)', async () => {
+    // After boot the bot is running: health reports ready.
+    let r = await request('/health');
+    assert.equal(r.json?.telegramReady, true);
+
+    // Stopping the singleton must flip /health immediately — the getter reads
+    // getTelegramStatus().status, not a stale module-level var.
+    await telegramBot.stopTelegramBot();
+    r = await request('/health');
+    assert.equal(r.json?.telegramReady, false);
+
+    // Launching again restores readiness without restarting the process.
+    await telegramBot.startTelegramBot();
+    r = await request('/health');
+    assert.equal(r.json?.telegramReady, true);
+  });
+});
+
 // ── Admin authentication ─────────────────────────────────────
 describe('Autenticación admin', () => {
   it('GET /api/admin/me sin sesión → { enabled: true, authenticated: false }', async () => {
