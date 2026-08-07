@@ -259,6 +259,50 @@ test('LLM Admin Endpoints — Get settings with masked keys', async (t) => {
     assert.deepEqual(res.json.providers.openai.models, ['gpt-4o', 'gpt-4o-mini', 'o1-mini']);
     assert.deepEqual(res.json.providers.anthropic.models, ['claude-3-5-sonnet-20241022', 'claude-3-haiku-20240307']);
   });
+
+  await t.test('GET settings returns first configured provider when DB default is unset', async () => {
+    const { app, settingsService } = setupTestApp();
+    await settingsService.setJSON('llm.provider.anthropic', { encKey: settingsService.encryptSecret('sk-ant-123') });
+
+    const res = await makeRequest(app, 'GET', '/api/admin/settings/llm', {
+      cookies: authCookies,
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.json.ok, true);
+    assert.equal(res.json.defaultProvider, 'anthropic');
+  });
+});
+
+test('LLM Admin Endpoints — Provider auto-activation on key save', async (t) => {
+  const authHeaders = { 'x-csrf-token': 'valid-csrf' };
+  const authCookies = { admin_token: 'valid-admin-token' };
+
+  await t.test('auto-activates default provider on key save when no default provider is set in DB', async () => {
+    const { app, settingsService } = setupTestApp();
+    const res = await makeRequest(app, 'PUT', '/api/admin/settings/llm/providers/deepseek', {
+      headers: authHeaders,
+      cookies: authCookies,
+      body: { apiKey: 'sk-deepseek-secret' },
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.json.ok, true);
+    const defaultProvider = await settingsService.get('llm.default_provider');
+    assert.equal(defaultProvider, 'deepseek');
+  });
+
+  await t.test('preserves existing default provider on key save when default is already set', async () => {
+    const { app, settingsService } = setupTestApp();
+    await settingsService.set('llm.default_provider', 'openai');
+    const res = await makeRequest(app, 'PUT', '/api/admin/settings/llm/providers/anthropic', {
+      headers: authHeaders,
+      cookies: authCookies,
+      body: { apiKey: 'sk-anthropic-secret' },
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.json.ok, true);
+    const defaultProvider = await settingsService.get('llm.default_provider');
+    assert.equal(defaultProvider, 'openai');
+  });
 });
 
 test('LLM Admin Endpoints — Update provider, default, enabled', async (t) => {
@@ -326,6 +370,19 @@ test('LLM Admin Endpoints — Update provider, default, enabled', async (t) => {
     assert.equal(res.status, 200);
     assert.equal(res.json.ok, true);
     assert.equal(res.json.defaultProvider, 'anthropic');
+  });
+
+  await t.test('PUT /api/admin/llm/default configures aiBot with provider catalog default model when activeRaw has no model', async () => {
+    const { app, mockAiBot } = setupTestApp();
+    const res = await makeRequest(app, 'PUT', '/api/admin/llm/default', {
+      headers: authHeaders,
+      cookies: authCookies,
+      body: { provider: 'deepseek' },
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.json.ok, true);
+    assert.equal(res.json.defaultProvider, 'deepseek');
+    assert.equal(mockAiBot.getConfig().model, 'deepseek-chat');
   });
 
   await t.test('PUT /api/admin/llm/enabled toggles global bot state dynamically', async () => {

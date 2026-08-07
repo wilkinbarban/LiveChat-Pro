@@ -293,7 +293,7 @@ function createAdminRouter(deps) {
       const rawDefaultProvider = await settingsService.get('llm.default_provider');
       const supported = llmService.getSupportedProviders();
       const providers = {};
-      let hasConfiguredProvider = false;
+      let firstConfigured = null;
 
       for (const provider of supported) {
         const raw = await settingsService.getJSON(`llm.provider.${provider}`, null);
@@ -302,7 +302,9 @@ function createAdminRouter(deps) {
           : [];
         const catalogDefault = models[0] || 'gpt-4o-mini';
         if (raw && (raw.encKey || raw.apiKey)) {
-          hasConfiguredProvider = true;
+          if (!firstConfigured) {
+            firstConfigured = provider;
+          }
           let plainKey = '';
           if (raw.encKey) {
             try { plainKey = settingsService.decryptSecret(raw.encKey); } catch {}
@@ -325,7 +327,7 @@ function createAdminRouter(deps) {
         }
       }
 
-      const defaultProvider = rawDefaultProvider || (hasConfiguredProvider ? 'openai' : null);
+      const defaultProvider = rawDefaultProvider || firstConfigured || null;
 
       return res.json({ ok: true, enabled, defaultProvider, providers });
     } catch (err) {
@@ -390,6 +392,10 @@ function createAdminRouter(deps) {
           model,
           verifiedAt: Date.now(),
         });
+        const currentDefault = await settingsService.get('llm.default_provider');
+        if (!currentDefault) {
+          await settingsService.set('llm.default_provider', normProvider);
+        }
       } else if (req.body?.model) {
         const existing = (await settingsService.getJSON(`llm.provider.${normProvider}`)) || {};
         await settingsService.setJSON(`llm.provider.${normProvider}`, {
@@ -463,10 +469,12 @@ function createAdminRouter(deps) {
       if (activeRaw?.encKey) {
         try { activeKey = settingsService.decryptSecret(activeRaw.encKey); } catch {}
       }
+      const catalogModels = typeof llmService.getProviderModels === 'function' ? llmService.getProviderModels(provider) : [];
+      const catalogDefault = catalogModels[0] || 'gpt-4o-mini';
       aiBot.configure({
         provider,
         apiKey: activeKey,
-        model: activeRaw?.model || 'gpt-4o-mini',
+        model: activeRaw?.model || catalogDefault,
       });
 
       return res.json({ ok: true, defaultProvider: provider });
