@@ -60,18 +60,55 @@ test('admin.html no longer ships static preset card markup', () => {
 
 test('admin.html i18n dictionaries include all theme strings across 5 languages', () => {
   const languages = ['es', 'en', 'pt', 'fr', 'de'];
-  const requiredKeys = ['nav.theme', 'theme.title', 'theme.save'];
+  const requiredKeys = [
+    'nav.theme',
+    'theme.title',
+    'theme.save',
+    // All 16 catalog presets (6 original + 10 expanded)
+    'theme.auto',
+    'theme.classic',
+    'theme.light_aurora',
+    'theme.light_mint',
+    'theme.dark_midnight',
+    'theme.dark_ember',
+    'theme.light_sunrise',
+    'theme.light_sky',
+    'theme.dark_ocean',
+    'theme.dark_forest',
+    'theme.mono_light',
+    'theme.mono_dark',
+    'theme.green_chat',
+    'theme.sky_chat',
+    'theme.gradient_vibrant',
+    'theme.ink',
+    // Thumbnail caption label
+    'theme.preview',
+  ];
+
+  // Extract the translation dictionary object from admin.html
+  const dictMatch = adminHtmlContent.match(/const\s+i18n\s*=\s*(\{[\s\S]*?\});/);
+  assert.ok(dictMatch, 'Translation dictionary object (const i18n = {...}) not found in admin.html');
+
+  let i18n;
+  try {
+    // Evaluate dictionary object safely
+    // biome-ignore lint/security/noGlobalEval: test helper parses embedded dictionary object
+    i18n = eval(`(${dictMatch[1]})`);
+  } catch (err) {
+    assert.fail(`Failed to parse i18n object from admin.html: ${err.message}`);
+  }
 
   for (const lang of languages) {
-    const langDictMatch = adminHtmlContent.match(new RegExp(`${lang}:\\s*\\{([\\s\\S]*?)\\}(?:,|\\n|\\r)`));
-    assert.ok(langDictMatch, `Missing dictionary for language: ${lang}`);
-    const dictText = langDictMatch[1];
+    assert.ok(i18n[lang], `Missing dictionary section for language: ${lang}`);
+    const dict = i18n[lang];
 
     for (const key of requiredKeys) {
-      assert.ok(
-        dictText.includes(`'${key}'`) || dictText.includes(`"${key}"`) || dictText.includes(`${key}:`),
-        `Language '${lang}' missing dictionary key: '${key}'`
-      );
+      assert.ok(dict[key], `Language '${lang}' missing dictionary key: '${key}'`);
+
+      // French entries must follow the U+2019 apostrophe convention (no straight quotes)
+      if (lang === 'fr') {
+        assert.doesNotMatch(dict[key], /'/, `fr '${key}' must use U+2019 apostrophe, not ASCII`);
+      }
     }
   }
 });
