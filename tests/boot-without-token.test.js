@@ -46,41 +46,53 @@ describe('Boot without TELEGRAM_TOKEN & Admin Signing Secret Fallback', () => {
     assert.deepEqual(errors, ['TELEGRAM_ADMIN_ID debe ser numérico']);
   });
 
-  it('resolveAdminSigningSecret returns token if present, else persists secret to data/.admin-secret with 0600 permissions', () => {
-    const tokenSecret = resolveAdminSigningSecret({ telegramToken: 'bot123456:secret' });
-    assert.equal(tokenSecret, 'bot123456:secret');
-
+  it('resolveAdminSigningSecret always returns the persisted data/.admin-secret secret, never the telegram token', () => {
     const secretFilePath = path.join(tempDir, '.admin-secret');
-    const fallbackSecret = resolveAdminSigningSecret({ telegramToken: '', secretFilePath });
 
-    assert.equal(fallbackSecret.length, 64);
+    // A telegram token is passed on purpose: HMAC decoupling means it MUST be
+    // ignored and the persisted file secret returned instead.
+    const secret = resolveAdminSigningSecret({ telegramToken: 'bot123456:secret', secretFilePath });
+
+    assert.equal(secret.length, 64);
+    assert.notEqual(secret, 'bot123456:secret');
     assert.ok(fs.existsSync(secretFilePath));
 
+    // First boot without any secret file creates one with 0600 permissions.
     const stats = fs.statSync(secretFilePath);
-    const mode = stats.mode & 0o777;
-    assert.equal(mode, 0o600);
+    assert.equal(stats.mode & 0o777, 0o600);
 
-    const reReadSecret = resolveAdminSigningSecret({ telegramToken: '', secretFilePath });
-    assert.equal(reReadSecret, fallbackSecret);
+    // The file content IS the returned secret.
+    assert.equal(fs.readFileSync(secretFilePath, 'utf8').trim(), secret);
+
+    // Re-resolving (with or without a token) returns the same persisted secret.
+    const reReadWithoutToken = resolveAdminSigningSecret({ telegramToken: '', secretFilePath });
+    const reReadWithToken = resolveAdminSigningSecret({ telegramToken: 'another-token', secretFilePath });
+    assert.equal(reReadWithoutToken, secret);
+    assert.equal(reReadWithToken, secret);
   });
 
-  it('createAdminAuth issues and verifies admin tokens without TELEGRAM_TOKEN', () => {
+  it('createAdminAuth signs cookies with the file secret so they survive telegram token addition and rotation', () => {
     const secretFilePath = path.join(tempDir, '.admin-secret');
 
-    const adminAuthNoToken = createAdminAuth({
-      telegramToken: '',
-      adminPanelPassword: 'super-secret-pass',
-      adminSessionTtlMs: 3600000,
-      adminCookieName: 'lcp_admin',
-      csrfCookieName: 'lcp_csrf',
-      cookieSameSite: 'lax',
-      secretFilePath,
-    });
+    const makeAuth = () =>
+      createAdminAuth({
+        adminPanelPassword: 'super-secret-pass',
+        adminSessionTtlMs: 3600000,
+        adminCookieName: 'lcp_admin',
+        csrfCookieName: 'lcp_csrf',
+        cookieSameSite: 'lax',
+        secretFilePath,
+      });
 
-    const token = adminAuthNoToken.createAdminToken();
-    assert.ok(adminAuthNoToken.verifyAdminToken(token));
+    const adminAuthFirst = makeAuth();
+    const token = adminAuthFirst.createAdminToken();
+    assert.ok(adminAuthFirst.verifyAdminToken(token));
 
-    // Adding a telegram token changes the signing secret and invalidates existing token
+    // A second instance booted without a token verifies the same cookie.
+    assert.ok(makeAuth().verifyAdminToken(token));
+
+    // Adding a telegram token (as server.js used to pass) must NOT change the
+    // signing secret — the token is no longer part of the HMAC key.
     const adminAuthWithToken = createAdminAuth({
       telegramToken: 'new-telegram-token',
       adminPanelPassword: 'super-secret-pass',
@@ -90,7 +102,18 @@ describe('Boot without TELEGRAM_TOKEN & Admin Signing Secret Fallback', () => {
       cookieSameSite: 'lax',
       secretFilePath,
     });
+    assert.ok(adminAuthWithToken.verifyAdminToken(token));
 
-    assert.equal(adminAuthWithToken.verifyAdminToken(token), false);
+    // Rotating the token again keeps the same cookie valid.
+    const adminAuthRotated = createAdminAuth({
+      telegramToken: 'rotated-token-2',
+      adminPanelPassword: 'super-secret-pass',
+      adminSessionTtlMs: 3600000,
+      adminCookieName: 'lcp_admin',
+      csrfCookieName: 'lcp_csrf',
+      cookieSameSite: 'lax',
+      secretFilePath,
+    });
+    assert.ok(adminAuthRotated.verifyAdminToken(token));
   });
 });
