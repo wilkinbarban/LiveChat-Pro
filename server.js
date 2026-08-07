@@ -244,7 +244,6 @@ const {
   sameSiteForRequest,
   shouldUseSecureAdminCookie,
 } = createAdminAuth({
-  telegramToken: TELEGRAM_TOKEN,
   adminPanelPassword: ADMIN_PANEL_PASSWORD,
   adminSessionTtlMs: ADMIN_SESSION_TTL_MS,
   adminCookieName: ADMIN_COOKIE_NAME,

@@ -508,6 +508,8 @@ Admin action buttons include hover, active and keyboard focus states. Primary, w
 
 Mutating actions use CSRF protection with the `lcp_csrf` cookie and `x-csrf-token` header.
 
+Admin session cookies are HMAC-signed with a persisted secret file (`data/.admin-secret`, created with `0600` permissions on first boot). The Telegram bot token is deliberately NOT part of the signing secret, so rotating the token from the admin UI never logs you out. Installs that previously booted with a `TELEGRAM_TOKEN` will need a one-time re-login after upgrading: the secret file is created on first boot and replaces the old token-derived signing key.
+
 The rate limit is separated by zone:
 
 - Admin login: protected by `RATE_LIMIT_LOGIN_MAX`.
