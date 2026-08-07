@@ -28,8 +28,6 @@ function setupSockets(io, adminIo, deps) {
     broadcastAdminSessionUpdate,
     broadcastAdminMessage,
     getWidgetMessage,
-    HELP_COMMANDS = {},
-    HELP_TOPICS = {},
     translateForAdmin,
     translate,
     detectLang,
@@ -218,26 +216,6 @@ function setupSockets(io, adminIo, deps) {
       if (!text) return;
 
       session.lastActive = Date.now();
-
-      const sessionLang = session.browserLang || session.lang || 'en';
-      const helpCmd = HELP_COMMANDS[sessionLang] || HELP_COMMANDS.es || '/ayuda';
-      const isHelpCommand = text.trim().toLowerCase() === helpCmd.toLowerCase();
-
-      if (isHelpCommand) {
-        const helpText = HELP_TOPICS[sessionLang] || HELP_TOPICS.es;
-        const helpMsg = { from: 'bot', text: helpText, ts: Date.now(), lang: sessionLang };
-        try {
-          const inserted = await stmts.insertMessage.run({ session_id: sessionId, from_role: 'bot', text: helpMsg.text, ts: helpMsg.ts, lang: sessionLang });
-          helpMsg.id = getLastInsertId(inserted);
-        } catch (dbError) {
-          logger.error({ err: dbError, sessionId }, 'Error BD insertMessage (help command)');
-        }
-        session.messages.push(helpMsg);
-        socket.emit('message', helpMsg);
-        await syncSharedSession(session);
-        await broadcastAdminMessage(session, helpMsg);
-        return;
-      }
 
       // A real message supersedes the transient Telegram typing preview.
       // Instead of deleting and creating a new message, we edit the existing one
