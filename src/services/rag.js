@@ -19,7 +19,7 @@ function chunkText(text, options = {}) {
   let startIndex = 0;
 
   while (startIndex < raw.length) {
-    let endIndex = startIndex + maxChunkSize;
+    const endIndex = startIndex + maxChunkSize;
 
     if (endIndex >= raw.length) {
       const lastChunk = raw.slice(startIndex).trim();
@@ -36,7 +36,7 @@ function chunkText(text, options = {}) {
       boundary = startIndex + lastParagraph + 2;
     } else {
       // Look for sentence break (. , ! , ? , \n)
-      const matches = [...searchSub.matchAll(/[\.\?!]\s+|\n/g)];
+      const matches = [...searchSub.matchAll(/[.?!]\s+|\n/g)];
       if (matches.length > 0) {
         const lastMatch = matches[matches.length - 1];
         if (lastMatch.index > maxChunkSize * 0.3) {
