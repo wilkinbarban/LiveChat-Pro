@@ -172,8 +172,8 @@ Rollback boundary: additive control surface; bot defaults to env-driven behavior
 
 ### 4.3 Theme catalog + live push (ADR-7)
 **Objective**: `src/services/themes.js` catalog (`auto`, `classic`, `light-aurora`, `light-mint`, `dark-midnight`, `dark-ember`, full 13-var maps); `theme.active` in settings; GET catalog + PUT active endpoints; `/config-public` gains `theme: {name, vars|null}`; namespace-level `theme:update` emit (**verify widget namespace/room first — gate note**); widget listener applies vars live or re-runs `readSiteTheme()` for `auto`; Appearance tab.
-- [ ] 4.3.1 RED: `tests/themes.test.js` (new) — catalog includes ≥1 light + ≥1 dark + auto, each full var map; selection persists across restart; PUT emits `theme:update` on the correct namespace (no-op with zero widgets); `/config-public` shape; auto behavior unchanged (`tests/widget-responsive.test.js` green).
-- [ ] 4.3.2 GREEN: service + routes + `/config-public` + emit + `widget.js` `socket.on('theme:update', …)` + Appearance tab (data-i18n).
+- [x] 4.3.1 RED: `tests/themes.test.js` (new) — catalog includes ≥1 light + ≥1 dark + auto, each full var map; selection persists across restart; PUT emits `theme:update` on the correct namespace (no-op with zero widgets); `/config-public` shape; auto behavior unchanged (`tests/widget-responsive.test.js` green).
+- [x] 4.3.2 GREEN: service + routes + `/config-public` + emit + `widget.js` `socket.on('theme:update', …)` + Appearance tab (data-i18n).
 Files: `src/services/themes.js` (new), `src/routes/admin.js` (+ public config route), `src/sockets/index.js` (wiring only), `widget.js`, `public/admin.html`, `tests/themes.test.js` (new).
 Tests first: `tests/themes.test.js`.
 Verify: `npm test`; manual two-browser live re-theme smoke (recorded as runtime harness evidence).

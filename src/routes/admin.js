@@ -10,6 +10,7 @@ const defaultAiBot = require('../services/ai-bot');
 const { createRagService } = require('../services/rag');
 const { extractPdfText } = require('../utils/pdf');
 const { createMasterPromptService } = require('../services/master-prompt');
+const { createThemesService } = require('../services/themes');
 
 function stripHtml(html) {
   return String(html || '')
@@ -40,6 +41,7 @@ function createAdminRouter(deps) {
   const aiBot = deps.aiBot || defaultAiBot;
   const ragService = deps.ragService || createRagService({ db: deps.db, stmts: deps.stmts });
   const masterPromptService = deps.masterPromptService || createMasterPromptService({ settingsService });
+  const themesService = deps.themesService || createThemesService({ settingsService });
   const telegramBot = deps.telegramBot || require('../telegram/bot');
 
   const {
@@ -565,6 +567,41 @@ function createAdminRouter(deps) {
 
   router.put('/api/admin/telegram/admin-id', requireAdmin, requireCsrf, handlePutTelegramAdminId);
   router.put('/api/admin/settings/telegram', requireAdmin, requireCsrf, handlePutTelegramAdminId);
+
+  // ── Themes Settings Routes ─────────────────────────────────────────
+  async function handleGetThemeSettings(_req, res) {
+    try {
+      const active = await themesService.getActiveTheme();
+      const catalog = themesService.getCatalog();
+      return res.json({ ok: true, active: active.name, theme: active, presets: catalog.presets });
+    } catch (err) {
+      logger.error?.({ err }, 'Error fetching theme settings');
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  router.get('/api/admin/themes', requireAdmin, handleGetThemeSettings);
+  router.get('/api/admin/settings/theme', requireAdmin, handleGetThemeSettings);
+
+  async function handlePutThemeSettings(req, res) {
+    try {
+      const name = req.body?.name || req.body?.theme;
+      if (!themesService.isValidTheme(name)) {
+        return res.status(400).json({ ok: false, error: 'Tema inválido' });
+      }
+      const updatedTheme = await themesService.setActiveTheme(name);
+      if (io && typeof io.emit === 'function') {
+        io.emit('theme:update', { name: updatedTheme.name, vars: updatedTheme.vars });
+      }
+      return res.json({ ok: true, active: updatedTheme.name, theme: updatedTheme });
+    } catch (err) {
+      logger.error?.({ err }, 'Error updating theme settings');
+      return res.status(500).json({ ok: false, error: 'Internal server error' });
+    }
+  }
+
+  router.put('/api/admin/themes/active', requireAdmin, requireCsrf, handlePutThemeSettings);
+  router.put('/api/admin/settings/theme', requireAdmin, requireCsrf, handlePutThemeSettings);
 
   // ── RAG Admin Routes ──────────────────────────────────────────────
   router.get('/api/admin/rag/documents', requireAdmin, async (_req, res) => {
