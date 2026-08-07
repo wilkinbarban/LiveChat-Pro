@@ -3,11 +3,18 @@
 const path = require('path');
 const { Router } = require('express');
 const { sanitizeText } = require('../utils/sanitizer');
+const { createSettingsService } = require('../services/settings');
+const { llmService: defaultLlmService } = require('../services/llm');
+const defaultAiBot = require('../services/ai-bot');
 
 // Admin routes expose the single-operator web panel and all privileged chat
 // mutations. Authentication and CSRF helpers are injected from server.js so tests
 // can exercise the router with the same policies as production.
 function createAdminRouter(deps) {
+  const settingsService = deps.settingsService || createSettingsService({ db: deps.db, stmts: deps.stmts });
+  const llmService = deps.llmService || defaultLlmService;
+  const aiBot = deps.aiBot || defaultAiBot;
+
   const {
     rootDir,
     adminPanelPassword,
@@ -247,6 +254,192 @@ function createAdminRouter(deps) {
 
     await banSession(session, 'blocked');
     return res.json({ ok: true, session: serializeSession(session) });
+  });
+
+  // ── LLM Settings Routes ───────────────────────────────────────────
+  async function handleGetLlmSettings(_req, res) {
+    try {
+      const enabledVal = await settingsService.getJSON('ai.enabled', null);
+      const enabled = enabledVal !== null ? Boolean(enabledVal) : aiBot.isEnabled();
+      const defaultProvider = (await settingsService.get('llm.default_provider')) || 'openai';
+      const supported = llmService.getSupportedProviders();
+      const providers = {};
+
+      for (const provider of supported) {
+        const raw = await settingsService.getJSON(`llm.provider.${provider}`, null);
+        if (raw && (raw.encKey || raw.apiKey)) {
+          let plainKey = '';
+          if (raw.encKey) {
+            try { plainKey = settingsService.decryptSecret(raw.encKey); } catch {}
+          } else {
+            plainKey = raw.apiKey || '';
+          }
+          providers[provider] = {
+            configured: true,
+            maskedKey: settingsService.maskSecret(plainKey),
+            model: raw.model || 'gpt-4o-mini',
+          };
+        } else {
+          providers[provider] = {
+            configured: false,
+            maskedKey: '',
+            model: provider === 'anthropic' ? 'claude-3-5-sonnet-20241022' : 'gpt-4o-mini',
+          };
+        }
+      }
+
+      return res.json({ ok: true, enabled, defaultProvider, providers });
+    } catch (err) {
+      logger.error?.({ err }, 'Error fetching LLM settings');
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  router.get('/api/admin/llm', requireAdmin, handleGetLlmSettings);
+  router.get('/api/admin/settings/llm', requireAdmin, handleGetLlmSettings);
+
+  router.post('/api/admin/settings/llm/verify-key', requireAdmin, requireCsrf, async (req, res) => {
+    try {
+      const { provider, apiKey, model } = req.body || {};
+      const normProvider = String(provider || '').toLowerCase().trim();
+      const supported = llmService.getSupportedProviders();
+
+      if (!supported.includes(normProvider)) {
+        return res.status(400).json({ ok: false, error: `Unsupported provider: ${provider}` });
+      }
+
+      const verifyRes = await llmService.verifyConnection(normProvider, apiKey, model || 'gpt-4o-mini');
+      if (!verifyRes.ok) {
+        return res.status(400).json({ ok: false, error: verifyRes.error || 'Key verification failed' });
+      }
+
+      return res.json({ ok: true });
+    } catch (err) {
+      logger.error?.({ err }, 'Error verifying LLM key');
+      return res.status(500).json({ ok: false, error: 'Internal server error' });
+    }
+  });
+
+  async function handlePutLlmProvider(req, res) {
+    try {
+      const provider = req.params.name || req.body?.provider || 'openai';
+      const normProvider = String(provider).toLowerCase().trim();
+      const supported = llmService.getSupportedProviders();
+
+      if (!supported.includes(normProvider)) {
+        return res.status(400).json({ ok: false, error: `Unsupported provider: ${provider}` });
+      }
+
+      const apiKey = req.body?.apiKey || req.body?.key;
+      const model = req.body?.model || 'gpt-4o-mini';
+
+      if (apiKey) {
+        const verifyRes = await llmService.verifyConnection(normProvider, apiKey, model);
+        if (!verifyRes.ok) {
+          return res.status(400).json({ ok: false, error: verifyRes.error || 'Invalid API key' });
+        }
+        const encKey = settingsService.encryptSecret(apiKey);
+        await settingsService.setJSON(`llm.provider.${normProvider}`, {
+          encKey,
+          model,
+          verifiedAt: Date.now(),
+        });
+      } else if (req.body?.model) {
+        const existing = (await settingsService.getJSON(`llm.provider.${normProvider}`)) || {};
+        await settingsService.setJSON(`llm.provider.${normProvider}`, {
+          ...existing,
+          model: req.body.model,
+        });
+      }
+
+      // Reconfigure aiBot with updated settings
+      const defaultProvider = (await settingsService.get('llm.default_provider')) || normProvider;
+      const activeRaw = await settingsService.getJSON(`llm.provider.${defaultProvider}`);
+      let activeKey = '';
+      if (activeRaw?.encKey) {
+        try { activeKey = settingsService.decryptSecret(activeRaw.encKey); } catch {}
+      }
+      aiBot.configure({
+        provider: defaultProvider,
+        apiKey: activeKey,
+        model: activeRaw?.model || model,
+      });
+
+      return res.json({
+        ok: true,
+        provider: normProvider,
+        configured: true,
+        maskedKey: apiKey ? settingsService.maskSecret(apiKey) : undefined,
+        model,
+      });
+    } catch (err) {
+      logger.error?.({ err }, 'Error updating LLM provider');
+      return res.status(500).json({ ok: false, error: 'Internal server error' });
+    }
+  }
+
+  router.put('/api/admin/llm/providers/:name', requireAdmin, requireCsrf, handlePutLlmProvider);
+  router.put('/api/admin/settings/llm/providers/:name', requireAdmin, requireCsrf, handlePutLlmProvider);
+
+  async function handlePutLlmSettings(req, res) {
+    try {
+      if (req.body?.enabled !== undefined) {
+        const enabled = Boolean(req.body.enabled);
+        await settingsService.setJSON('ai.enabled', enabled);
+        aiBot.configure({ enabled });
+        return res.json({ ok: true, enabled });
+      }
+
+      if (req.body?.provider || req.body?.apiKey) {
+        return handlePutLlmProvider(req, res);
+      }
+
+      return res.status(400).json({ ok: false, error: 'Invalid payload' });
+    } catch (err) {
+      logger.error?.({ err }, 'Error updating LLM settings');
+      return res.status(500).json({ ok: false, error: 'Internal server error' });
+    }
+  }
+
+  router.put('/api/admin/settings/llm', requireAdmin, requireCsrf, handlePutLlmSettings);
+
+  router.put('/api/admin/llm/default', requireAdmin, requireCsrf, async (req, res) => {
+    try {
+      const provider = String(req.body?.provider || '').toLowerCase().trim();
+      const supported = llmService.getSupportedProviders();
+      if (!supported.includes(provider)) {
+        return res.status(400).json({ ok: false, error: `Unsupported provider: ${req.body?.provider}` });
+      }
+
+      await settingsService.set('llm.default_provider', provider);
+      const activeRaw = await settingsService.getJSON(`llm.provider.${provider}`);
+      let activeKey = '';
+      if (activeRaw?.encKey) {
+        try { activeKey = settingsService.decryptSecret(activeRaw.encKey); } catch {}
+      }
+      aiBot.configure({
+        provider,
+        apiKey: activeKey,
+        model: activeRaw?.model || 'gpt-4o-mini',
+      });
+
+      return res.json({ ok: true, defaultProvider: provider });
+    } catch (err) {
+      logger.error?.({ err }, 'Error updating default LLM provider');
+      return res.status(500).json({ ok: false, error: 'Internal server error' });
+    }
+  });
+
+  router.put('/api/admin/llm/enabled', requireAdmin, requireCsrf, async (req, res) => {
+    try {
+      const enabled = Boolean(req.body?.enabled);
+      await settingsService.setJSON('ai.enabled', enabled);
+      aiBot.configure({ enabled });
+      return res.json({ ok: true, enabled });
+    } catch (err) {
+      logger.error?.({ err }, 'Error updating global AI enabled state');
+      return res.status(500).json({ ok: false, error: 'Internal server error' });
+    }
   });
 
   return router;
