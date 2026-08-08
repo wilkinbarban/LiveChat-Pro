@@ -1,7 +1,7 @@
 # Archive Report: env-quote-hygiene
 
 - **Archived**: 2026-08-07
-- **Archive commit**: `__ARCHIVE_SHA__`
+- **Archive commit**: `31dba46` (`docs(sdd): archive change env-quote-hygiene and sync main specs`)
 - **Merged to main**: 5d04b1f (PRs #30 config core, #31 nested consumers, #32 docs + E2E — implementation + verify complete at close)
 - **Source of truth synced**: `openspec/specs/env-normalization/spec.md` (NEW capability), `openspec/specs/admin-settings/spec.md` (APPENDED 1 requirement / 4 scenarios)
 - **Delivery**: unmanaged (no `reviewGate` topics exist for this change; native review gate not governing — `disabled/unmanaged` relaxation applies)
