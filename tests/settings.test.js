@@ -2,6 +2,7 @@
 
 const { describe, it, beforeEach, afterEach } = require('node:test');
 const assert = require('node:assert/strict');
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -129,6 +130,33 @@ describe('Settings Service & AES-256-GCM Crypto', () => {
 
     const fileKeyReread = resolveSettingsKey({ envKey: '', keyFilePath });
     assert.equal(fileKeyReread.toString('hex'), fileKey.toString('hex'));
+  });
+
+  it('resolveSettingsKey strips quotes from a quoted 64-hex SETTINGS_KEY (A1)', () => {
+    const hex = 'a'.repeat(64);
+    // Double-quoted (setup.js JSON-quote output) and single-quoted forms both
+    // derive the hex key WITHOUT the surrounding quotes.
+    assert.equal(resolveSettingsKey({ envKey: `"${hex}"` }).toString('hex'), hex);
+    assert.equal(resolveSettingsKey({ envKey: `'${hex}'` }).toString('hex'), hex);
+  });
+
+  it('resolveSettingsKey strips quotes from process.env.SETTINGS_KEY before hex derivation (A1 env path)', () => {
+    const hex = 'b'.repeat(64);
+    const original = process.env.SETTINGS_KEY;
+    process.env.SETTINGS_KEY = `"${hex}"`;
+    try {
+      assert.equal(resolveSettingsKey().toString('hex'), hex);
+    } finally {
+      if (original === undefined) delete process.env.SETTINGS_KEY;
+      else process.env.SETTINGS_KEY = original;
+    }
+  });
+
+  it('resolveSettingsKey hashes the stripped value of a quoted non-hex SETTINGS_KEY (A2)', () => {
+    const expected = crypto.createHash('sha256').update('my-secret').digest('hex');
+    // Quotes AND surrounding whitespace are stripped before the sha256.
+    assert.equal(resolveSettingsKey({ envKey: '"my-secret"' }).toString('hex'), expected);
+    assert.equal(resolveSettingsKey({ envKey: "'  my-secret  '" }).toString('hex'), expected);
   });
 
   it('maskSecret masks keys and returns last 4 chars', () => {
