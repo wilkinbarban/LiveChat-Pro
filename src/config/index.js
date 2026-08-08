@@ -4,6 +4,8 @@ const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
 
+const { stripEnvQuotes, parseEnvBoolean, parseCsv, parseInteger } = require('./env-utils');
+
 const ROOT_DIR = path.join(__dirname, '..', '..');
 const LEGACY_CONFIG_PATH = path.join(ROOT_DIR, 'config.json');
 
@@ -26,28 +28,6 @@ function readLegacyConfig(logger = console) {
     logger.warn?.({ err: error }, 'No se pudo leer config.json');
     return null;
   }
-}
-
-function parseInteger(value, fallback) {
-  const sanitized = typeof value === 'string' ? value.replace(/['"]/g, '').trim() : value;
-  const parsed = parseInt(sanitized, 10);
-  return Number.isFinite(parsed) ? parsed : fallback;
-}
-
-// setup.js writes every .env value JSON-quoted, so env reads may carry literal
-// " or ' around the value. Strip both ends and trim; non-strings yield ''.
-function stripEnvQuotes(value) {
-  return typeof value === 'string' ? value.replace(/^["']|["']$/g, '').trim() : '';
-}
-
-// Environment variables represent lists as comma-separated strings. Empty input
-// falls back to the caller-provided defaults.
-function parseCsv(value, fallback = []) {
-  const parsed = String(value || '')
-    .split(',')
-    .map(item => item.trim())
-    .filter(Boolean);
-  return parsed.length ? parsed : fallback;
 }
 
 // Admin language controls the operator-facing translations for visitor messages.
@@ -77,15 +57,14 @@ function languageFromHeader(header = '') {
 // of the app can depend on typed, bounded settings.
 function createConfig({ logger = console } = {}) {
   const legacyConfig = readLegacyConfig(logger);
-  const rawCookieSameSite = String(process.env.COOKIE_SAME_SITE || 'lax').toLowerCase();
-  const allowedOrigins = (process.env.ALLOWED_ORIGINS || '*')
-    .split(',')
-    .map(origin => origin.trim())
-    .filter(Boolean);
+  const rawCookieSameSite = String(stripEnvQuotes(process.env.COOKIE_SAME_SITE) || 'lax').toLowerCase();
+  const allowedOrigins = parseCsv(process.env.ALLOWED_ORIGINS, ['*']);
 
   const telegramToken = stripEnvQuotes(process.env.TELEGRAM_TOKEN || legacyConfig?.telegram?.token);
   const telegramAdminId = parseInteger(process.env.TELEGRAM_ADMIN_ID || legacyConfig?.telegram?.adminId, NaN);
-  const adminLanguage = normalizeAdminLanguage(process.env.ADMIN_LANGUAGE || legacyConfig?.admin?.language || 'es');
+  const adminLanguage = normalizeAdminLanguage(
+    stripEnvQuotes(process.env.ADMIN_LANGUAGE) || legacyConfig?.admin?.language || 'es'
+  );
 
   return {
     rootDir: ROOT_DIR,
@@ -104,10 +83,10 @@ function createConfig({ logger = console } = {}) {
       },
     },
     widget: {
-      buttonStyle: process.env.WIDGET_BUTTON_STYLE || legacyConfig?.widget?.buttonStyle || 'floating',
-      primaryColor: process.env.WIDGET_PRIMARY_COLOR || legacyConfig?.widget?.primaryColor || '#4F46E5',
-      welcomeMessage: process.env.WIDGET_WELCOME_MESSAGE || legacyConfig?.widget?.welcomeMessage || '',
-      apiKey: process.env.WIDGET_API_KEY || '',
+      buttonStyle: stripEnvQuotes(process.env.WIDGET_BUTTON_STYLE) || legacyConfig?.widget?.buttonStyle || 'floating',
+      primaryColor: stripEnvQuotes(process.env.WIDGET_PRIMARY_COLOR) || legacyConfig?.widget?.primaryColor || '#4F46E5',
+      welcomeMessage: stripEnvQuotes(process.env.WIDGET_WELCOME_MESSAGE) || legacyConfig?.widget?.welcomeMessage || '',
+      apiKey: stripEnvQuotes(process.env.WIDGET_API_KEY) || '',
     },
     admin: {
       password: stripEnvQuotes(process.env.ADMIN_PANEL_PASSWORD),
@@ -118,9 +97,9 @@ function createConfig({ logger = console } = {}) {
       language: adminLanguage,
     },
     redis: {
-      url: process.env.REDIS_URL || '',
-      keyPrefix: process.env.REDIS_KEY_PREFIX || 'lcp',
-      enabled: process.env.REDIS_ENABLED !== 'false' && (process.platform !== 'win32' || process.env.REDIS_ENABLED === 'true'),
+      url: stripEnvQuotes(process.env.REDIS_URL) || '',
+      keyPrefix: stripEnvQuotes(process.env.REDIS_KEY_PREFIX) || 'lcp',
+      enabled: parseEnvBoolean(process.env.REDIS_ENABLED, process.platform !== 'win32'),
     },
     rateLimit: {
       windowMinutes: parseInteger(process.env.RATE_LIMIT_WINDOW_MINUTES || '15', 15),
@@ -131,16 +110,27 @@ function createConfig({ logger = console } = {}) {
       uploadMax: parseInteger(process.env.RATE_LIMIT_UPLOAD_MAX || '10', 10),
     },
     uploads: {
-      dir: process.env.UPLOAD_DIR || path.join('data', 'uploads'),
+      dir: stripEnvQuotes(process.env.UPLOAD_DIR) || path.join('data', 'uploads'),
       maxMb: parseInteger(process.env.MAX_UPLOAD_MB || '5', 5),
       allowedImageTypes: parseCsv(process.env.ALLOWED_IMAGE_TYPES, ['image/jpeg', 'image/png', 'image/webp', 'image/gif']),
     },
     features: {
-      translation: (process.env.FEATURE_TRANSLATION || String(legacyConfig?.features?.translation ?? true)) !== 'false',
-      sentiment: (process.env.FEATURE_SENTIMENT || String(legacyConfig?.features?.sentimentAnalysis ?? true)) !== 'false',
-      ghostTyping: (process.env.FEATURE_GHOST_TYPING || String(legacyConfig?.features?.ghostTyping ?? true)) !== 'false',
-      geoLocation: (process.env.FEATURE_GEOLOCATION || String(legacyConfig?.features?.geoLocation ?? true)) !== 'false',
-      botNotifyAdmin: process.env.BOT_NOTIFY_ADMIN === 'true',
+      translation: parseEnvBoolean(process.env.FEATURE_TRANSLATION, legacyConfig?.features?.translation ?? true),
+      sentiment: parseEnvBoolean(process.env.FEATURE_SENTIMENT, legacyConfig?.features?.sentimentAnalysis ?? true),
+      ghostTyping: parseEnvBoolean(process.env.FEATURE_GHOST_TYPING, legacyConfig?.features?.ghostTyping ?? true),
+      geoLocation: parseEnvBoolean(process.env.FEATURE_GEOLOCATION, legacyConfig?.features?.geoLocation ?? true),
+      botNotifyAdmin: parseEnvBoolean(process.env.BOT_NOTIFY_ADMIN, false),
+    },
+    aiBot: {
+      mode: stripEnvQuotes(process.env.BOT_MODE) || 'disabled',
+      openaiKey: stripEnvQuotes(process.env.OPENAI_API_KEY),
+      model: stripEnvQuotes(process.env.OPENAI_MODEL) || 'gpt-4o-mini',
+      maxTokens: parseInteger(process.env.OPENAI_MAX_TOKENS, 300),
+      systemPrompt:
+        stripEnvQuotes(process.env.BOT_SYSTEM_PROMPT) ||
+        "You are a friendly support assistant. Be brief and reply in the user's language.",
+      confidenceThreshold: parseFloat(stripEnvQuotes(process.env.BOT_CONFIDENCE_THRESHOLD)) || 0.6,
+      contextMessages: parseInteger(process.env.BOT_CONTEXT_MESSAGES, 6),
     },
   };
 }
@@ -162,6 +152,7 @@ module.exports = {
   createConfig,
   validateConfig,
   stripEnvQuotes,
+  parseEnvBoolean,
   normalizeAdminLanguage,
   normalizeUiLanguage,
   languageFromHeader,
