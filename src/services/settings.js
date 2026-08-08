@@ -4,12 +4,19 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
+const { stripEnvQuotes } = require('../config/env-utils');
+
 const DEFAULT_KEY_FILE = path.join(__dirname, '..', '..', 'data', '.settings-key');
 
 function resolveSettingsKey(opts = {}) {
   const envKey = opts.envKey !== undefined ? opts.envKey : process.env.SETTINGS_KEY;
   if (envKey && typeof envKey === 'string' && envKey.trim() !== '') {
-    const trimmed = envKey.trim();
+    // setup.js JSON-quotes .env values, so strip quotes and whitespace BEFORE
+    // key derivation (ADR-2). A quoted 64-hex key is used as hex directly and a
+    // quoted passphrase is hashed from the stripped value. BREAKING for
+    // previously-quoted deployments: the derived key changes — one-time secret
+    // re-entry, no dual-key compatibility.
+    const trimmed = stripEnvQuotes(envKey);
     if (/^[a-f0-9]{64}$/i.test(trimmed)) {
       return Buffer.from(trimmed, 'hex');
     }

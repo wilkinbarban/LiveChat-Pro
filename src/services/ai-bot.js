@@ -514,7 +514,10 @@ async function resolveLlmBootConfig(deps = {}) {
     }
     return resolved;
   } catch (error) {
-    logger?.warn?.({ err: error }, 'No se pudo descifrar la configuración LLM; usando variable de entorno');
+    logger?.warn?.(
+      { err: error },
+      'No se pudo descifrar la configuración LLM; usando variable de entorno. Si SETTINGS_KEY estaba entre comillas, reingrese las claves LLM una sola vez en la pestaña IA del panel de administración.'
+    );
     return null;
   }
 }

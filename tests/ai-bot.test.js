@@ -227,6 +227,24 @@ test('resolveLlmBootConfig returns null when decrypting the stored key fails', a
   assert.equal(resolved, null);
 });
 
+test('resolveLlmBootConfig warns instructing one-time secret re-entry when decrypt fails (A4)', async () => {
+  // A quoted SETTINGS_KEY changes the derived key (ADR-2): decrypt fails at
+  // boot and the warning MUST tell the operator to re-enter LLM secrets once.
+  // Boot continues (null) — never throws.
+  const warnings = [];
+  const settingsService = makeBootSettingsService({
+    'llm.default_provider': 'deepseek',
+    'llm.provider.deepseek': JSON.stringify({ encKey: 'v1.invalid' }),
+  });
+  const resolved = await aiBot.resolveLlmBootConfig({
+    settingsService,
+    logger: { warn: (...args) => warnings.push(args) },
+  });
+  assert.equal(resolved, null);
+  const warnText = warnings.map(w => String(w.at(-1) ?? '')).join(' ');
+  assert.match(warnText, /reingres/i);
+});
+
 test('resolveLlmBootConfig returns null when no default provider is configured', async () => {
   const settingsService = makeBootSettingsService({});
   const resolved = await aiBot.resolveLlmBootConfig({ settingsService });

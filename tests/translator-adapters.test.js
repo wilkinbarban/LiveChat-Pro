@@ -69,6 +69,46 @@ test('deepl usa POST oficial con API key y form-urlencoded', async () => {
   assert.equal(await translate('hello', 'es'), 'hola deepl');
 });
 
+test('TRANSLATION_* citados se normalizan: proveedor deepl honrado (R5-S13)', async () => {
+  // setup.js JSON-quotes .env values; a quoted provider must be honored instead
+  // of silently falling back to google_free, and quoted key/URL must be stripped.
+  process.env.TRANSLATION_PROVIDER = '"deepl"';
+  process.env.TRANSLATION_API_KEY = '"deepl-key"';
+  process.env.DEEPL_API_URL = '"https://example.test/deepl"';
+
+  // The provider must resolve to deepl: google_free must never be hit.
+  axios.get = async () => {
+    throw new Error('google_free no deberia usarse con proveedor citado');
+  };
+  axios.post = async (url, params, options) => {
+    assert.equal(url, 'https://example.test/deepl');
+    assert.equal(params.get('text'), 'hello');
+    assert.equal(params.get('target_lang'), 'ES');
+    assert.equal(options.headers.Authorization, 'DeepL-Auth-Key deepl-key');
+    assert.equal(options.headers['Content-Type'], 'application/x-www-form-urlencoded');
+    return { data: { translations: [{ text: 'hola deepl' }] } };
+  };
+
+  assert.equal(await translate('hello', 'es'), 'hola deepl');
+});
+
+test('detectLang honra un proveedor google_cloud citado con API key citada', async () => {
+  process.env.TRANSLATION_PROVIDER = '"google_cloud"';
+  process.env.TRANSLATION_API_KEY = '"cloud-key"';
+
+  // google_free must not be reached when the quoted provider resolves to cloud.
+  axios.get = async () => {
+    throw new Error('google_free no deberia usarse con proveedor citado');
+  };
+  axios.post = async (url, payload) => {
+    assert.match(url, /translate\/v2\/detect\?key=cloud-key/);
+    assert.deepEqual(payload, { q: 'bonjour' });
+    return { data: { data: { detections: [[{ language: 'fr' }]] } } };
+  };
+
+  assert.equal(await detectLang('bonjour'), 'fr');
+});
+
 test('google_cloud usa Translation API v2 con API key', async () => {
   process.env.TRANSLATION_PROVIDER = 'google_cloud';
   process.env.TRANSLATION_API_KEY = 'cloud-key';
