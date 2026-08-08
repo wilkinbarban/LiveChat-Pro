@@ -4,6 +4,8 @@ const crypto = require('crypto');
 const axios = require('axios');
 const NodeCache = require('node-cache');
 
+const { stripEnvQuotes } = require('../config/env-utils');
+
 const SUPPORTED_PROVIDERS = new Set(['google_free', 'google_cloud', 'deepl']);
 
 // Short-lived in-process cache avoids repeatedly translating the same message
@@ -16,11 +18,13 @@ const translationCache = new NodeCache({
 
 // Provider selection is environment-driven so deployments can start with the
 // free Google endpoint and later switch to an official paid API without code.
+// setup.js JSON-quotes .env values, so quotes/whitespace are stripped first
+// (ADR-4) — otherwise a quoted provider silently falls back to google_free.
 function getProviderConfig() {
-  const provider = String(process.env.TRANSLATION_PROVIDER || 'google_free').toLowerCase();
+  const provider = String(stripEnvQuotes(process.env.TRANSLATION_PROVIDER) || 'google_free').toLowerCase();
   return {
     provider: SUPPORTED_PROVIDERS.has(provider) ? provider : 'google_free',
-    apiKey: process.env.TRANSLATION_API_KEY || '',
+    apiKey: stripEnvQuotes(process.env.TRANSLATION_API_KEY) || '',
   };
 }
 
@@ -49,7 +53,7 @@ async function translateWithGoogleFree(text, targetLang) {
 
 // DeepL expects form-urlencoded payloads and uppercase target language codes.
 async function translateWithDeepL(text, targetLang, apiKey) {
-  const endpoint = process.env.DEEPL_API_URL || 'https://api-free.deepl.com/v2/translate';
+  const endpoint = stripEnvQuotes(process.env.DEEPL_API_URL) || 'https://api-free.deepl.com/v2/translate';
   const params = new URLSearchParams({
     text,
     target_lang: targetLang.toUpperCase(),
