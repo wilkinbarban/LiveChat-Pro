@@ -28,6 +28,10 @@ test('Admin Panel Knowledge Tab — HTML Structure and Component Verification', 
   await t.test('URL ingestion form exists', () => {
     assert.match(html, /id="form-rag-url"|id="rag-url-form"/i);
     assert.match(html, /id="rag-url-input"|name="ragUrl"/i);
+    assert.match(html, /id="rag-github-mode"/i);
+    assert.match(html, /value="repository"[\s\S]*value="docs"[\s\S]*value="readme"/i);
+    assert.match(html, /id="rag-github-paths"/i);
+    assert.match(html, /JSON\.stringify\(\{ title, url, mode, includePaths \}\)/);
   });
 
   await t.test('PDF file upload form exists with 5MB/PDF restriction note', () => {
@@ -37,7 +41,29 @@ test('Admin Panel Knowledge Tab — HTML Structure and Component Verification', 
 
   await t.test('Document list table exists with delete action', () => {
     assert.match(html, /id="rag-doc-table"|id="rag-documents-table"/i);
+    assert.match(html, /id="btn-rag-index"/i);
+    assert.match(html, /\/api\/admin\/rag\/status/);
+    assert.match(html, /\/api\/admin\/rag\/index/);
   });
+});
+
+test('Admin Panel Knowledge Tab — indexing states exist in all six supported languages', () => {
+  const html = fs.readFileSync(ADMIN_HTML_PATH, 'utf8');
+  for (const lang of ['es', 'en', 'pt', 'fr', 'de', 'it']) {
+    for (const key of ['index_new', 'indexed', 'pending', 'error', 'indexing', 'model_unavailable']) {
+      assert.match(html, new RegExp(`${lang}: \\{[^\\n]*'knowledge\\.${key}'`));
+    }
+  }
+});
+
+test('Admin Panel Knowledge Tab — GitHub selector copy exists in every supported language', () => {
+  const html = fs.readFileSync(ADMIN_HTML_PATH, 'utf8');
+  for (const lang of ['es', 'en', 'pt', 'fr', 'de', 'it']) {
+    assert.match(html, new RegExp(`${lang}: \\{[^\\n]*'knowledge\\.github_mode'`));
+    assert.match(html, new RegExp(`${lang}: \\{[^\\n]*'knowledge\\.github_repository'`));
+    assert.match(html, new RegExp(`${lang}: \\{[^\\n]*'knowledge\\.github_docs'`));
+    assert.match(html, new RegExp(`${lang}: \\{[^\\n]*'knowledge\\.github_readme'`));
+  }
 });
 
 test('Admin Panel Knowledge Tab — i18n Dictionaries Verification across 5 Languages', async (t) => {

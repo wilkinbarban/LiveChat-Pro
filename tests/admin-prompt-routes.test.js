@@ -172,4 +172,10 @@ test('Admin Prompt Endpoints — GET & PUT Master Prompt Flow', async (t) => {
     assert.equal(body.ok, true);
     assert.ok(typeof body.prompt === 'string');
   });
+
+  await t.test('PUT rejects non-string and oversized prompts', async () => {
+    const request = body => makeRequest(app, 'PUT', '/api/admin/settings/prompt', { cookies: { admin_token: 'valid-admin-token' }, headers: { 'x-csrf-token': 'valid-csrf' }, body });
+    assert.equal((await request({ prompt: { unsafe: true } })).status, 400);
+    assert.equal((await request({ prompt: 'x'.repeat(20001) })).status, 413);
+  });
 });

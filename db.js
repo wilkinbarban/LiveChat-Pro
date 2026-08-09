@@ -16,6 +16,7 @@ if (DB_FILE !== ':memory:' && !fs.existsSync(DATA_DIR)) {
 }
 
 let dbPromise = null;
+let transactionTail = Promise.resolve();
 
 // The sqlite package accepts named parameters with @/$/: prefixes. Most call
 // sites use plain object keys, so this adapter adds the expected @ prefix once.
@@ -106,6 +107,7 @@ async function createDb() {
   // Performance and safety pragmas.
   await db.exec('PRAGMA journal_mode = WAL');
   await db.exec('PRAGMA foreign_keys = ON');
+  await db.exec('PRAGMA busy_timeout = 5000');
   await db.exec('PRAGMA synchronous = NORMAL');
 
   // ── Schema ──────────────────────────────────────────────────
@@ -175,9 +177,13 @@ async function createDb() {
     CREATE TABLE IF NOT EXISTS rag_documents (
       id           INTEGER PRIMARY KEY AUTOINCREMENT,
       source       TEXT    NOT NULL,
-      source_type  TEXT    NOT NULL CHECK(source_type IN ('url','pdf','kb-migration')),
+      source_type  TEXT    NOT NULL CHECK(source_type IN ('url','pdf','text','kb-migration')),
       title        TEXT,
       content_hash TEXT    NOT NULL UNIQUE,
+      status       TEXT    NOT NULL DEFAULT 'indexed',
+      pending_text TEXT,
+      indexed_at   INTEGER,
+      error        TEXT,
       created_at   INTEGER NOT NULL
     );
 
@@ -192,6 +198,40 @@ async function createDb() {
     CREATE INDEX IF NOT EXISTS idx_rag_chunks_doc ON rag_chunks(document_id, seq);
   `);
 
+  // SQLite cannot alter CHECK constraints. Rebuild only the legacy table so
+  // manual-text staging works while preserving documents and chunk references.
+  const ragTable = await db.get("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'rag_documents'");
+  if (ragTable?.sql && !ragTable.sql.includes("'text'")) {
+    const columns = new Set((await db.all('PRAGMA table_info(rag_documents)')).map(column => column.name));
+    const value = (name, fallback) => columns.has(name) ? name : fallback;
+    await db.exec('PRAGMA foreign_keys = OFF');
+    try {
+      await db.exec('BEGIN IMMEDIATE');
+      await db.exec(`
+        CREATE TABLE rag_documents_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT, source TEXT NOT NULL,
+          source_type TEXT NOT NULL CHECK(source_type IN ('url','pdf','text','kb-migration')),
+          title TEXT, content_hash TEXT NOT NULL UNIQUE,
+          status TEXT NOT NULL DEFAULT 'indexed', pending_text TEXT,
+          indexed_at INTEGER, error TEXT, created_at INTEGER NOT NULL
+        );
+        INSERT INTO rag_documents_new (id, source, source_type, title, content_hash, status, pending_text, indexed_at, error, created_at)
+        SELECT id, source, source_type, title, content_hash,
+          ${value('status', "'indexed'")}, ${value('pending_text', 'NULL')},
+          ${value('indexed_at', 'created_at')}, ${value('error', 'NULL')}, created_at
+        FROM rag_documents;
+        DROP TABLE rag_documents;
+        ALTER TABLE rag_documents_new RENAME TO rag_documents;
+      `);
+      await db.exec('COMMIT');
+    } catch (error) {
+      await db.exec('ROLLBACK');
+      throw error;
+    } finally {
+      await db.exec('PRAGMA foreign_keys = ON');
+    }
+  }
+
   // Migrations for existing databases (idempotent). SQLite raises when a column
   // already exists, so each ALTER is intentionally isolated and ignored.
   try { await db.exec('ALTER TABLE sessions ADD COLUMN admin_last_seen_ts INTEGER NOT NULL DEFAULT 0'); } catch {}
@@ -200,6 +240,11 @@ async function createDb() {
   try { await db.exec('ALTER TABLE attachments ADD COLUMN access_token TEXT'); } catch {}
   try { await db.exec('ALTER TABLE attachments ADD COLUMN width INTEGER'); } catch {}
   try { await db.exec('ALTER TABLE attachments ADD COLUMN height INTEGER'); } catch {}
+  try { await db.exec("ALTER TABLE rag_documents ADD COLUMN status TEXT NOT NULL DEFAULT 'indexed'"); } catch {}
+  try { await db.exec('ALTER TABLE rag_documents ADD COLUMN pending_text TEXT'); } catch {}
+  try { await db.exec('ALTER TABLE rag_documents ADD COLUMN indexed_at INTEGER'); } catch {}
+  try { await db.exec('ALTER TABLE rag_documents ADD COLUMN error TEXT'); } catch {}
+  try { await db.exec("UPDATE rag_documents SET status = 'indexed', indexed_at = COALESCE(indexed_at, created_at) WHERE status IS NULL OR status = ''"); } catch {}
 
   return db;
 }
@@ -229,6 +274,28 @@ const db = {
   all: withDb('all'),
   exec: withDb('exec'),
   close: closeDb,
+  async runInTransaction(work) {
+    const previous = transactionTail;
+    let release;
+    transactionTail = new Promise(resolve => { release = resolve; });
+    await previous;
+    let connection;
+    let begun = false;
+    try {
+      connection = DB_FILE === ':memory:' ? await initDb() : await createDb();
+      await connection.exec('BEGIN IMMEDIATE');
+      begun = true;
+      const result = await work(connection);
+      await connection.exec('COMMIT');
+      return result;
+    } catch (error) {
+      if (begun) await connection.exec('ROLLBACK');
+      throw error;
+    } finally {
+      if (connection && DB_FILE !== ':memory:') await connection.close();
+      release();
+    }
+  },
 };
 
 // ── Prepared statements ───────────────────────────────────────
@@ -420,8 +487,10 @@ const stmts = {
     VALUES (@source, @source_type, @title, @content_hash, @created_at)
   `),
   getRagDocumentByHash: createStatement('SELECT * FROM rag_documents WHERE content_hash = ?'),
+  getRagDocumentsBySource: createStatement('SELECT * FROM rag_documents WHERE source = ? ORDER BY id ASC'),
   getRagDocumentById: createStatement('SELECT * FROM rag_documents WHERE id = ?'),
-  getAllRagDocuments: createStatement('SELECT * FROM rag_documents ORDER BY created_at DESC'),
+  getAllRagDocuments: createStatement('SELECT id, source, source_type, title, content_hash, status, indexed_at, error, created_at FROM rag_documents ORDER BY created_at DESC'),
+  getPendingRagDocuments: createStatement("SELECT * FROM rag_documents WHERE status = 'pending' ORDER BY created_at ASC"),
   deleteRagDocument: createStatement('DELETE FROM rag_documents WHERE id = ?'),
   insertRagChunk: createStatement(`
     INSERT INTO rag_chunks (document_id, seq, text, created_at)
@@ -432,6 +501,7 @@ const stmts = {
     SELECT c.*, d.source, d.source_type, d.title
     FROM rag_chunks c
     JOIN rag_documents d ON c.document_id = d.id
+    WHERE d.status = 'indexed'
   `),
 
 };

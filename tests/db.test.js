@@ -9,6 +9,10 @@ process.env.DB_PATH = ':memory:';
 
 const { describe, it, after } = require('node:test');
 const assert = require('node:assert/strict');
+const { spawnSync } = require('node:child_process');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 const { db, stmts, initDb, closeDb } = require('../db');
 
 // ── Test data ────────────────────────────────────────────────
@@ -42,6 +46,79 @@ function makeSession(overrides = {}) {
 
 after(async () => {
   await closeDb();
+});
+
+it('runInTransaction isolates rollback from concurrent writes on the primary connection', () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'livechat-rag-tx-'));
+  const databasePath = path.join(directory, 'isolation.db');
+  const script = `
+    const assert = require('node:assert/strict');
+    const { db, stmts, initDb, closeDb } = require('./db');
+    (async () => {
+      await initDb();
+      let markStarted;
+      const started = new Promise(resolve => { markStarted = resolve; });
+      const transaction = db.runInTransaction(async connection => {
+        await connection.run("INSERT INTO rag_documents (source, source_type, title, content_hash, created_at) VALUES (?, ?, ?, ?, ?)", ['tx', 'url', 'tx', 'tx-hash', Date.now()]);
+        markStarted();
+        await new Promise(resolve => setTimeout(resolve, 100));
+        throw new Error('intentional rollback');
+      });
+      await started;
+      const normalWrite = stmts.setSetting.run({ key: 'concurrent.setting', value: 'survives', updated_at: Date.now() });
+      await assert.rejects(transaction, /intentional rollback/);
+      await normalWrite;
+      const setting = await stmts.getSetting.get('concurrent.setting');
+      assert.equal(setting.value, 'survives');
+      assert.equal(await db.get('SELECT COUNT(*) AS count FROM rag_documents WHERE source = ?', ['tx']).then(row => row.count), 0);
+      await closeDb();
+    })().catch(error => { console.error(error); process.exitCode = 1; });
+  `;
+  const result = spawnSync(process.execPath, ['-e', script], {
+    cwd: path.join(__dirname, '..'),
+    env: { ...process.env, DB_PATH: databasePath },
+    encoding: 'utf8',
+    timeout: 10000,
+  });
+  fs.rmSync(directory, { recursive: true, force: true });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+});
+
+it('migrates legacy RAG source_type CHECK while preserving chunks and cascade', () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'livechat-rag-migration-'));
+  const databasePath = path.join(directory, 'legacy.db');
+  const script = `
+    const assert = require('node:assert/strict');
+    const sqlite3 = require('sqlite3');
+    const { open } = require('sqlite');
+    (async () => {
+      const legacy = await open({ filename: process.env.DB_PATH, driver: sqlite3.Database });
+      await legacy.exec(\`
+        PRAGMA foreign_keys = ON;
+        CREATE TABLE rag_documents (id INTEGER PRIMARY KEY AUTOINCREMENT, source TEXT NOT NULL, source_type TEXT NOT NULL CHECK(source_type IN ('url','pdf','kb-migration')), title TEXT, content_hash TEXT NOT NULL UNIQUE, created_at INTEGER NOT NULL);
+        CREATE TABLE rag_chunks (id INTEGER PRIMARY KEY AUTOINCREMENT, document_id INTEGER NOT NULL REFERENCES rag_documents(id) ON DELETE CASCADE, seq INTEGER NOT NULL, text TEXT NOT NULL, created_at INTEGER NOT NULL);
+        INSERT INTO rag_documents (id, source, source_type, title, content_hash, created_at) VALUES (7, 'legacy', 'url', 'Legacy', 'legacy-hash', 12345);
+        INSERT INTO rag_chunks (document_id, seq, text, created_at) VALUES (7, 1, 'preserved chunk', 12345);
+      \`);
+      await legacy.close();
+      const { db, initDb, closeDb } = require('./db');
+      await initDb();
+      const doc = await db.get('SELECT * FROM rag_documents WHERE id = 7');
+      assert.equal(doc.status, 'indexed');
+      assert.equal(doc.indexed_at, 12345);
+      assert.equal((await db.get('SELECT COUNT(*) AS count FROM rag_chunks WHERE document_id = 7')).count, 1);
+      await db.run("INSERT INTO rag_documents (source, source_type, title, content_hash, status, pending_text, created_at) VALUES (?, 'text', ?, ?, 'pending', ?, ?)", ['manual', 'Manual', 'manual-hash', 'manual text', 12346]);
+      assert.deepEqual(await db.all('PRAGMA foreign_key_check'), []);
+      await db.run('DELETE FROM rag_documents WHERE id = 7');
+      assert.equal((await db.get('SELECT COUNT(*) AS count FROM rag_chunks WHERE document_id = 7')).count, 0);
+      await closeDb();
+    })().catch(error => { console.error(error); process.exitCode = 1; });
+  `;
+  const result = spawnSync(process.execPath, ['-e', script], {
+    cwd: path.join(__dirname, '..'), env: { ...process.env, DB_PATH: databasePath }, encoding: 'utf8', timeout: 10000,
+  });
+  fs.rmSync(directory, { recursive: true, force: true });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
 });
 
 // ── Sessions ─────────────────────────────────────────────────

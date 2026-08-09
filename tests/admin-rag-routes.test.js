@@ -5,7 +5,13 @@ const assert = require('node:assert/strict');
 const http = require('node:http');
 const express = require('express');
 const cookieParser = require('cookie-parser');
-const { createAdminRouter } = require('../src/routes/admin');
+const {
+  createAdminRouter,
+  fetchGithubRepository,
+  isUsefulGithubPath,
+  normalizeGithubSelection,
+  parseGithubRepositoryUrl,
+} = require('../src/routes/admin');
 
 function setupTestApp(overrides = {}) {
   const app = express();
@@ -22,7 +28,7 @@ function setupTestApp(overrides = {}) {
     async deleteDocument(id) {
       docsStore.delete(Number(id));
     },
-    async ingestText({ sourceType, source, title, text }) {
+    async stageText({ sourceType, source, title, text }) {
       if (!text || typeof text !== 'string' || !text.trim()) {
         throw new Error('El contenido de texto es requerido');
       }
@@ -33,10 +39,19 @@ function setupTestApp(overrides = {}) {
         source,
         title: title || source,
         content_hash: 'hash_' + id,
+        status: 'pending',
+        pending_text: text,
         created_at: Date.now(),
       };
       docsStore.set(id, doc);
-      return { documentId: id, chunkCount: 2 };
+      return { documentId: id, chunkCount: 0, status: 'pending' };
+    },
+    async promotePending() {
+      let indexed = 0;
+      for (const doc of docsStore.values()) {
+        if (doc.status === 'pending') { doc.status = 'indexed'; doc.pending_text = null; indexed++; }
+      }
+      return { indexed, pending: 0 };
     },
   };
 
@@ -115,6 +130,101 @@ function createMultipartBody(filename, fileBuffer, boundary, contentType = 'appl
   ]);
 }
 
+test('GitHub repository selection enforces security, snapshot, quantity, and concurrency limits', async () => {
+  assert.equal(isUsefulGithubPath('.env.production', 10), false);
+  assert.equal(isUsefulGithubPath('vendor/library/index.js', 10), false);
+  assert.equal(isUsefulGithubPath('package-lock.json', 10), false);
+  assert.equal(isUsefulGithubPath('src/private-key.pem', 10), false);
+  assert.equal(isUsefulGithubPath('src/app.js', 128 * 1024 + 1), false);
+  assert.equal(isUsefulGithubPath('docs/guide.md', 100), true);
+  assert.equal(parseGithubRepositoryUrl('https://github.com/example/.git'), null);
+
+  const repository = parseGithubRepositoryUrl('https://github.com/example/project');
+  let active = 0;
+  let peak = 0;
+  const rawUrls = [];
+  assert.deepEqual(normalizeGithubSelection(undefined, undefined), { mode: 'repository', includePaths: [] });
+  assert.deepEqual(normalizeGithubSelection('docs', ['docs', './README.md']), { mode: 'docs', includePaths: ['docs', 'README.md'] });
+  assert.throws(() => normalizeGithubSelection('all', []), /Modo/);
+  assert.throws(() => normalizeGithubSelection('repository', ['../secret']), /inválida/);
+
+  const treeEntries = Array.from({ length: 200 }, (_, index) => ({
+    type: 'blob', path: `src/file-${String(index).padStart(2, '0')}.js`, size: 20,
+  }));
+  const fetchUrl = async (url) => {
+    if (url === repository.apiUrl) return Response.json({ full_name: 'example/project', default_branch: 'main' });
+    if (url.endsWith('/commits/main')) return Response.json({ sha: 'fixed-commit', commit: { tree: { sha: 'fixed-tree' } } });
+    if (url.includes('/git/trees/fixed-tree')) return Response.json({ tree: treeEntries, truncated: false });
+    rawUrls.push(url);
+    active += 1;
+    peak = Math.max(peak, active);
+    await new Promise(resolve => setTimeout(resolve, 1));
+    active -= 1;
+    return new Response('export const useful = true;', { status: 200 });
+  };
+
+  const content = await fetchGithubRepository({ repository, fetchUrl, signal: new AbortController().signal });
+  assert.equal(rawUrls.length, 200);
+  assert.ok(peak <= 5);
+  assert.ok(rawUrls.every(url => url.includes('/fixed-commit/')));
+  assert.match(content, /--- FILE: src\/file-00\.js ---/);
+  assert.doesNotMatch(content, /file-200\.js/);
+
+  let attemptedRaw = false;
+  const oversizedSelectionFetch = async (url) => {
+    if (url === repository.apiUrl) return Response.json({ default_branch: 'main' });
+    if (url.endsWith('/commits/main')) return Response.json({ sha: 'commit', commit: { tree: { sha: 'tree' } } });
+    if (url.includes('/git/trees/tree')) {
+      return Response.json({ tree: Array.from({ length: 201 }, (_, index) => ({ type: 'blob', path: `src/${index}.js`, size: 10 })) });
+    }
+    attemptedRaw = true;
+    return new Response('content');
+  };
+  await assert.rejects(
+    fetchGithubRepository({ repository, fetchUrl: oversizedSelectionFetch, signal: new AbortController().signal }),
+    /límite de archivos/
+  );
+  assert.equal(attemptedRaw, false);
+
+  const selectedRawPaths = [];
+  const selectionFetch = async (url) => {
+    if (url === repository.apiUrl) return Response.json({ default_branch: 'main' });
+    if (url.endsWith('/commits/main')) return Response.json({ sha: 'selection-commit', commit: { tree: { sha: 'selection-tree' } } });
+    if (url.includes('/git/trees/selection-tree')) return Response.json({ tree: [
+      { type: 'blob', path: 'README.md', size: 10 },
+      { type: 'blob', path: 'docs/guide.md', size: 10 },
+      { type: 'blob', path: 'src/app.js', size: 10 },
+    ] });
+    selectedRawPaths.push(decodeURIComponent(new URL(url).pathname.split('/selection-commit/')[1]));
+    return new Response('useful text');
+  };
+  await fetchGithubRepository({
+    repository,
+    fetchUrl: selectionFetch,
+    signal: new AbortController().signal,
+    selection: normalizeGithubSelection('readme'),
+  });
+  assert.deepEqual(selectedRawPaths, ['README.md']);
+  selectedRawPaths.length = 0;
+  await fetchGithubRepository({
+    repository,
+    fetchUrl: selectionFetch,
+    signal: new AbortController().signal,
+    selection: normalizeGithubSelection('docs', ['docs']),
+  });
+  assert.deepEqual(selectedRawPaths, ['docs/guide.md']);
+
+  const truncatedFetch = async (url) => {
+    if (url === repository.apiUrl) return Response.json({ default_branch: 'main' });
+    if (url.endsWith('/commits/main')) return Response.json({ sha: 'commit', commit: { tree: { sha: 'tree' } } });
+    return Response.json({ tree: [], truncated: true });
+  };
+  await assert.rejects(
+    fetchGithubRepository({ repository, fetchUrl: truncatedFetch, signal: new AbortController().signal }),
+    /excede el límite/
+  );
+});
+
 test('RAG Admin Routes — GET /api/admin/rag/documents authentication', async () => {
   const { app } = setupTestApp();
   const server = app.listen(0);
@@ -159,6 +269,70 @@ test('RAG Admin Routes — DELETE /api/admin/rag/documents/:id', async () => {
   }
 });
 
+test('RAG Admin Routes — indexing requires an enabled and operational default model', async () => {
+  const settings = {
+    enabled: false,
+    async getJSON(key) {
+      if (key === 'ai.enabled') return this.enabled;
+      if (key === 'llm.provider.openai') return { encKey: 'encrypted', model: 'gpt-test' };
+      return null;
+    },
+    async get(key) { return key === 'llm.default_provider' ? 'openai' : null; },
+    decryptSecret() { return 'secret'; },
+  };
+  let verified = 0;
+  const { app, mockRagService } = setupTestApp({
+    settingsService: settings,
+    llmService: { async verifyConnection() { verified++; return { ok: true }; } },
+  });
+  await mockRagService.stageText({ sourceType: 'text', source: 'manual', title: 'Manual', text: 'Pending content' });
+  const server = app.listen(0);
+  try {
+    const headers = { Cookie: 'admin_token=valid-admin-token', 'x-csrf-token': 'valid-csrf' };
+    const blocked = await makeRequest(server, '/api/admin/rag/index', { method: 'POST', headers });
+    assert.equal(blocked.status, 409);
+    assert.equal(verified, 0);
+
+    settings.enabled = true;
+    const ready = await makeRequest(server, '/api/admin/rag/status', { headers: { Cookie: headers.Cookie } });
+    assert.equal(ready.status, 200);
+    assert.equal(ready.body.ready, true);
+    assert.equal(ready.body.pendingCount, 1);
+
+    const indexed = await makeRequest(server, '/api/admin/rag/index', { method: 'POST', headers });
+    assert.equal(indexed.status, 200);
+    assert.equal(indexed.body.indexed, 1);
+    assert.equal(verified, 1, 'readiness verification should be reused briefly by the index request');
+  } finally { server.close(); }
+});
+
+test('RAG Admin Routes — readiness uses the active boot model when ai.enabled was never persisted', async () => {
+  const settings = {
+    async getJSON(key) {
+      if (key === 'ai.enabled') return null;
+      if (key === 'llm.provider.deepseek') return { encKey: 'encrypted', model: 'deepseek-chat' };
+      return null;
+    },
+    async get(key) { return key === 'llm.default_provider' ? 'deepseek' : null; },
+    decryptSecret() { return 'secret'; },
+  };
+  const { app, mockRagService } = setupTestApp({
+    settingsService: settings,
+    aiBot: { isEnabled: () => true },
+    llmService: { async verifyConnection() { return { ok: true }; } },
+  });
+  await mockRagService.stageText({ sourceType: 'pdf', source: 'new.pdf', title: 'New PDF', text: 'Pending content' });
+  const server = app.listen(0);
+  try {
+    const ready = await makeRequest(server, '/api/admin/rag/status', {
+      headers: { Cookie: 'admin_token=valid-admin-token' },
+    });
+    assert.equal(ready.status, 200);
+    assert.equal(ready.body.ready, true);
+    assert.equal(ready.body.pendingCount, 1);
+  } finally { server.close(); }
+});
+
 test('RAG Admin Routes — POST /api/admin/rag/documents/text', async () => {
   const { app } = setupTestApp();
   const server = app.listen(0);
@@ -184,7 +358,8 @@ test('RAG Admin Routes — POST /api/admin/rag/documents/text', async () => {
     assert.equal(validRes.status, 200);
     assert.equal(validRes.body.ok, true);
     assert.ok(validRes.body.documentId);
-    assert.equal(validRes.body.chunkCount, 2);
+    assert.equal(validRes.body.chunkCount, 0);
+    assert.equal(validRes.body.status, 'pending');
   } finally {
     server.close();
   }
@@ -227,6 +402,88 @@ test('RAG Admin Routes — POST /api/admin/rag/documents/url', async () => {
     assert.ok(validUrl.body.documentId);
   } finally {
     targetServer.close();
+    server.close();
+  }
+});
+
+test('RAG Admin Routes — GitHub repository ingests one filtered source-aware document', async () => {
+  const calls = [];
+  let ingested = null;
+  const files = {
+    'README.md': '# AI Workspace Manager\n\nCreates isolated AI workspaces for multiple agents.',
+    'src/app.js': 'export function createWorkspace() { return "isolated"; }',
+  };
+  const { app } = setupTestApp({
+    fetch: async (url, options) => {
+      calls.push({ url, options });
+      if (url === 'https://api.github.com/repos/example/AI-Workspace-Manager') {
+        return Response.json({ full_name: 'example/AI-Workspace-Manager', default_branch: 'main', description: 'Workspace manager' });
+      }
+      if (url.endsWith('/commits/main')) {
+        return Response.json({ sha: 'commit-abc123', commit: { tree: { sha: 'tree-def456' } } });
+      }
+      if (url.includes('/git/trees/tree-def456')) {
+        return Response.json({ tree: [
+          { type: 'blob', path: 'README.md', size: Buffer.byteLength(files['README.md']) },
+          { type: 'blob', path: 'src/app.js', size: Buffer.byteLength(files['src/app.js']) },
+          { type: 'blob', path: 'node_modules/pkg/index.js', size: 20 },
+          { type: 'blob', path: 'package-lock.json', size: 20 },
+          { type: 'blob', path: '.env', size: 20 },
+          { type: 'blob', path: 'logo.png', size: 20 },
+        ] });
+      }
+      const path = decodeURIComponent(new URL(url).pathname.split('/commit-abc123/')[1]);
+      return new Response(files[path], { status: 200, headers: { 'content-type': 'text/plain' } });
+    },
+    ragService: {
+      async ingestText(input) {
+        ingested = input;
+        return { documentId: 42, chunkCount: 1 };
+      },
+      async listDocuments() { return []; },
+      async deleteDocument() {},
+    },
+  });
+  const server = app.listen(0);
+
+  try {
+    const invalidSelection = await makeRequest(server, '/api/admin/rag/documents/url', {
+      method: 'POST',
+      headers: {
+        Cookie: 'admin_token=valid-admin-token',
+        'x-csrf-token': 'valid-csrf',
+      },
+      body: { url: 'https://github.com/example/AI-Workspace-Manager', mode: 'everything' },
+    });
+    assert.equal(invalidSelection.status, 400);
+    assert.equal(calls.length, 0);
+
+    const result = await makeRequest(server, '/api/admin/rag/documents/url', {
+      method: 'POST',
+      headers: {
+        Cookie: 'admin_token=valid-admin-token',
+        'x-csrf-token': 'valid-csrf',
+      },
+      body: {
+        url: 'https://github.com/example/AI-Workspace-Manager.git',
+        title: 'AI Workspace Manager',
+        mode: 'repository',
+        includePaths: ['README.md', 'src'],
+      },
+    });
+
+    assert.equal(result.status, 200);
+    assert.equal(calls.length, 5);
+    assert.equal(calls[0].url, 'https://api.github.com/repos/example/AI-Workspace-Manager');
+    assert.match(calls[1].url, /\/commits\/main$/);
+    assert.match(calls[2].url, /\/git\/trees\/tree-def456\?recursive=1$/);
+    assert.ok(calls.slice(3).every(call => call.url.includes('/commit-abc123/')));
+    assert.equal(ingested.source, 'https://github.com/example/ai-workspace-manager');
+    assert.equal(ingested.sourceKey, 'https://github.com/example/ai-workspace-manager');
+    assert.match(ingested.text, /--- FILE: README\.md ---/);
+    assert.match(ingested.text, /--- FILE: src\/app\.js ---/);
+    assert.doesNotMatch(ingested.text, /node_modules|package-lock|\.env|logo\.png/);
+  } finally {
     server.close();
   }
 });

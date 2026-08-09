@@ -27,6 +27,22 @@
 
 Self-hosted live chat with an embeddable widget, Telegram integration, single web administration panel, SQLite persistence and recommended Docker deployment.
 
+## Version 1.1.0 Highlights
+
+- Responsive administration for chats, AI, knowledge, prompts, Telegram, and widget appearance.
+- Admin-managed RAG from text, PDF, public URLs, or bounded GitHub snapshots. Sources remain **Pending** until the default model is verified and an administrator selects **Index new content**.
+- Global deduplication and safe URL revision publishing: the previous GitHub snapshot stays active until its replacement is indexed.
+- Exact project inventory from indexed GitHub sources and complete web replies with safe Markdown, typewriter presentation, and truncation recovery.
+- A configurable master prompt with delimited RAG evidence and isolated, untrusted visitor metadata.
+
+### RAG quick path
+
+1. Configure and verify the default model in **Admin → AI**.
+2. Add text, a PDF, a public URL, or a GitHub repository in **Admin → Knowledge**.
+3. Review **Pending** entries and select **Index new content**. Only **Indexed** entries answer visitor questions.
+
+> The legacy JSON trainer remains for compatibility and reference. With a provider configured, v1.1.0 answers from the admin RAG index and does not silently fall back to stale JSON training.
+
 ## What It Does
 
 - Adds chat to any website with a single `<script>`.
@@ -727,6 +743,8 @@ Embed the widget on your pages using the `/chat` subpath URL:
 ```html
 <script src="https://mywebsite.com/chat/widget.js" data-server="https://mywebsite.com/chat"></script>
 ```
+
+> **Production embed:** serve both the page and widget over HTTPS. When LiveChat Pro is behind a reverse-proxy subpath, `src` and `data-server` must use the same public subpath. The proxy must forward `/socket.io/` with WebSocket `Upgrade`/`Connection` headers; never point visitors at the private container address.
 
 #### 4. Admin and Health URLs
 After deployment, the admin dashboard and health check endpoints will be accessible at:

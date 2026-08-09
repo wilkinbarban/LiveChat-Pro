@@ -7,66 +7,102 @@
   <title>LiveChat Pro Admin</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap');
-    :root { --bg:#edf2f7; --surface:#fff; --soft:#f7fafc; --line:#d8e0ea; --ink:#152033; --muted:#66758a; --accent:#2563eb; --ok:#0f9f6e; --warn:#b45309; --danger:#b91c1c; --field-bg:#fff; --field-ink:#152033; --field-placeholder:#7b8797; --shadow:0 14px 38px rgba(21,32,51,.09); --button-shadow:0 8px 18px rgba(21,32,51,.08); }
+    :root { --bg:#f5f7fb; --surface:#fff; --soft:#f8fafc; --line:#e2e8f0; --ink:#172033; --muted:#64748b; --accent:#4f46e5; --accent-strong:#3730a3; --accent-soft:#eef2ff; --ok:#059669; --warn:#b45309; --danger:#dc2626; --field-bg:#fff; --field-ink:#172033; --field-placeholder:#94a3b8; --shadow:0 18px 50px rgba(15,23,42,.07); --button-shadow:0 8px 18px rgba(15,23,42,.08); }
     * { box-sizing:border-box; }
     body { margin:0; min-height:100vh; color:var(--ink); background:var(--bg); font-family:Inter,system-ui,sans-serif; }
     button,input,textarea { font:inherit; }
-    button { min-height:40px; padding:0 13px; border:1px solid transparent; border-radius:8px; cursor:pointer; font-weight:700; background:var(--soft); color:var(--ink); box-shadow:0 1px 0 rgba(255,255,255,.85) inset; transition:background-color .18s ease,border-color .18s ease,box-shadow .18s ease,color .18s ease,transform .18s ease; }
+    button { min-height:40px; padding:0 13px; border:1px solid transparent; border-radius:10px; cursor:pointer; font-weight:700; background:var(--soft); color:var(--ink); box-shadow:0 1px 0 rgba(255,255,255,.85) inset; transition:background-color .18s ease,border-color .18s ease,box-shadow .18s ease,color .18s ease,transform .18s ease; }
     button:hover { transform:translateY(-1px); box-shadow:var(--button-shadow),0 1px 0 rgba(255,255,255,.86) inset; }
     button:active { transform:translateY(0); box-shadow:0 2px 6px rgba(21,32,51,.08) inset; }
     button:focus-visible,.top-actions a:focus-visible,.attachment-actions a:focus-visible { outline:0; box-shadow:0 0 0 3px rgba(37,99,235,.18),var(--button-shadow); }
     button:disabled { opacity:.5; cursor:not-allowed; transform:none; box-shadow:none; }
-    input,textarea { width:100%; border:1px solid var(--line); border-radius:8px; background:var(--field-bg); color:var(--field-ink); caret-color:var(--field-ink); outline:none; padding:12px 14px; }
+    input,textarea { width:100%; border:1px solid var(--line); border-radius:10px; background:var(--field-bg); color:var(--field-ink); caret-color:var(--field-ink); outline:none; padding:12px 14px; }
     input::placeholder,textarea::placeholder { color:var(--field-placeholder); opacity:1; }
     input:focus,textarea:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(37,99,235,.12); }
     textarea { min-height:108px; resize:vertical; }
     h1,h2,h3,p { margin:0; }
     .hidden { display:none!important; } .mono { font-family:"IBM Plex Mono",monospace; } .muted { color:var(--muted); }
-    .btn-primary { background:linear-gradient(180deg,#3b82f6 0%,var(--accent) 100%); color:#fff; border-color:#1d4ed8; box-shadow:0 10px 22px rgba(37,99,235,.18); }
-    .btn-primary:hover { background:linear-gradient(180deg,#4f8ff8 0%,#1d4ed8 100%); box-shadow:0 12px 26px rgba(37,99,235,.24); }
+    .btn-primary { background:linear-gradient(135deg,#6366f1 0%,var(--accent) 55%,var(--accent-strong) 100%); color:#fff; border-color:var(--accent-strong); box-shadow:0 10px 22px rgba(79,70,229,.22); }
+    .btn-primary:hover { background:linear-gradient(135deg,#818cf8 0%,#4f46e5 55%,#312e81 100%); box-shadow:0 12px 26px rgba(79,70,229,.28); }
     .btn-danger { background:linear-gradient(180deg,#dc2626 0%,var(--danger) 100%); color:#fff; border-color:#991b1b; box-shadow:0 10px 22px rgba(185,28,28,.16); }
     .btn-danger:hover { background:linear-gradient(180deg,#ef4444 0%,#991b1b 100%); box-shadow:0 12px 26px rgba(185,28,28,.22); }
     .btn-warn { background:linear-gradient(180deg,#fffaf2 0%,#fff7ed 100%); color:var(--warn); border-color:#fed7aa; }
     .btn-warn:hover { background:#ffedd5; border-color:#fdba74; color:#92400e; }
-    .btn-soft { border-color:var(--line); background:linear-gradient(180deg,#fff 0%,#f8fafc 100%); }
-    .btn-soft:hover { background:#eef6ff; border-color:#bfdbfe; color:#1d4ed8; }
+    .btn-soft { border-color:var(--line); background:#fff; }
+    .btn-soft:hover { background:var(--accent-soft); border-color:#c7d2fe; color:var(--accent-strong); }
     .login-shell { min-height:100vh; display:grid; place-items:center; padding:24px; }
     .login-card { width:min(460px,100%); background:var(--surface); border:1px solid var(--line); border-radius:8px; box-shadow:var(--shadow); padding:26px; display:grid; gap:16px; }
     .brand-mark { display:inline-flex; width:fit-content; min-height:34px; align-items:center; padding:0 11px; border:1px solid #bfdbfe; border-radius:8px; background:#eff6ff; color:var(--accent); font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; }
     .notice { min-height:44px; padding:12px 14px; border-radius:8px; background:#eff6ff; color:var(--accent); line-height:1.45; }
-    .app { min-height:100vh; display:grid; grid-template-columns:390px minmax(0,1fr); }
-    .sidebar { min-height:100vh; border-right:1px solid var(--line); background:var(--surface); padding:20px; display:grid; grid-template-rows:auto auto auto minmax(0,1fr); gap:16px; }
-    .topbar,.panel,.thread,.composer,.empty { background:var(--surface); border:1px solid var(--line); border-radius:8px; box-shadow:var(--shadow); }
-    .topbar { display:flex; justify-content:space-between; gap:14px; padding:18px; } .topbar h1 { font-size:25px; line-height:1; margin-top:8px; } .topbar p { margin-top:6px; color:var(--muted); }
+    .app { min-height:100vh; display:grid; grid-template-columns:352px minmax(0,1fr); }
+    .sidebar { min-height:100vh; border-right:1px solid var(--line); background:rgba(255,255,255,.92); padding:22px 18px; display:grid; grid-template-rows:auto auto minmax(0,1fr); gap:18px; }
+    .topbar,.panel,.thread,.composer,.empty { background:var(--surface); border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow); }
+    .topbar { display:flex; justify-content:space-between; gap:14px; padding:18px; background:linear-gradient(145deg,#fff 0%,#f7f8ff 100%); } .topbar h1 { font-size:25px; line-height:1; margin-top:8px; letter-spacing:-.04em; } .topbar p { margin-top:7px; color:var(--muted); line-height:1.45; }
     .top-actions,.row,.actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
     .top-actions { align-items:flex-start; justify-content:flex-end; }
-    .top-actions a { display:inline-flex; align-items:center; min-height:40px; padding:0 13px; border:1px solid var(--line); border-radius:8px; color:var(--ink); text-decoration:none; font-weight:700; background:linear-gradient(180deg,#fff 0%,#f8fafc 100%); box-shadow:0 1px 0 rgba(255,255,255,.85) inset; transition:background-color .18s ease,border-color .18s ease,box-shadow .18s ease,color .18s ease,transform .18s ease; }
-    .top-actions a:hover { transform:translateY(-1px); border-color:#bfdbfe; color:#1d4ed8; background:#eef6ff; box-shadow:var(--button-shadow); }
+    .top-actions a { display:inline-flex; align-items:center; min-height:40px; padding:0 13px; border:1px solid var(--line); border-radius:10px; color:var(--ink); text-decoration:none; font-weight:700; background:#fff; box-shadow:0 1px 0 rgba(255,255,255,.85) inset; transition:background-color .18s ease,border-color .18s ease,box-shadow .18s ease,color .18s ease,transform .18s ease; }
+    .top-actions a:hover { transform:translateY(-1px); border-color:#c7d2fe; color:var(--accent-strong); background:var(--accent-soft); box-shadow:var(--button-shadow); }
     .top-actions a:active { transform:translateY(0); box-shadow:0 2px 6px rgba(21,32,51,.08) inset; }
-    .filters { display:grid; grid-template-columns:1fr auto auto; gap:8px; }
+    .nav-tabs { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); align-items:center; gap:4px; padding:5px; border:1px solid var(--line); border-radius:12px; background:var(--soft); }
+    .tab-btn { min-height:36px; padding:0 7px; min-width:0; border-radius:8px; background:transparent; box-shadow:none; color:var(--muted); font-size:11px; white-space:nowrap; }
+    .tab-btn:hover { background:#fff; color:var(--ink); box-shadow:none; }
+    .tab-btn.active { background:#fff; color:var(--accent-strong); box-shadow:0 2px 8px rgba(15,23,42,.08); }
+    #sidebar-chats-content { min-height:0; display:grid; grid-template-rows:auto auto auto minmax(0,1fr); }
+    .sidebar-section-title { display:flex; align-items:center; justify-content:space-between; gap:10px; margin:16px 2px 8px; color:var(--muted); font-size:10px; font-weight:800; letter-spacing:.09em; text-transform:uppercase; }
+    .filters { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+    .filters input { grid-column:1/-1; min-width:0; }
+    .filters button { width:100%; }
     .metrics { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
-    .metric,.info { border:1px solid var(--line); border-radius:8px; padding:12px; background:var(--soft); min-width:0; }
-    .metric span,.info span { display:block; color:var(--muted); font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px; }
-    .metric strong { font-size:24px; } .info strong { display:block; overflow-wrap:anywhere; font-size:13px; }
-    .session-list { overflow:auto; display:grid; align-content:start; gap:10px; padding-right:3px; }
-    .session-card { border:1px solid var(--line); border-radius:8px; background:var(--soft); padding:14px; cursor:pointer; display:grid; gap:9px; }
-    .session-card.active { border-color:var(--accent); background:#eff6ff; }
+    .metric,.info { border:1px solid var(--line); border-radius:11px; padding:12px; background:var(--soft); min-width:0; }
+    .metric { background:linear-gradient(145deg,#fff 0%,#f8fafc 100%); }
+    .metric span,.info span { display:block; max-width:100%; overflow:hidden; color:var(--muted); font-size:10px; font-weight:800; text-transform:uppercase; text-overflow:ellipsis; white-space:nowrap; letter-spacing:.055em; margin-bottom:7px; }
+    .metric strong { font-size:23px; letter-spacing:-.04em; } .info strong { display:block; overflow-wrap:anywhere; font-size:13px; }
+    .session-list { overflow:auto; display:grid; align-content:start; gap:8px; padding:2px 3px 4px; }
+    .session-card { position:relative; border:1px solid var(--line); border-radius:12px; background:#fff; padding:13px; cursor:pointer; display:grid; gap:10px; transition:border-color .18s ease,background .18s ease,box-shadow .18s ease,transform .18s ease; }
+    .session-card::before { content:''; position:absolute; inset:12px auto 12px 0; width:3px; border-radius:0 3px 3px 0; background:transparent; }
+    .session-card:hover { transform:translateY(-1px); border-color:#c7d2fe; box-shadow:0 8px 18px rgba(15,23,42,.06); }
+    .session-card.active { border-color:#a5b4fc; background:var(--accent-soft); box-shadow:0 8px 20px rgba(79,70,229,.1); }
+    .session-card.active::before { background:var(--accent); }
     .session-head { display:flex; justify-content:space-between; gap:8px; align-items:flex-start; }
-    .session-name { font-weight:800; }
-    .snippet { color:var(--muted); font-size:13px; line-height:1.4; min-height:36px; display:-webkit-box; -webkit-line-clamp:2; line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-    .badge { display:inline-flex; align-items:center; min-height:24px; padding:0 8px; border-radius:8px; background:#e8eef6; color:var(--ink); font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; }
+    .session-name { font-weight:800; line-height:1.3; }
+    .session-idline { margin-top:3px; font-size:11px; }
+    .session-card-status { justify-content:flex-end; }
+    .snippet { color:var(--muted); font-size:12px; line-height:1.45; min-height:34px; display:-webkit-box; -webkit-line-clamp:2; line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+    .session-footer { display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:8px; padding-top:9px; border-top:1px solid rgba(148,163,184,.24); font-size:10px; white-space:nowrap; }
+    .session-footer > span:first-child { min-width:0; overflow:hidden; text-overflow:ellipsis; }
+    .session-footer .bot-toggle { justify-self:end; }
+    .badge { display:inline-flex; align-items:center; min-height:24px; padding:0 8px; border-radius:999px; background:#e8eef6; color:var(--ink); font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; }
     .bot-toggle { display:inline-flex; align-items:center; gap:4px; cursor:pointer; font-size:12px; } .bot-toggle input { width:auto; padding:0; }
     .badge.ok { background:#dcfce7; color:#047857; } .badge.warn { background:#ffedd5; color:var(--warn); } .badge.danger { background:#fee2e2; color:var(--danger); } .badge.accent { background:#dbeafe; color:var(--accent); }
-    .main { min-width:0; padding:20px; display:grid; grid-template-rows:auto minmax(0,1fr) auto; gap:16px; }
-    .detail { padding:18px; display:grid; gap:14px; }
-    .detail-head { display:flex; justify-content:space-between; gap:14px; align-items:flex-start; }
-    .detail-head h2 { font-size:24px; }
+    .main { min-width:0; height:100vh; padding:20px; display:grid; grid-template-rows:auto minmax(260px,1fr) auto; gap:14px; background:radial-gradient(circle at 100% 0,rgba(199,210,254,.38),transparent 30%),var(--bg); }
+    .detail { padding:20px; display:grid; gap:14px; box-shadow:0 10px 30px rgba(15,23,42,.05); }
+    .detail-head { display:flex; justify-content:space-between; gap:18px; align-items:center; }
+    .contact-identity { display:flex; align-items:center; gap:12px; min-width:0; }
+    .contact-avatar { flex:0 0 auto; width:42px; height:42px; display:grid; place-items:center; border-radius:12px; background:linear-gradient(135deg,#6366f1,#4338ca); color:#fff; font-size:17px; font-weight:800; box-shadow:0 8px 18px rgba(79,70,229,.2); }
+    .detail-head h2 { font-size:20px; letter-spacing:-.025em; }
+    .detail-head p { margin-top:3px; font-size:12px; }
     .detail-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; }
+    .detail-grid--primary .info { background:#fff; }
+    .detail-grid--technical { grid-template-columns:repeat(4,minmax(0,1fr)); margin-top:10px; }
+    .detail-grid--technical .info:last-child { grid-column:1/-1; }
+    .info { padding:10px 12px; }
+    .info span { margin-bottom:5px; font-size:9px; }
+    .session-details { border-top:1px solid var(--line); padding-top:10px; }
+    .session-details summary { width:fit-content; color:var(--muted); cursor:pointer; font-size:11px; font-weight:700; user-select:none; }
+    .session-details summary:hover { color:var(--accent-strong); }
+    .detail-actions { display:flex; align-items:center; justify-content:space-between; gap:12px; padding-top:10px; border-top:1px solid var(--line); }
+    .detail-actions-label { color:var(--muted); font-size:10px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
+    .detail-actions .actions { justify-content:flex-end; }
+    .detail-actions button { min-height:34px; padding:0 11px; font-size:12px; }
     .thread { min-height:0; display:grid; grid-template-rows:auto minmax(0,1fr); overflow:hidden; }
-    .thread-title { padding:14px 18px; border-bottom:1px solid var(--line); background:var(--soft); display:flex; justify-content:space-between; gap:10px; }
-    .messages { overflow:auto; padding:18px; display:flex; flex-direction:column; gap:12px; }
-    .message { max-width:min(760px,78%); border:1px solid var(--line); border-radius:8px; padding:12px 14px; background:#fff; }
-    .message.admin,.message.bot { align-self:flex-end; background:#eff6ff; } .message.user { align-self:flex-start; }
+    .thread-title { padding:12px 16px; border-bottom:1px solid var(--line); background:var(--soft); display:flex; justify-content:space-between; gap:10px; font-size:13px; }
+    .messages { overflow:auto; padding:20px; display:flex; flex-direction:column; gap:12px; background:linear-gradient(180deg,#fbfcfe 0%,#fff 35%); }
+    .conversation-empty { min-height:100%; display:grid; place-items:center; text-align:center; color:var(--muted); }
+    .conversation-empty-mark { width:48px; height:48px; display:grid; place-items:center; margin:0 auto 10px; border:1px solid var(--line); border-radius:14px; background:#fff; color:var(--accent); font-size:21px; box-shadow:0 8px 20px rgba(15,23,42,.05); }
+    .conversation-empty strong { display:block; margin-bottom:4px; color:var(--ink); font-size:14px; }
+    .conversation-empty span { font-size:12px; }
+    .message { max-width:min(680px,74%); border:1px solid var(--line); border-radius:14px; padding:12px 14px; background:#fff; box-shadow:0 5px 14px rgba(15,23,42,.04); }
+    .message.admin,.message.bot { align-self:flex-end; border-color:#c7d2fe; background:var(--accent-soft); } .message.user { align-self:flex-start; }
     .message small { display:block; margin-bottom:7px; color:var(--muted); font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; }
     .message .text { white-space:pre-wrap; line-height:1.5; overflow-wrap:anywhere; } .message .stamp { margin-top:8px; color:var(--muted); font-size:12px; }
     .attachments { display:grid; gap:8px; margin-top:10px; }
@@ -80,9 +116,12 @@
     .attachment-actions button { border:1px solid #fecaca; background:#fee2e2; color:var(--danger); }
     .attachment-actions button:hover { background:#fecaca; border-color:#fca5a5; color:#991b1b; }
     .attachment-deleted { margin-top:8px; color:var(--muted); font-size:12px; font-style:italic; }
-    .composer { padding:16px; display:grid; gap:10px; }
+    .composer { padding:14px 16px; display:grid; grid-template-columns:minmax(0,1fr) auto; gap:10px 14px; box-shadow:0 10px 30px rgba(15,23,42,.05); }
     .composer-head { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; }
-    .composer-actions { display:flex; gap:8px; align-items:center; justify-content:flex-end; flex-wrap:wrap; }
+    .composer-head h3 { font-size:14px; }
+    .composer-head p { margin-top:2px; font-size:11px; }
+    .composer-actions { grid-column:2; grid-row:1/3; display:flex; gap:8px; align-items:flex-end; justify-content:flex-end; }
+    .composer textarea { min-height:68px; max-height:160px; padding:11px 13px; }
     .empty { display:grid; place-items:center; text-align:center; padding:32px; color:var(--muted); }
     .loading { position:fixed; right:18px; bottom:18px; background:#111827; color:#fff; border-radius:8px; padding:10px 13px; box-shadow:var(--shadow); font-size:13px; z-index:20; }
     .ai-summary-card { background:var(--soft); border:1px solid var(--line); border-radius:12px; padding:20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; }
@@ -103,9 +142,108 @@
     .modal-drawer { width:min(520px,100%); background:var(--surface); border:1px solid var(--line); border-radius:12px; box-shadow:var(--shadow); padding:24px; display:grid; gap:16px; }
     .modal-head { display:flex; justify-content:space-between; align-items:center; gap:12px; border-bottom:1px solid var(--line); padding-bottom:12px; }
     .modal-head h3 { font-size:18px; font-weight:800; }
+    .knowledge-panel { padding:24px; display:grid; gap:22px; align-content:start; }
+    .knowledge-header { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+    .knowledge-header-copy { display:flex; align-items:center; gap:13px; }
+    .knowledge-mark { width:44px; height:44px; display:grid; place-items:center; flex:0 0 auto; border-radius:13px; background:linear-gradient(135deg,#6366f1,#4338ca); color:#fff; font-weight:800; box-shadow:0 10px 22px rgba(79,70,229,.2); }
+    .knowledge-header h2 { font-size:21px; letter-spacing:-.025em; }
+    .knowledge-header p { margin-top:4px; font-size:13px; }
+    .knowledge-status { display:inline-flex; align-items:center; gap:7px; padding:7px 10px; border:1px solid #bbf7d0; border-radius:999px; background:#f0fdf4; color:#047857; font-size:10px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; }
+    .knowledge-status::before { content:''; width:7px; height:7px; border-radius:50%; background:#10b981; box-shadow:0 0 0 3px rgba(16,185,129,.12); }
+    .knowledge-ingest-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; }
+    .knowledge-card { min-width:0; padding:16px; display:grid; grid-template-rows:auto minmax(0,1fr) auto; gap:14px; border:1px solid var(--line); border-radius:14px; background:linear-gradient(155deg,#fff 0%,#fafbff 100%); box-shadow:0 8px 22px rgba(15,23,42,.045); }
+    .knowledge-card-head { display:flex; align-items:flex-start; gap:10px; }
+    .knowledge-card-icon { width:34px; height:34px; display:grid; place-items:center; flex:0 0 auto; border-radius:10px; background:var(--accent-soft); color:var(--accent-strong); font-size:14px; font-weight:800; }
+    .knowledge-card h3 { margin:0; font-size:14px; }
+    .knowledge-card-lead { margin-top:3px; color:var(--muted); font-size:11px; line-height:1.4; }
+    .knowledge-fields { display:grid; align-content:start; gap:9px; }
+    .knowledge-github-options { display:grid; gap:8px; padding:10px; border:1px solid var(--line); border-radius:10px; background:var(--soft); }
+    .knowledge-github-options label { color:var(--muted); font-size:10px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; }
+    .knowledge-card textarea { min-height:92px; }
+    .knowledge-card .btn-primary { width:100%; min-height:38px; }
+    .knowledge-file-input { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+    .knowledge-dropzone { min-height:122px; padding:18px; display:grid; place-items:center; text-align:center; border:1.5px dashed #c7d2fe; border-radius:11px; background:var(--accent-soft); color:var(--accent-strong); cursor:pointer; transition:border-color .18s ease,background .18s ease,transform .18s ease; }
+    .knowledge-dropzone:hover { transform:translateY(-1px); border-color:var(--accent); background:#e0e7ff; }
+    .knowledge-dropzone strong { display:block; font-size:12px; }
+    .knowledge-dropzone span { display:block; margin-top:5px; color:var(--muted); font-size:10px; }
+    .knowledge-library { min-width:0; border:1px solid var(--line); border-radius:14px; background:#fff; overflow:hidden; }
+    .knowledge-library-head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:15px 17px; border-bottom:1px solid var(--line); background:var(--soft); }
+    .knowledge-library-head h3 { font-size:14px; }
+    .knowledge-count { min-width:28px; padding:4px 8px; border-radius:999px; background:var(--accent-soft); color:var(--accent-strong); text-align:center; font-size:11px; font-weight:800; }
+    .knowledge-table-wrap { overflow-x:auto; }
+    .knowledge-table { width:100%; border-collapse:collapse; text-align:left; table-layout:fixed; }
+    .knowledge-table th { padding:10px 14px; border-bottom:1px solid var(--line); color:var(--muted); background:#fff; font-size:9px; font-weight:800; letter-spacing:.07em; text-transform:uppercase; }
+    .knowledge-table td { padding:11px 14px; border-bottom:1px solid var(--line); font-size:12px; vertical-align:middle; }
+    .knowledge-table tbody tr:last-child td { border-bottom:0; }
+    .knowledge-table tbody tr:hover { background:#fafbff; }
+    .knowledge-table .source-cell { width:44%; }
+    .knowledge-table .title-cell { width:20%; }
+    .knowledge-table .type-cell { width:8%; }
+    .knowledge-table .date-cell { width:12%; }
+    .knowledge-table .actions-cell { width:16%; text-align:right; }
+    .knowledge-source { display:block; max-width:100%; overflow:hidden; color:var(--ink); text-overflow:ellipsis; white-space:nowrap; }
+    .knowledge-table .btn-delete-rag-doc { min-height:32px; padding:0 10px; border-color:#fecaca; background:#fff; color:var(--danger); box-shadow:none; font-size:11px; }
+    .knowledge-table .btn-delete-rag-doc:hover { background:#fef2f2; border-color:#fca5a5; box-shadow:none; }
+    .admin-module { width:100%; max-width:1180px; margin:0 auto; padding:24px; display:grid; gap:18px; align-content:start; }
+    .module-header { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; } .module-header h2 { font-size:22px; letter-spacing:-.025em; } .module-header p { max-width:720px; margin-top:5px; font-size:13px; }
+    .module-card { min-width:0; padding:18px; border:1px solid var(--line); border-radius:14px; background:var(--surface); box-shadow:0 8px 24px rgba(15,23,42,.045); } .module-card h3 { margin:0; font-size:14px; }
+    .prompt-layout { display:grid; grid-template-columns:minmax(0,1.65fr) minmax(260px,.75fr); gap:16px; align-items:start; } .prompt-editor { padding:0; overflow:hidden; } .prompt-editor-head { padding:14px 16px; border-bottom:1px solid var(--line); background:var(--soft); }
+    .prompt-editor textarea { min-height:440px; padding:18px; border:0; border-radius:0; box-shadow:none; background:#fbfcff; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:13px; line-height:1.65; resize:vertical; }
+    .prompt-editor-foot { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 16px; border-top:1px solid var(--line); } .prompt-meta { display:flex; align-items:center; gap:8px; color:var(--muted); font-size:11px; font-weight:700; } .prompt-meta::before { content:''; width:7px; height:7px; border-radius:50%; background:#10b981; }
+    .prompt-side,.telegram-stack { display:grid; gap:14px; } .variable-list { display:grid; gap:8px; margin-top:12px; } .variable-chip { padding:9px 10px; border:1px solid var(--line); border-radius:9px; background:var(--soft); font-size:11px; } .variable-chip code { display:block; margin-bottom:3px; color:var(--accent-strong); font-weight:800; }
+    .telegram-layout { display:grid; grid-template-columns:minmax(0,1.1fr) minmax(320px,.9fr); gap:16px; } .telegram-status-row { display:flex; align-items:center; justify-content:space-between; gap:14px; } .telegram-actions { display:flex; flex-wrap:wrap; gap:8px; }
+    .identity-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:14px; } .identity-item { min-width:0; padding:10px; border:1px solid var(--line); border-radius:10px; background:var(--soft); } .identity-item > span { display:block; margin-bottom:4px; color:var(--muted); font-size:9px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; } .identity-item p { overflow:hidden; margin:0; text-overflow:ellipsis; white-space:nowrap; font-size:12px; }
+    .settings-field { display:grid; gap:8px; } .settings-field + .settings-field { margin-top:16px; padding-top:16px; border-top:1px solid var(--line); } .settings-field label { font-size:12px; font-weight:800; } .settings-field .muted { margin:0; font-size:11px; } .settings-field button { justify-self:start; }
+    #theme-presets-container { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:12px; } .theme-card { position:relative; border-radius:12px; transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease; } .theme-card:hover { transform:translateY(-2px); box-shadow:0 10px 24px rgba(15,23,42,.09); } .theme-card input[type="radio"] { position:absolute; top:12px; right:12px; z-index:1; accent-color:var(--accent); } .theme-card:has(input:checked)::after { content:'✓'; position:absolute; top:10px; right:10px; width:22px; height:22px; display:grid; place-items:center; border-radius:50%; background:var(--accent); color:#fff; font-size:12px; font-weight:900; } .theme-card:has(input:checked) input { opacity:0; } .theme-preview { height:96px; }
+    .theme-footer { position:sticky; bottom:12px; display:flex; align-items:center; justify-content:flex-end; padding:12px; border:1px solid var(--line); border-radius:12px; background:rgba(255,255,255,.94); box-shadow:0 10px 28px rgba(15,23,42,.08); backdrop-filter:blur(8px); }
+    @media (max-width:760px) { .admin-module { padding:16px; } .module-header { display:block; } .prompt-layout,.telegram-layout { grid-template-columns:1fr; } .prompt-editor textarea { min-height:340px; } .identity-grid { grid-template-columns:1fr; } .telegram-status-row { align-items:flex-start; flex-direction:column; } #theme-presets-container { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+    @media (max-width:460px) { #theme-presets-container { grid-template-columns:1fr; } .prompt-editor-foot { align-items:stretch; flex-direction:column; } .prompt-editor-foot button { width:100%; } .telegram-actions button { flex:1; } }
     @media (prefers-color-scheme:dark) { input,textarea { color-scheme:light; } }
-    @media (max-width:1100px) { .app { grid-template-columns:1fr; } .sidebar { min-height:auto; } .main { min-height:780px; } .detail-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
-    @media (max-width:680px) { .sidebar,.main { padding:12px; } .topbar,.detail-head,.filters { grid-template-columns:1fr; display:grid; } .metrics,.detail-grid { grid-template-columns:1fr; } .message { max-width:100%; } }
+    @media (max-width:1100px) { .app { grid-template-columns:330px minmax(0,1fr); } .sidebar { padding:16px; } .main { padding:18px; } .detail-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+    @media (max-width:760px) {
+      .app { display:block; }
+      .sidebar { min-height:auto; padding:16px; border-right:0; border-bottom:1px solid var(--line); gap:14px; }
+      .main { min-height:560px; padding:16px; }
+      .topbar { padding:16px; }
+      .topbar h1 { font-size:23px; }
+      .top-actions { gap:6px; }
+      .top-actions a,.top-actions button { min-height:36px; padding:0 10px; font-size:12px; }
+      .nav-tabs { margin:0 -2px; grid-template-columns:repeat(3,minmax(0,1fr)); }
+      .filters { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .filters button { min-height:38px; }
+      .metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .metric { padding:10px; }
+      .metric strong { font-size:20px; }
+      #sidebar-chats-content { min-height:unset; }
+      .session-list { max-height:360px; }
+      .detail-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .main { height:auto; grid-template-rows:auto minmax(360px,60vh) auto; }
+      .detail-actions { align-items:flex-start; }
+      .composer { grid-template-columns:minmax(0,1fr) auto; }
+    }
+    @media (max-width:480px) {
+      .sidebar,.main { padding:12px; }
+      .topbar { display:grid; grid-template-columns:1fr auto; align-items:start; }
+      .topbar p { font-size:14px; }
+      .top-actions { display:grid; grid-template-columns:1fr; }
+      .top-actions a,.top-actions button { justify-content:center; }
+      .metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .detail-head { display:grid; }
+      .detail-grid { grid-template-columns:1fr; }
+      .detail { padding:16px; }
+      .detail-actions { display:grid; }
+      .detail-actions .actions { justify-content:stretch; }
+      .detail-actions button { flex:1 1 calc(50% - 4px); }
+      .message { max-width:100%; }
+      .composer { padding:14px; grid-template-columns:1fr; }
+      .composer-actions { grid-column:1; grid-row:auto; }
+      .composer-actions button { flex:1; }
+      .knowledge-panel { padding:16px; }
+      .knowledge-header { align-items:flex-start; }
+      .knowledge-status { display:none; }
+      .knowledge-ingest-grid { grid-template-columns:1fr; }
+      .knowledge-table { min-width:760px; }
+    }
     .theme-card { display:flex; flex-direction:column; gap:10px; padding:14px; border:1px solid var(--line); border-radius:8px; background:var(--surface); cursor:pointer; }
     .theme-card input[type="radio"] { width:auto; padding:0; border:none; box-shadow:none; }
     .theme-card:has(input:checked) { border-color:var(--accent); box-shadow:0 0 0 2px rgba(37,99,235,.15); }
@@ -161,6 +299,7 @@
           <article class="metric"><span data-i18n="messages">Mensajes</span><strong id="mMessages">0</strong></article>
           <article class="metric"><span data-i18n="blocked">Bloqueados</span><strong id="mBanned">0</strong></article>
         </section>
+        <div class="sidebar-section-title"><span>Conversaciones</span><span>Actividad reciente</span></div>
         <section id="sessionList" class="session-list" style="margin-top:10px;"></section>
       </div>
     </aside>
@@ -169,29 +308,38 @@
       <div id="tab-chats" class="tab-pane active" style="display:contents;">
         <section id="emptyState" class="empty"><div><h2 data-i18n="selectChat">Selecciona un chat</h2><p data-i18n="detailHere">El detalle aparecerá aquí.</p></div></section>
         <section id="detailPanel" class="panel detail hidden">
-          <div class="detail-head"><div><h2 id="detailName">Sin selección</h2><p id="detailMeta" class="muted"></p></div><div id="detailBadges" class="row"></div></div>
-          <div class="detail-grid">
-            <article class="info"><span>Session ID</span><strong id="infoSession" class="mono"></strong></article>
+          <div class="detail-head">
+            <div class="contact-identity"><div class="contact-avatar" aria-hidden="true">CH</div><div><h2 id="detailName">Sin selección</h2><p id="detailMeta" class="muted"></p></div></div>
+            <div id="detailBadges" class="row"></div>
+          </div>
+          <div class="detail-grid detail-grid--primary">
             <article class="info"><span>IP</span><strong id="infoIp" class="mono"></strong></article>
             <article class="info"><span data-i18n="geo">Geolocalización</span><strong id="infoGeo"></strong></article>
-            <article class="info"><span>ISP</span><strong id="infoIsp"></strong></article>
             <article class="info"><span data-i18n="page">Página actual</span><strong id="infoPage"></strong></article>
+            <article class="info"><span data-i18n="lastActive">Última actividad</span><strong id="infoActive"></strong></article>
+          </div>
+          <details class="session-details">
+            <summary>Ver detalles técnicos</summary>
+            <div class="detail-grid detail-grid--technical">
+            <article class="info"><span>Session ID</span><strong id="infoSession" class="mono"></strong></article>
+            <article class="info"><span>ISP</span><strong id="infoIsp"></strong></article>
             <article class="info"><span data-i18n="language">Idioma</span><strong id="infoLang"></strong></article>
             <article class="info"><span data-i18n="created">Creado</span><strong id="infoCreated"></strong></article>
-            <article class="info"><span data-i18n="lastActive">Última actividad</span><strong id="infoActive"></strong></article>
             <article class="info" style="grid-column:1/-1"><span>User agent</span><strong id="infoAgent"></strong></article>
-          </div>
-          <div class="actions">
+            </div>
+          </details>
+          <div class="detail-actions"><span class="detail-actions-label">Acciones de conversación</span><div class="actions">
             <button id="clearBtn" class="btn-warn" type="button" data-i18n="clear">Limpiar chat</button>
             <button id="blockBtn" class="btn-warn" type="button" data-i18n="block">Bloquear</button>
             <button id="banBtn" class="btn-danger" type="button" data-i18n="ban">Banear</button>
             <button id="deleteBtn" class="btn-danger" type="button" data-i18n="delete">Eliminar</button>
-          </div>
+          </div></div>
         </section>
         <section id="threadPanel" class="thread hidden"><div class="thread-title"><strong data-i18n="history">Historial</strong><span id="threadCount" class="muted"></span></div><div id="messageList" class="messages"></div></section>
         <section id="composerPanel" class="composer hidden">
-          <div class="composer-head"><div><h3 data-i18n="reply">Responder</h3><p id="replyStatus" class="muted">Listo.</p></div><div class="composer-actions"><button id="attachBtn" class="btn-soft" type="button" data-i18n="attach">Adjuntar</button><button id="sendBtn" class="btn-primary" type="button" data-i18n="send">Enviar</button></div></div>
+          <div class="composer-head"><div><h3 data-i18n="reply">Responder</h3><p id="replyStatus" class="muted">Listo.</p></div></div>
           <textarea id="replyInput" placeholder="Escribe tu respuesta" data-i18n-placeholder="writeReply"></textarea>
+          <div class="composer-actions"><button id="attachBtn" class="btn-soft" type="button" data-i18n="attach">Adjuntar</button><button id="sendBtn" class="btn-primary" type="button" data-i18n="send">Enviar</button></div>
           <input id="fileInput" class="hidden" type="file" accept="image/jpeg,image/png,image/webp,image/gif">
         </section>
       </div>
@@ -264,50 +412,59 @@
         </div>
       </div>
 
-      <section id="tab-knowledge" class="tab-pane hidden panel" style="padding:24px; display:grid; gap:20px;">
-        <div>
-          <h2 data-i18n="knowledge.tab_title">Base de Conocimiento RAG</h2>
-          <p class="muted" data-i18n="knowledge.lead">Gestión de documentos, URLs y PDFs para búsqueda contextual del bot.</p>
+      <section id="tab-knowledge" class="tab-pane hidden panel knowledge-panel">
+        <div class="knowledge-header">
+          <div class="knowledge-header-copy"><div class="knowledge-mark" aria-hidden="true">RAG</div><div>
+            <h2 data-i18n="knowledge.tab_title">Base de Conocimiento RAG</h2>
+            <p class="muted" data-i18n="knowledge.lead">Gestión de documentos, URLs y PDFs para búsqueda contextual del bot.</p>
+          </div></div>
+          <span class="knowledge-status" data-i18n="knowledge.index_active">Índice activo</span>
         </div>
 
-        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:16px;">
+        <div class="knowledge-ingest-grid">
           <!-- Manual Text Form -->
-          <form id="form-rag-text" class="metric" style="padding:16px; display:grid; gap:10px;" onsubmit="return false;">
-            <h3 style="margin:0;" data-i18n="knowledge.add_text">Añadir texto manual</h3>
-            <input id="rag-text-title" type="text" placeholder="Título" data-i18n-placeholder="knowledge.title" required>
-            <textarea id="rag-text-content" rows="4" placeholder="Contenido de texto" data-i18n-placeholder="knowledge.add_text" required style="resize:vertical;"></textarea>
+          <form id="form-rag-text" class="knowledge-card" onsubmit="return false;">
+            <div class="knowledge-card-head"><span class="knowledge-card-icon" aria-hidden="true">T</span><div><h3 data-i18n="knowledge.add_text">Añadir texto manual</h3><p class="knowledge-card-lead" data-i18n="knowledge.text_help">Agrega instrucciones, políticas o respuestas frecuentes.</p></div></div>
+            <div class="knowledge-fields"><input id="rag-text-title" type="text" placeholder="Título" data-i18n-placeholder="knowledge.title" required>
+            <textarea id="rag-text-content" rows="4" placeholder="Contenido de texto" data-i18n-placeholder="knowledge.add_text" required></textarea></div>
             <button id="btn-rag-add-text" class="btn-primary" type="submit" data-i18n="knowledge.ingest">Ingestar</button>
           </form>
 
           <!-- URL Ingest Form -->
-          <form id="form-rag-url" class="metric" style="padding:16px; display:grid; gap:10px;" onsubmit="return false;">
-            <h3 style="margin:0;" data-i18n="knowledge.add_url">Ingestar desde URL</h3>
-            <input id="rag-url-title" type="text" placeholder="Título (opcional)" data-i18n-placeholder="knowledge.title">
+          <form id="form-rag-url" class="knowledge-card" onsubmit="return false;">
+            <div class="knowledge-card-head"><span class="knowledge-card-icon" aria-hidden="true">↗</span><div><h3 data-i18n="knowledge.add_url">Ingestar desde URL</h3><p class="knowledge-card-lead" data-i18n="knowledge.url_help">Importa el contenido público de una página web.</p></div></div>
+            <div class="knowledge-fields"><input id="rag-url-title" type="text" placeholder="Título (opcional)" data-i18n-placeholder="knowledge.title">
             <input id="rag-url-input" type="url" placeholder="https://ejemplo.com/faq" data-i18n-placeholder="knowledge.add_url" required>
+            <div id="rag-github-options" class="knowledge-github-options hidden">
+              <label for="rag-github-mode" data-i18n="knowledge.github_mode">Contenido de GitHub</label>
+              <select id="rag-github-mode"><option value="repository" data-i18n="knowledge.github_repository">Repositorio selectivo</option><option value="docs" data-i18n="knowledge.github_docs">README y documentación</option><option value="readme" data-i18n="knowledge.github_readme">Solo README</option></select>
+              <div id="rag-github-paths-wrap"><label for="rag-github-paths" data-i18n="knowledge.github_paths">Rutas específicas (opcional)</label><input id="rag-github-paths" type="text" placeholder="docs, src" data-i18n-placeholder="knowledge.github_paths_placeholder"></div>
+            </div></div>
             <button id="btn-rag-add-url" class="btn-primary" type="submit" data-i18n="knowledge.ingest">Ingestar</button>
           </form>
 
           <!-- PDF Upload Form -->
-          <form id="form-rag-file" class="metric" style="padding:16px; display:grid; gap:10px;" onsubmit="return false;">
-            <h3 style="margin:0;" data-i18n="knowledge.add_pdf">Subir PDF (Máx. 5 MB)</h3>
-            <input id="rag-file-input" type="file" accept="application/pdf,.pdf" required>
+          <form id="form-rag-file" class="knowledge-card" onsubmit="return false;">
+            <div class="knowledge-card-head"><span class="knowledge-card-icon" aria-hidden="true">PDF</span><div><h3 data-i18n="knowledge.add_pdf">Subir PDF (Máx. 5 MB)</h3><p class="knowledge-card-lead" data-i18n="knowledge.pdf_help">Procesa documentación estructurada automáticamente.</p></div></div>
+            <div class="knowledge-fields"><input id="rag-file-input" class="knowledge-file-input" type="file" accept="application/pdf,.pdf" required><label class="knowledge-dropzone" for="rag-file-input"><span><strong id="rag-file-label" data-i18n="knowledge.select_pdf">Seleccionar archivo PDF</strong><span>PDF · 5 MB</span></span></label></div>
             <button id="btn-rag-add-pdf" class="btn-primary" type="submit" data-i18n="knowledge.upload">Subir</button>
           </form>
         </div>
 
         <div id="ragNotice" class="notice hidden"></div>
 
-        <div>
-          <h3 style="margin-bottom:12px;" data-i18n="knowledge.doc_list">Documentos ingestados</h3>
-          <div style="overflow-x:auto;">
-            <table id="rag-doc-table" style="width:100%; border-collapse:collapse; text-align:left;">
+        <div class="knowledge-library">
+          <div class="knowledge-library-head"><h3 data-i18n="knowledge.doc_list">Documentos ingestados</h3><div class="actions"><span id="rag-doc-count" class="knowledge-count">0</span><button id="btn-rag-index" class="btn-primary" type="button" disabled>Indexado</button></div></div>
+          <p id="rag-index-reason" class="muted hidden" style="padding:0 17px 12px;"></p>
+          <div class="knowledge-table-wrap">
+            <table id="rag-doc-table" class="knowledge-table">
               <thead>
-                <tr style="border-bottom:1px solid var(--border-color, #ccc);">
-                  <th style="padding:8px;" data-i18n="knowledge.source">Origen</th>
-                  <th style="padding:8px;" data-i18n="knowledge.title">Título</th>
-                  <th style="padding:8px;" data-i18n="knowledge.type">Tipo</th>
-                  <th style="padding:8px;" data-i18n="knowledge.created">Fecha</th>
-                  <th style="padding:8px;" data-i18n="knowledge.actions">Acciones</th>
+                <tr>
+                  <th class="source-cell" data-i18n="knowledge.source">Origen</th>
+                  <th class="title-cell" data-i18n="knowledge.title">Título</th>
+                  <th class="type-cell" data-i18n="knowledge.type">Tipo</th>
+                  <th class="date-cell" data-i18n="knowledge.created">Fecha</th>
+                  <th class="actions-cell" data-i18n="knowledge.actions">Acciones</th>
                 </tr>
               </thead>
               <tbody id="rag-doc-tbody">
@@ -318,108 +475,56 @@
         </div>
       </section>
 
-      <section id="tab-prompt" class="tab-pane hidden panel" style="padding:24px; display:grid; gap:20px;">
-        <div>
+      <section id="tab-prompt" class="tab-pane hidden admin-module">
+        <div class="module-header">
+          <div>
           <h2 data-i18n="prompt.tab_title">Master System Prompt</h2>
           <p class="muted" data-i18n="prompt.lead">Configuración del prompt del sistema para orientar el comportamiento e identidad del bot.</p>
+          </div>
         </div>
-
-        <div style="display:grid; gap:16px;">
-          <div>
-            <label for="master-prompt-input" style="display:block; margin-bottom:8px; font-weight:700;" data-i18n="prompt.textarea_label">System Prompt</label>
-            <textarea id="master-prompt-input" rows="12" style="width:100%; font-family:monospace; resize:vertical;" placeholder="Escribe el prompt del sistema..." data-i18n-placeholder="prompt.placeholder"></textarea>
+        <div class="prompt-layout">
+          <div class="module-card prompt-editor">
+            <div class="prompt-editor-head"><label for="master-prompt-input" style="font-weight:800;" data-i18n="prompt.textarea_label">System Prompt</label></div>
+            <textarea id="master-prompt-input" rows="16" placeholder="Escribe el prompt del sistema..." data-i18n-placeholder="prompt.placeholder"></textarea>
+            <div class="prompt-editor-foot"><div id="prompt-char-count" class="prompt-meta">0 caracteres</div><div class="actions"><button id="btn-reset-prompt" class="btn-soft" type="button" data-i18n="prompt.reset">Restaurar predeterminado</button><button id="btn-save-prompt" class="btn-primary" type="button" data-i18n="prompt.save">Guardar Master Prompt</button></div></div>
+            <div id="promptNotice" class="notice hidden" style="margin:0 16px 16px;"></div>
           </div>
 
-          <div class="metric" style="padding:16px;">
-            <h3 style="margin-top:0;" data-i18n="prompt.variables_guide">Guía de Variables Disponibles</h3>
-            <p class="muted" style="margin-bottom:8px;" data-i18n="prompt.variables_lead">Puedes usar las siguientes variables en tu prompt para inyección dinámica en tiempo de ejecución:</p>
-            <ul style="margin:0; padding-left:20px;">
-              <li><code>{visitor_name}</code>: Nombre del visitante actual</li>
-              <li><code>{site_title}</code>: Título del sitio web</li>
-              <li><code>{current_language}</code>: Código de idioma del cliente</li>
-              <li><code>{rag_context}</code>: Fragmentos de conocimiento RAG</li>
-            </ul>
-          </div>
-
-          <div class="metric" style="padding:16px;">
-            <h3 style="margin-top:0;" data-i18n="prompt.rules_overview">Resumen de Matriz de Respuestas</h3>
-            <p class="muted" style="margin:0;" data-i18n="prompt.rules_lead">El bot responde directamente en el idioma del visitante, prioriza hechos del contexto RAG y ofrece escalar a un agente humano si la confianza es baja o la información es incierta.</p>
-          </div>
-
-          <div style="display:flex; align-items:center; gap:12px;">
-            <button id="btn-save-prompt" class="btn-primary" type="button" data-i18n="prompt.save">Guardar Master Prompt</button>
-            <div id="promptNotice" class="notice hidden"></div>
+          <div class="prompt-side">
+            <div class="module-card"><h3 data-i18n="prompt.variables_guide">Guía de Variables Disponibles</h3><p class="muted" style="font-size:11px;margin-top:5px;" data-i18n="prompt.variables_lead">Puedes usar las siguientes variables:</p><div class="variable-list">
+              <div class="variable-chip"><code>{visitor_name}</code>Nombre del visitante actual</div><div class="variable-chip"><code>{site_title}</code>Título del sitio web</div><div class="variable-chip"><code>{current_language}</code>Idioma del cliente</div><div class="variable-chip"><code>{rag_context}</code>Conocimiento RAG recuperado</div>
+            </div></div>
+            <div class="module-card"><h3 data-i18n="prompt.rules_overview">Resumen de Matriz de Respuestas</h3><p class="muted" style="margin-top:8px;font-size:12px;line-height:1.6;" data-i18n="prompt.rules_lead">El bot responde directamente en el idioma del visitante, prioriza hechos del contexto RAG y ofrece escalar a un agente humano si la confianza es baja o la información es incierta.</p></div>
           </div>
         </div>
       </section>
 
-      <section id="tab-telegram" class="tab-pane hidden" style="width:100%; max-width:800px; margin:0 auto; padding:24px 0;">
-        <div class="card" style="padding:24px; display:flex; flex-direction:column; gap:20px;">
-          <div>
+      <section id="tab-telegram" class="tab-pane hidden admin-module">
+        <div class="module-header"><div>
             <h2 data-i18n="telegram.tab_title">Configuración de Bot de Telegram</h2>
             <p class="muted" data-i18n="telegram.lead">Gestión de estado del bot, ID de administrador y control en tiempo de ejecución.</p>
-          </div>
-          <div id="telegramNotice" class="notice hidden"></div>
-
-          <div style="padding:16px; border:1px solid var(--border); border-radius:8px;">
-            <div style="display:flex; align-items:center; justify-content:space-between;">
-              <div>
+        </div></div><div id="telegramNotice" class="notice hidden"></div>
+        <div class="telegram-layout"><div class="telegram-stack">
+          <div class="module-card"><div class="telegram-status-row"><div>
                 <h3 style="margin:0 0 4px 0;" data-i18n="telegram.bot_status">Estado del Bot</h3>
                 <p id="telegram-status-text" class="muted" style="margin:0;" data-i18n="telegram.status_loading">Cargando estado...</p>
-              </div>
-              <div style="display:flex; gap:8px;">
+              </div><div class="telegram-actions">
                 <button id="btn-telegram-start" class="btn-primary" type="button" data-i18n="telegram.start">Iniciar</button>
                 <button id="btn-telegram-stop" class="btn-warn" type="button" data-i18n="telegram.stop">Detener</button>
                 <button id="btn-telegram-refresh" class="btn-soft" type="button" data-i18n="telegram.refresh">Recargar</button>
-              </div>
-            </div>
-            <div style="margin-top:16px; padding-top:12px; border-top:1px solid var(--border);">
-              <p style="margin:0 0 4px 0; font-weight:700;" data-i18n="telegram.bot_identity">Identidad del Bot</p>
-              <p style="margin:2px 0 0 0;" data-i18n="telegram.bot_username">Usuario (@username):</p>
-              <p id="telegram-bot-username" class="muted" style="margin:0 0 6px 0;">—</p>
-              <p style="margin:2px 0 0 0;" data-i18n="telegram.bot_name">Nombre:</p>
-              <p id="telegram-bot-name" class="muted" style="margin:0 0 6px 0;">—</p>
-              <p style="margin:2px 0 0 0;" data-i18n="telegram.masked_token">Token:</p>
-              <p id="telegram-masked-token" class="muted" style="margin:0 0 6px 0;">—</p>
-              <p style="margin:2px 0 0 0;" data-i18n="telegram.token_source">Fuente del token:</p>
-              <p id="telegram-token-source" class="muted" style="margin:0;">—</p>
-            </div>
-          </div>
-
-          <div style="padding:16px; border:1px solid var(--border); border-radius:8px;">
-            <label for="telegram-token-input" style="display:block; margin-bottom:8px; font-weight:700;" data-i18n="telegram.token">Token del Bot de Telegram</label>
-            <input id="telegram-token-input" type="password" autocomplete="off" placeholder="123456:ABC..." data-i18n-placeholder="telegram.token_placeholder" style="width:100%; max-width:400px; padding:8px 12px; margin-bottom:12px;">
-            <p class="muted" style="font-size:0.85rem; margin-top:0; margin-bottom:12px;" data-i18n="telegram.token_help">El token se verifica en vivo, se cifra y nunca se muestra completo.</p>
-            <button id="btn-save-telegram-token" class="btn-primary" type="button" data-i18n="telegram.save_token">Guardar y Verificar Token</button>
-          </div>
-
-          <div style="padding:16px; border:1px solid var(--border); border-radius:8px;">
-            <label for="telegram-admin-id-input" style="display:block; margin-bottom:8px; font-weight:700;" data-i18n="telegram.admin_id">ID de Administrador de Telegram</label>
-            <input id="telegram-admin-id-input" type="text" placeholder="Ej. 123456789" data-i18n-placeholder="telegram.admin_id_placeholder" style="width:100%; max-width:400px; padding:8px 12px; margin-bottom:12px;">
-            <p class="muted" style="font-size:0.85rem; margin-top:0; margin-bottom:12px;" data-i18n="telegram.admin_id_help">El ID numérico del usuario de Telegram autorizado para recibir y enviar respuestas.</p>
-            <button id="btn-save-telegram-admin-id" class="btn-primary" type="button" data-i18n="telegram.save_admin_id">Guardar ID</button>
-            <hr style="margin:16px 0; border:0; border-top:1px solid var(--border);">
-            <label for="telegram-admin-username-input" style="display:block; margin-bottom:8px; font-weight:700;" data-i18n="telegram.admin_username">Usuario de Administrador de Telegram</label>
-            <input id="telegram-admin-username-input" type="text" placeholder="@WilkinBR" data-i18n-placeholder="telegram.admin_username_placeholder" style="width:100%; max-width:400px; padding:8px 12px; margin-bottom:12px;">
-            <button id="btn-save-telegram-admin-username" class="btn-primary" type="button" data-i18n="telegram.save_admin_username">Guardar Usuario</button>
-          </div>
-        </div>
+              </div></div></div>
+          <div class="module-card"><h3 data-i18n="telegram.bot_identity">Identidad del Bot</h3><div class="identity-grid"><div class="identity-item"><span data-i18n="telegram.bot_username">Usuario (@username):</span><p id="telegram-bot-username" class="muted">—</p></div><div class="identity-item"><span data-i18n="telegram.bot_name">Nombre:</span><p id="telegram-bot-name" class="muted">—</p></div><div class="identity-item"><span data-i18n="telegram.masked_token">Token:</span><p id="telegram-masked-token" class="muted">—</p></div><div class="identity-item"><span data-i18n="telegram.token_source">Fuente del token:</span><p id="telegram-token-source" class="muted">—</p></div></div></div>
+        </div><div class="telegram-stack">
+          <div class="module-card settings-field"><label for="telegram-token-input" data-i18n="telegram.token">Token del Bot de Telegram</label><input id="telegram-token-input" type="password" autocomplete="off" placeholder="123456:ABC..." data-i18n-placeholder="telegram.token_placeholder"><p class="muted" data-i18n="telegram.token_help">El token se verifica en vivo, se cifra y nunca se muestra completo.</p><button id="btn-save-telegram-token" class="btn-primary" type="button" data-i18n="telegram.save_token">Guardar y Verificar Token</button></div>
+          <div class="module-card"><div class="settings-field"><label for="telegram-admin-id-input" data-i18n="telegram.admin_id">ID de Administrador de Telegram</label><input id="telegram-admin-id-input" type="text" placeholder="Ej. 123456789" data-i18n-placeholder="telegram.admin_id_placeholder"><p class="muted" data-i18n="telegram.admin_id_help">El ID numérico del usuario de Telegram autorizado para recibir y enviar respuestas.</p><button id="btn-save-telegram-admin-id" class="btn-primary" type="button" data-i18n="telegram.save_admin_id">Guardar ID</button></div><div class="settings-field"><label for="telegram-admin-username-input" data-i18n="telegram.admin_username">Usuario de Administrador de Telegram</label><input id="telegram-admin-username-input" type="text" placeholder="@WilkinBR" data-i18n-placeholder="telegram.admin_username_placeholder"><button id="btn-save-telegram-admin-username" class="btn-primary" type="button" data-i18n="telegram.save_admin_username">Guardar Usuario</button></div></div>
+        </div></div>
       </section>
 
-      <section id="tab-theme" class="tab-pane hidden" style="width:100%; max-width:800px; margin:0 auto; padding:24px 0;">
-        <div class="card" style="padding:24px; display:flex; flex-direction:column; gap:20px;">
-          <div>
+      <section id="tab-theme" class="tab-pane hidden admin-module">
+          <div class="module-header"><div>
             <h2 data-i18n="theme.title">Catálogo de Temas</h2>
             <p class="muted" data-i18n="theme.lead">Selecciona el tema visual para el widget de chat.</p>
-          </div>
-          <div id="themeNotice" class="notice hidden"></div>
-
-          <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:16px;" id="theme-presets-container"></div>
-
-          <div>
-            <button id="btn-save-theme" class="btn-primary" type="button" data-i18n="theme.save">Guardar tema</button>
-          </div>
-        </div>
+          </div></div><div id="themeNotice" class="notice hidden"></div><div class="module-card"><div id="theme-presets-container"></div></div><div class="theme-footer"><button id="btn-save-theme" class="btn-primary" type="button" data-i18n="theme.save">Guardar tema</button></div>
       </section>
     </main>
   </div>
@@ -454,7 +559,7 @@
         de: { 'ai.header.title':'KI-Verwaltungspanel', 'ai.header.status_on':'AI-Bot Aktiviert', 'ai.header.status_off':'AI-Bot Deaktiviert', 'ai.header.active_badge':'Aktiver Anbieter:', 'ai.card.configured':'Konfiguriert', 'ai.card.unconfigured':'Nicht konfiguriert', 'ai.card.principal':'Hauptanbieter', 'ai.card.set_default':'Als Hauptanbieter festlegen', 'ai.card.edit':'Konfigurieren / Bearbeiten', 'ai.modal.title':'Anbieter konfigurieren', 'ai.modal.api_key':'API-Schlüssel', 'ai.modal.model':'LLM-Modell', 'ai.modal.verify_connection':'Verbindung prüfen', 'ai.modal.save_and_close':'Speichern und schließen', 'ai.modal.model_list_title':'Verfügbare Modelle', 'ai.modal.no_models':'Keine Modelle gefunden', 'ai.modal.save_model':'Modell speichern', 'ai.modal.close':'Schließen', 'nav.theme':'Erscheinungsbild', 'theme.title':'Design-Katalog', 'theme.lead':'Wähle das visuelle Design für das Chat-Widget aus.', 'theme.auto':'Auto (Website-Abtastung)', 'theme.classic':'Classic Indigo', 'theme.light_aurora':'Light Aurora', 'theme.light_mint':'Light Mint', 'theme.dark_midnight':'Dark Midnight', 'theme.dark_ember':'Dark Ember', 'theme.light_sunrise':'Heller Sonnenaufgang', 'theme.light_sky':'Heller Himmel', 'theme.dark_ocean':'Dunkler Ozean', 'theme.dark_forest':'Dunkler Wald', 'theme.mono_light':'Mono Hell', 'theme.mono_dark':'Mono Dunkel', 'theme.green_chat':'Grüner Chat', 'theme.sky_chat':'Himmel-Chat', 'theme.gradient_vibrant':'Bunter Verlauf', 'theme.ink':'Tinte', 'theme.preview':'Vorschau', 'theme.save':'Theme speichern', 'theme.saved':'Theme erfolgreich aktualisiert.', loginTitle:'Admin-Zugang', loginLead:'Privates Panel zur Verwaltung von Chats, Benutzern und Systemstatus.', password:'Panel-Passwort', loginNotice:'Melde dich an, um das Panel zu laden.', enter:'Anmelden', singleAdmin:'Einzeladmin', chats:'Chats', directManage:'Direkte Gesprächsverwaltung.', logout:'Abmelden', search:'Name, ID, IP, Land, Seite suchen', online:'Online', all:'Alle', refresh:'Aktualisieren', users:'Benutzer', connected:'Verbunden', offline:'Offline', unread:'Ungelesen', messages:'Nachrichten', blocked:'Blockiert', selectChat:'Chat auswählen', detailHere:'Details erscheinen hier.', geo:'Geolokalisierung', page:'Aktuelle Seite', language:'Sprache', created:'Erstellt', lastActive:'Letzte Aktivität', clear:'Chat leeren', block:'Blockieren', ban:'Bannen', delete:'Löschen', history:'Verlauf', reply:'Antworten', ready:'Bereit.', send:'Senden', writeReply:'Antwort schreiben', syncing:'Synchronisiere...', noCsrf:'CSRF-Token nicht gefunden. Seite neu laden.', network:'Netzwerkfehler', unnamed:'Ohne Namen', unknown:'Unbekannt', noIp:'keine IP', noSelection:'Keine Auswahl', noMessages:'Noch keine Nachrichten.', msgCount:n=>`${n} Nachrichten`, unreadCount:n=>`${n} ungelesen`, read:'Gelesen', priority:'Priorität', loading:'Lade...', loadingChats:'Lade Chats...', loadingChat:'Lade Chat...', loggedIn:'Angemeldet.', loginRequired:'Melde dich an, um das Panel zu laden.', loginInvalid:'Sitzung abgelaufen oder nicht gestartet.', connectedReply:'Client verbunden. Du kannst antworten.', offlineReply:'Client offline. Die Antwort bleibt ausstehend.', bannedUser:'Benutzer blockiert.', savedPending:'Antwort gespeichert. Sie wird zugestellt, wenn der Benutzer zurückkehrt.', sent:'Antwort gesendet.', emptyReply:'Schreibe eine Nachricht zum Antworten.', clearConfirm:'Nachrichten in diesem Chat leeren?', userBanned:'Benutzer im System blockiert.', userDeleted:'Sitzung gelöscht.', deleteConfirm:'Diese Sitzung und alle ihre Nachrichten löschen?', filterAll:'Alle', filterUnread:'Ungelesen', filterBanned:'Blockiert', nav:'Navigation', status:'Status', promptSaved:'Master System Prompt erfolgreich gespeichert.', telegramStatusActive:'Telegram-Bot aktiv und antwortet.', telegramStatusInactive:'Telegram-Bot gestoppt.', telegramAdminIdSaved:'Admin-ID erfolgreich gespeichert.', invalidTelegramAdminId:'Ungültige Admin-ID. Darf nur Zahlen enthalten.', telegramStartSuccess:'Telegram-Bot gestartet.', telegramStopSuccess:'Telegram-Bot gestoppt.', 'nav.chats':'Chats', 'nav.ai':'KI', 'nav.knowledge':'Wissen', 'nav.prompt':'Prompt', 'nav.telegram':'Telegram', 'ai.tab_title':'Künstliche Intelligenz Einstellungen', 'ai.lead':'Verwalte LLM-Anbieter, API-Schlüssel und den globalen Bot-Status.', 'ai.global_toggle':'Globaler Bot-Status', 'ai.enable_bot':'Bot global aktivieren', 'ai.provider':'LLM-Anbieter', 'ai.model':'Standardmodell', 'ai.api_key':'API-Schlüssel', 'ai.verify_key':'Prüfen und speichern', 'knowledge.tab_title':'RAG-Wissensdatenbank', 'knowledge.lead':'Verwalte Dokumente, URLs und PDFs für die kontextuelle Bot-Suche.', 'knowledge.add_text':'Manuell Text hinzufügen', 'knowledge.title':'Titel', 'knowledge.ingest':'Indexieren', 'knowledge.add_url':'Von URL indexieren', 'knowledge.add_pdf':'PDF hochladen (Max. 5 MB)', 'knowledge.upload':'Hochladen', 'knowledge.doc_list':'Indexierte Dokumente', 'knowledge.source':'Quelle', 'knowledge.type':'Typ', 'knowledge.created':'Datum', 'knowledge.actions':'Aktionen', 'knowledge.no_docs':'Keine indexierten Dokumente.', 'knowledge.ingested_ok':'Inhalt in die Wissensdatenbank indexiert.', 'knowledge.deleted_ok':'Dokument gelöscht.', 'knowledge.confirm_delete':'Dieses Dokument und seine RAG-Vektoren löschen?', 'prompt.tab_title':'Master System Prompt', 'prompt.lead':'System-Prompt-Einrichtung zur Steuerung von Bot-Identität und Verhalten.', 'prompt.textarea_label':'System Prompt', 'prompt.placeholder':'Schreibe den System-Prompt...', 'prompt.variables_guide':'Leitfaden für verfügbare Variablen', 'prompt.variables_lead':'Du kannst folgende Variablen in deinem Prompt für dynamische Laufzeit-Injektion verwenden:', 'prompt.rules_overview':'Zusammenfassung der Antwortmatrix', 'prompt.rules_lead':'Der Bot antwortet direkt in der Sprache des Besuchers, priorisiert RAG-Fakten und bietet bei geringer Zuverlässigkeit eine Eskalation an.', 'prompt.save':'Master Prompt speichern', 'telegram.tab_title':'Telegram Bot Einstellungen', 'telegram.lead':'Verwalte Bot-Status, Admin-ID und Ausführung.', 'telegram.bot_status':'Bot-Status', 'telegram.status_loading':'Lade Status...', 'telegram.start':'Starten', 'telegram.stop':'Stoppen', 'telegram.refresh':'Aktualisieren', 'telegram.admin_id':'Telegram Admin-ID', 'telegram.admin_id_placeholder':'Z. B. 123456789', 'telegram.admin_id_help':'Numerische Telegram-Benutzer-ID, die zum Senden und Empfangen von Antworten berechtigt ist.', 'telegram.save_admin_id':'ID speichern', 'telegram.saved':'Erfolgreich gespeichert.', 'telegram.token':'Telegram-Bot-Token', 'telegram.token_placeholder':'Token von @BotFather einfügen', 'telegram.token_help':'Das Token wird live geprüft, verschlüsselt gespeichert und nie vollständig angezeigt.', 'telegram.save_token':'Token speichern & prüfen', 'telegram.masked_token':'Token:', 'telegram.token_source':'Token-Quelle:', 'telegram.bot_identity':'Bot-Identität', 'telegram.bot_username':'Benutzername (@username):', 'telegram.bot_name':'Name:', 'telegram.admin_username':'Telegram-Admin-Benutzername', 'telegram.admin_username_placeholder':'@WilkinBR', 'telegram.save_admin_username':'Benutzername speichern' }
       };
       const dictionaries = i18n;
-      const lang = ['es', 'en', 'pt', 'fr', 'de'].includes((navigator.language || '').split('-')[0]) ? navigator.language.split('-')[0] : 'es';
+      const lang = ['es', 'en', 'pt', 'fr', 'de', 'it'].includes((navigator.language || '').split('-')[0]) ? navigator.language.split('-')[0] : 'es';
       const copy = dictionaries[lang] || dictionaries.es;
       const attachmentCopy = {
         es: { attach:'Adjuntar', view:'Ver', download:'Descargar', deleteAttachment:'Borrar', uploadError:'No se pudo subir la imagen.', fileTypeError:'Solo se permiten imágenes JPG, PNG, WebP o GIF.', fileTooLarge:'La imagen no puede superar 5 MB.', attachmentDeleted:'Adjunto eliminado', deletingAttachment:'Borrando adjunto...', uploadingImage:'Subiendo imagen...', imageAttached:'Imagen enviada.', deleteAttachmentConfirm:'¿Borrar esta imagen del chat?' },
@@ -463,8 +568,17 @@
         fr: { attach:'Joindre', view:'Voir', download:'Télécharger', deleteAttachment:'Supprimer', uploadError:'Impossible d’envoyer l’image.', fileTypeError:'Seules les images JPG, PNG, WebP ou GIF sont autorisées.', fileTooLarge:'L’image ne peut pas dépasser 5 Mo.', attachmentDeleted:'Pièce jointe supprimée', deletingAttachment:'Suppression...', uploadingImage:'Envoi de l’image...', imageAttached:'Image envoyée.', deleteAttachmentConfirm:'Supprimer cette image du chat ?' },
         de: { attach:'Anhängen', view:'Ansehen', download:'Herunterladen', deleteAttachment:'Löschen', uploadError:'Das Bild konnte nicht hochgeladen werden.', fileTypeError:'Nur JPG-, PNG-, WebP- oder GIF-Bilder sind erlaubt.', fileTooLarge:'Das Bild darf 5 MB nicht überschreiten.', attachmentDeleted:'Anhang gelöscht', deletingAttachment:'Anhang wird gelöscht...', uploadingImage:'Bild wird hochgeladen...', imageAttached:'Bild gesendet.', deleteAttachmentConfirm:'Dieses Bild aus dem Chat löschen?' },
       };
+      const knowledgeCardCopy = {
+        es: { 'knowledge.index_active':'Índice activo', 'knowledge.text_help':'Agrega instrucciones, políticas o respuestas frecuentes.', 'knowledge.url_help':'Importa el contenido público de una página web.', 'knowledge.pdf_help':'Procesa documentación estructurada automáticamente.', 'knowledge.select_pdf':'Seleccionar archivo PDF', 'knowledge.github_mode':'Contenido de GitHub', 'knowledge.github_repository':'Repositorio selectivo', 'knowledge.github_docs':'README y documentación', 'knowledge.github_readme':'Solo README', 'knowledge.github_paths':'Rutas específicas (opcional)', 'knowledge.github_paths_placeholder':'docs, src', 'knowledge.index_new':'Indexar contenido nuevo', 'knowledge.indexed':'Indexado', 'knowledge.pending':'Pendiente', 'knowledge.error':'Error', 'knowledge.indexing':'Indexando…', 'knowledge.model_unavailable':'Modelo no operativo', 'prompt.reset':'Restaurar predeterminado', 'prompt.characters':'caracteres', 'prompt.unsaved':'sin guardar', 'prompt.saved_state':'guardado' },
+        en: { 'knowledge.index_active':'Index active', 'knowledge.text_help':'Add instructions, policies, or frequently asked answers.', 'knowledge.url_help':'Import the public content of a web page.', 'knowledge.pdf_help':'Process structured documentation automatically.', 'knowledge.select_pdf':'Select PDF file', 'knowledge.github_mode':'GitHub content', 'knowledge.github_repository':'Selective repository', 'knowledge.github_docs':'README and documentation', 'knowledge.github_readme':'README only', 'knowledge.github_paths':'Specific paths (optional)', 'knowledge.github_paths_placeholder':'docs, src', 'knowledge.index_new':'Index new content', 'knowledge.indexed':'Indexed', 'knowledge.pending':'Pending', 'knowledge.error':'Error', 'knowledge.indexing':'Indexing…', 'knowledge.model_unavailable':'Model unavailable', 'prompt.reset':'Restore default', 'prompt.characters':'characters', 'prompt.unsaved':'unsaved', 'prompt.saved_state':'saved' },
+        pt: { 'knowledge.index_active':'Índice ativo', 'knowledge.text_help':'Adicione instruções, políticas ou respostas frequentes.', 'knowledge.url_help':'Importe o conteúdo público de uma página web.', 'knowledge.pdf_help':'Processe documentação estruturada automaticamente.', 'knowledge.select_pdf':'Selecionar arquivo PDF', 'knowledge.github_mode':'Conteúdo do GitHub', 'knowledge.github_repository':'Repositório seletivo', 'knowledge.github_docs':'README e documentação', 'knowledge.github_readme':'Somente README', 'knowledge.github_paths':'Caminhos específicos (opcional)', 'knowledge.github_paths_placeholder':'docs, src', 'knowledge.index_new':'Indexar novo conteúdo', 'knowledge.indexed':'Indexado', 'knowledge.pending':'Pendente', 'knowledge.error':'Erro', 'knowledge.indexing':'Indexando…', 'knowledge.model_unavailable':'Modelo indisponível', 'prompt.reset':'Restaurar padrão', 'prompt.characters':'caracteres', 'prompt.unsaved':'não salvo', 'prompt.saved_state':'salvo' },
+        fr: { 'knowledge.index_active':'Index actif', 'knowledge.text_help':'Ajoutez des instructions, politiques ou réponses fréquentes.', 'knowledge.url_help':'Importez le contenu public d’une page web.', 'knowledge.pdf_help':'Traitez automatiquement la documentation structurée.', 'knowledge.select_pdf':'Sélectionner un fichier PDF', 'knowledge.github_mode':'Contenu GitHub', 'knowledge.github_repository':'Dépôt sélectif', 'knowledge.github_docs':'README et documentation', 'knowledge.github_readme':'README uniquement', 'knowledge.github_paths':'Chemins spécifiques (facultatif)', 'knowledge.github_paths_placeholder':'docs, src', 'knowledge.index_new':'Indexer le nouveau contenu', 'knowledge.indexed':'Indexé', 'knowledge.pending':'En attente', 'knowledge.error':'Erreur', 'knowledge.indexing':'Indexation…', 'knowledge.model_unavailable':'Modèle indisponible', 'prompt.reset':'Restaurer par défaut', 'prompt.characters':'caractères', 'prompt.unsaved':'non enregistré', 'prompt.saved_state':'enregistré' },
+        de: { 'knowledge.index_active':'Index aktiv', 'knowledge.text_help':'Füge Anweisungen, Richtlinien oder häufige Antworten hinzu.', 'knowledge.url_help':'Importiere den öffentlichen Inhalt einer Webseite.', 'knowledge.pdf_help':'Verarbeite strukturierte Dokumentation automatisch.', 'knowledge.select_pdf':'PDF-Datei auswählen', 'knowledge.github_mode':'GitHub-Inhalt', 'knowledge.github_repository':'Selektives Repository', 'knowledge.github_docs':'README und Dokumentation', 'knowledge.github_readme':'Nur README', 'knowledge.github_paths':'Bestimmte Pfade (optional)', 'knowledge.github_paths_placeholder':'docs, src', 'knowledge.index_new':'Neue Inhalte indexieren', 'knowledge.indexed':'Indexiert', 'knowledge.pending':'Ausstehend', 'knowledge.error':'Fehler', 'knowledge.indexing':'Indexierung…', 'knowledge.model_unavailable':'Modell nicht verfügbar', 'prompt.reset':'Standard wiederherstellen', 'prompt.characters':'Zeichen', 'prompt.unsaved':'nicht gespeichert', 'prompt.saved_state':'gespeichert' },
+        it: { 'knowledge.index_active':'Indice attivo', 'knowledge.text_help':'Aggiungi istruzioni, politiche o risposte frequenti.', 'knowledge.url_help':'Importa il contenuto pubblico di una pagina web.', 'knowledge.pdf_help':'Elabora automaticamente la documentazione strutturata.', 'knowledge.select_pdf':'Seleziona file PDF', 'knowledge.github_mode':'Contenuto GitHub', 'knowledge.github_repository':'Repository selettivo', 'knowledge.github_docs':'README e documentazione', 'knowledge.github_readme':'Solo README', 'knowledge.github_paths':'Percorsi specifici (opzionale)', 'knowledge.github_paths_placeholder':'docs, src', 'knowledge.index_new':'Indicizza nuovi contenuti', 'knowledge.indexed':'Indicizzato', 'knowledge.pending':'In attesa', 'knowledge.error':'Errore', 'knowledge.indexing':'Indicizzazione…', 'knowledge.model_unavailable':'Modello non disponibile', 'prompt.reset':'Ripristina predefinito', 'prompt.characters':'caratteri', 'prompt.unsaved':'non salvato', 'prompt.saved_state':'salvato' },
+      };
       const extraCopy = attachmentCopy[lang] || attachmentCopy.es;
-      const t = (key, ...args) => typeof copy[key] === 'function' ? copy[key](...args) : (copy[key] || extraCopy[key] || dictionaries.es[key] || attachmentCopy.es[key] || key);
+      const knowledgeCopy = knowledgeCardCopy[lang] || knowledgeCardCopy.es;
+      const t = (key, ...args) => typeof copy[key] === 'function' ? copy[key](...args) : (copy[key] || extraCopy[key] || knowledgeCopy[key] || dictionaries.es[key] || attachmentCopy.es[key] || knowledgeCardCopy.es[key] || key);
       document.documentElement.lang = lang;
       document.title = `LiveChat Pro Admin`;
       const state = { sessions: [], selectedSessionId: null, selectedMessages: [], onlyLive: false, query: '', socket: null, csrfToken: null, typingTimer: null, metricsTimer: null };
@@ -589,14 +703,16 @@
       function renderSessions() {
         sessionList.innerHTML = filteredSessions().map(session => `
           <article class="session-card ${session.sessionId === state.selectedSessionId ? 'active' : ''}" data-session-id="${escapeHtml(session.sessionId)}">
-            <div class="session-head"><div><div class="session-name">${escapeHtml(session.name || t('unnamed'))}</div><div class="muted mono">${escapeHtml(session.shortId)} · ${formatTime(session.lastActive)}</div></div>
-            <div class="row">${session.connected ? badge(t('online'), 'ok') : badge(t('offline'))}${session.unreadForAdmin > 0 ? badge(t('unreadCount', session.unreadForAdmin), 'accent') : ''}${session.banned ? badge(t('blocked'), 'danger') : ''}<label class="bot-toggle" title="Activar/desactivar bot para esta sesión"><input type="checkbox" class="bot-toggle-cb" data-session-id="${escapeHtml(session.sessionId)}" ${session.botSilenced ? '' : 'checked'}> 🤖 Bot</label></div></div>
+            <div class="session-head"><div><div class="session-name">${escapeHtml(session.name || t('unnamed'))}</div><div class="muted mono session-idline">${escapeHtml(session.shortId)} · ${formatTime(session.lastActive)}</div></div>
+            <div class="row session-card-status">${session.connected ? badge(t('online'), 'ok') : badge(t('offline'))}${session.unreadForAdmin > 0 ? badge(t('unreadCount', session.unreadForAdmin), 'accent') : ''}${session.banned ? badge(t('blocked'), 'danger') : ''}</div></div>
             <div class="snippet">${escapeHtml(session.lastMessage?.adminText || session.lastMessage?.text || t('noMessages'))}</div>
-            <div class="row muted"><span>${escapeHtml(session.ip || t('noIp'))}</span><span>${escapeHtml(session.geo?.country || t('unknown'))}</span><span>${t('msgCount', session.messageCount || 0)}</span></div>
+            <div class="row muted session-footer"><span>${escapeHtml(session.ip || t('noIp'))} · ${escapeHtml(session.geo?.country || t('unknown'))}</span><span>${t('msgCount', session.messageCount || 0)}</span><label class="bot-toggle" title="Activar/desactivar bot para esta sesión"><input type="checkbox" class="bot-toggle-cb" data-session-id="${escapeHtml(session.sessionId)}" ${session.botSilenced ? '' : 'checked'}> Bot</label></div>
           </article>`).join('');
       }
       function renderMessages(messages) {
-        messageList.innerHTML = messages.map(message => `<article class="message ${escapeHtml(message.from)}" data-message-id="${escapeHtml(message.id || '')}"><small>${escapeHtml(message.from)} · ${escapeHtml(message.lang || '')}</small><div class="text">${escapeHtml(message.adminText || message.text)}</div>${renderAttachments(message)}<div class="stamp">${formatTime(message.ts)}</div></article>`).join('');
+        messageList.innerHTML = messages.length
+          ? messages.map(message => `<article class="message ${escapeHtml(message.from)}" data-message-id="${escapeHtml(message.id || '')}"><small>${escapeHtml(message.from)} · ${escapeHtml(message.lang || '')}</small><div class="text">${escapeHtml(message.adminText || message.text)}</div>${renderAttachments(message)}<div class="stamp">${formatTime(message.ts)}</div></article>`).join('')
+          : `<div class="conversation-empty"><div><div class="conversation-empty-mark" aria-hidden="true">✦</div><strong>${escapeHtml(t('noMessages'))}</strong><span>${escapeHtml(t('detailHere'))}</span></div></div>`;
         messageList.scrollTop = messageList.scrollHeight; $('threadCount').textContent = t('msgCount', messages.length);
       }
       function renderSelection(session, messages = state.selectedMessages) {
@@ -1163,6 +1279,31 @@
       const formRagText = $('form-rag-text');
       const formRagUrl = $('form-rag-url');
       const formRagFile = $('form-rag-file');
+      const ragUrlInput = $('rag-url-input');
+      const ragGithubOptions = $('rag-github-options');
+      const ragGithubMode = $('rag-github-mode');
+      const ragGithubPathsWrap = $('rag-github-paths-wrap');
+      const btnRagIndex = $('btn-rag-index');
+      const ragIndexReason = $('rag-index-reason');
+
+      async function loadRagIndexStatus() {
+        if (!btnRagIndex) return;
+        const status = await api('/api/admin/rag/status');
+        btnRagIndex.disabled = !status.ready || status.pendingCount === 0;
+        btnRagIndex.textContent = status.pendingCount > 0 ? `${t('knowledge.index_new')} (${status.pendingCount})` : t('knowledge.indexed');
+        if (ragIndexReason) {
+          ragIndexReason.textContent = status.ready ? '' : (status.reason || t('knowledge.model_unavailable'));
+          ragIndexReason.classList.toggle('hidden', status.ready);
+        }
+      }
+
+      function syncGithubOptions() {
+        const isGithubRepository = /^https:\/\/github\.com\/[^/]+\/[^/]+\/?(?:\.git\/?)*$/i.test(ragUrlInput?.value.trim() || '');
+        ragGithubOptions?.classList.toggle('hidden', !isGithubRepository);
+        ragGithubPathsWrap?.classList.toggle('hidden', !isGithubRepository || ragGithubMode?.value === 'readme');
+      }
+      ragUrlInput?.addEventListener('input', syncGithubOptions);
+      ragGithubMode?.addEventListener('change', syncGithubOptions);
 
       async function loadRagDocuments() {
         const tbody = $('rag-doc-tbody');
@@ -1170,19 +1311,23 @@
         try {
           const data = await api('/api/admin/rag/documents');
           const docs = data.documents || [];
+          const docCount = $('rag-doc-count');
+          if (docCount) docCount.textContent = String(docs.length);
           if (docs.length === 0) {
             tbody.innerHTML = `<tr><td colspan="5" style="padding:12px; text-align:center;" class="muted" data-i18n="knowledge.no_docs">${t('knowledge.no_docs')}</td></tr>`;
+            loadRagIndexStatus().catch(() => {});
             return;
           }
           tbody.innerHTML = docs.map(doc => `
-            <tr style="border-bottom:1px solid var(--border-color, #eee);">
-              <td style="padding:8px;" class="mono">${escapeHtml(doc.source)}</td>
-              <td style="padding:8px;">${escapeHtml(doc.title || doc.source)}</td>
-              <td style="padding:8px;">${badge(doc.source_type, 'accent')}</td>
-              <td style="padding:8px;" class="muted">${formatTime(doc.created_at)}</td>
-              <td style="padding:8px;"><button class="btn-danger btn-delete-rag-doc" data-id="${escapeHtml(doc.id)}" type="button">${t('knowledge.delete')}</button></td>
+            <tr>
+              <td class="source-cell mono"><span class="knowledge-source" title="${escapeHtml(doc.source)}">${escapeHtml(doc.source)}</span></td>
+              <td class="title-cell">${escapeHtml(doc.title || doc.source)}</td>
+              <td class="type-cell">${badge(doc.source_type, 'accent')} ${badge(t(`knowledge.${doc.error ? 'error' : (doc.status || 'indexed')}`), doc.error ? 'danger' : (doc.status === 'pending' ? 'warn' : 'ok'))}</td>
+              <td class="date-cell muted">${formatTime(doc.created_at)}</td>
+              <td class="actions-cell"><button class="btn-delete-rag-doc" data-id="${escapeHtml(doc.id)}" type="button">${t('delete')}</button></td>
             </tr>
           `).join('');
+          loadRagIndexStatus().catch(() => {});
         } catch (err) {
           if (ragNotice) {
             ragNotice.textContent = err.message || t('network');
@@ -1190,6 +1335,19 @@
           }
         }
       }
+
+      btnRagIndex?.addEventListener('click', async () => {
+        btnRagIndex.disabled = true;
+        btnRagIndex.textContent = t('knowledge.indexing');
+        if (ragNotice) ragNotice.classList.add('hidden');
+        try {
+          await api('/api/admin/rag/index', { method: 'POST' });
+          await loadRagDocuments();
+        } catch (err) {
+          if (ragNotice) { ragNotice.textContent = err.message; ragNotice.classList.remove('hidden'); }
+          await loadRagIndexStatus().catch(() => {});
+        }
+      });
 
       if (formRagText) {
         formRagText.addEventListener('submit', async event => {
@@ -1217,17 +1375,24 @@
         formRagUrl.addEventListener('submit', async event => {
           event.preventDefault();
           const title = $('rag-url-title')?.value.trim();
-          const url = $('rag-url-input')?.value.trim();
+          const url = ragUrlInput?.value.trim();
           if (!url) return;
+          const isGithubRepository = /^https:\/\/github\.com\/[^/]+\/[^/]+/i.test(url);
+          const mode = isGithubRepository ? ragGithubMode?.value || 'repository' : undefined;
+          const includePaths = isGithubRepository && mode !== 'readme'
+            ? ($('rag-github-paths')?.value || '').split(/[\n,]/).map(value => value.trim()).filter(Boolean)
+            : undefined;
           showLoading(t('syncing'));
           if (ragNotice) ragNotice.classList.add('hidden');
           try {
             await api('/api/admin/rag/documents/url', {
               method: 'POST',
-              body: JSON.stringify({ title, url }),
+              body: JSON.stringify({ title, url, mode, includePaths }),
             });
             if ($('rag-url-title')) $('rag-url-title').value = '';
             if ($('rag-url-input')) $('rag-url-input').value = '';
+            if ($('rag-github-paths')) $('rag-github-paths').value = '';
+            syncGithubOptions();
             await loadRagDocuments();
           } catch (err) {
             if (ragNotice) { ragNotice.textContent = err.message; ragNotice.classList.remove('hidden'); }
@@ -1236,9 +1401,13 @@
       }
 
       if (formRagFile) {
+        const fileInput = $('rag-file-input');
+        const fileLabel = $('rag-file-label');
+        fileInput?.addEventListener('change', () => {
+          if (fileLabel) fileLabel.textContent = fileInput.files?.[0]?.name || t('knowledge.select_pdf');
+        });
         formRagFile.addEventListener('submit', async event => {
           event.preventDefault();
-          const fileInput = $('rag-file-input');
           const file = fileInput && fileInput.files && fileInput.files[0];
           if (!file) return;
           const form = new FormData();
@@ -1248,6 +1417,7 @@
           try {
             await uploadApi('/api/admin/rag/documents/file', form);
             fileInput.value = '';
+            if (fileLabel) fileLabel.textContent = t('knowledge.select_pdf');
             await loadRagDocuments();
           } catch (err) {
             if (ragNotice) { ragNotice.textContent = err.message; ragNotice.classList.remove('hidden'); }
@@ -1273,13 +1443,20 @@
       }
 
       // ── Master Prompt Management ────────────────────────────────────
+      let promptDirty = false;
+      const updatePromptMeta = () => {
+        const input = $('master-prompt-input'); const counter = $('prompt-char-count');
+        if (input && counter) counter.textContent = `${input.value.length.toLocaleString()} ${t('prompt.characters')}${promptDirty ? ` · ${t('prompt.unsaved')}` : ` · ${t('prompt.saved_state')}`}`;
+      };
+      $('master-prompt-input')?.addEventListener('input', () => { promptDirty = true; updatePromptMeta(); });
       async function loadMasterPrompt() {
         const input = $('master-prompt-input');
-        if (!input) return;
+        if (!input || promptDirty) return;
         try {
           const data = await api('/api/admin/settings/prompt');
           if (data && data.ok && typeof data.prompt === 'string') {
             input.value = data.prompt;
+            updatePromptMeta();
           }
         } catch (err) {
           const promptNotice = $('promptNotice');
@@ -1304,6 +1481,7 @@
               body: JSON.stringify({ prompt: promptInput.value }),
             });
             if (data && data.ok && promptNotice) {
+              promptDirty = false; updatePromptMeta();
               promptNotice.textContent = t('prompt.saved') || t('ready');
               promptNotice.classList.remove('hidden');
             }
@@ -1317,6 +1495,11 @@
           }
         });
       }
+      $('btn-reset-prompt')?.addEventListener('click', async () => {
+        const input = $('master-prompt-input'); if (!input) return;
+        const data = await api('/api/admin/settings/prompt', { method: 'PUT', body: JSON.stringify({ prompt: '' }) });
+        if (data?.ok) { input.value = data.prompt; promptDirty = false; updatePromptMeta(); }
+      });
 
       // ── Telegram Tab Management ────────────────────────────────────
       const telegramStatusText = $('telegram-status-text');

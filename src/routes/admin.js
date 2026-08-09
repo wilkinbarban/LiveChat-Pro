@@ -43,6 +43,176 @@ function stripHtml(html) {
     .trim();
 }
 
+function githubReadmeApiUrl(value) {
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== 'https:' || parsed.hostname.toLowerCase() !== 'github.com') return null;
+    const parts = parsed.pathname.split('/').filter(Boolean);
+    if (parts.length !== 2) return null;
+    const owner = encodeURIComponent(parts[0]);
+    const repository = encodeURIComponent(parts[1].replace(/\.git$/i, ''));
+    if (!repository) return null;
+    return `https://api.github.com/repos/${owner}/${repository}/readme`;
+  } catch {
+    return null;
+  }
+}
+
+const GITHUB_REPOSITORY_LIMITS = Object.freeze({
+  maxFiles: 200,
+  maxFileBytes: 128 * 1024,
+  maxTotalBytes: 3 * 1024 * 1024,
+  maxTreeEntries: 5000,
+  concurrency: 5,
+  timeoutMs: 30000,
+});
+const GITHUB_TEXT_EXTENSIONS = new Set([
+  '.c', '.cc', '.conf', '.cpp', '.css', '.go', '.h', '.html', '.java', '.js', '.json', '.jsx', '.md', '.mjs',
+  '.php', '.properties', '.py', '.rb', '.rs', '.sh', '.sql', '.toml', '.ts', '.tsx', '.txt', '.xml', '.yaml', '.yml',
+]);
+const GITHUB_EXCLUDED_DIRECTORIES = new Set([
+  '.git', '.next', '.nuxt', '.output', '.secrets', '.turbo', 'build', 'coverage', 'dist', 'node_modules', 'secrets',
+  'target', 'vendor',
+]);
+
+function parseGithubRepositoryUrl(value) {
+  const apiUrl = githubReadmeApiUrl(value);
+  if (!apiUrl) return null;
+  const { pathname } = new URL(value);
+  const [owner, rawRepository] = pathname.split('/').filter(Boolean);
+  const repository = rawRepository.replace(/\.git$/i, '');
+  return {
+    owner,
+    repository,
+    apiUrl: apiUrl.replace(/\/readme$/, ''),
+    sourceKey: `https://github.com/${owner.toLowerCase()}/${repository.toLowerCase()}`,
+  };
+}
+
+function normalizeGithubSelection(mode, includePaths) {
+  const normalizedMode = mode === undefined ? 'repository' : String(mode);
+  if (!['readme', 'docs', 'repository'].includes(normalizedMode)) throw new Error('Modo de ingesta GitHub inválido');
+  if (includePaths === undefined) return { mode: normalizedMode, includePaths: [] };
+  if (!Array.isArray(includePaths) || includePaths.length > 20) throw new Error('includePaths debe ser un array de hasta 20 rutas');
+  const normalizedPaths = includePaths.map(value => String(value).replace(/\\/g, '/').replace(/^\.\//, '').replace(/\/$/, ''));
+  if (normalizedPaths.some(value => !value || value.length > 160 || value.startsWith('/') || value.split('/').includes('..') || value.includes('\0'))) {
+    throw new Error('includePaths contiene una ruta inválida');
+  }
+  return { mode: normalizedMode, includePaths: [...new Set(normalizedPaths)] };
+}
+
+function isUsefulGithubPath(filePath, size) {
+  const normalized = String(filePath || '').replace(/\\/g, '/');
+  const parts = normalized.split('/');
+  const basename = parts.at(-1)?.toLowerCase() || '';
+  if (!normalized || !Number.isFinite(size) || size <= 0 || size > GITHUB_REPOSITORY_LIMITS.maxFileBytes) return false;
+  if (parts.slice(0, -1).some(part => GITHUB_EXCLUDED_DIRECTORIES.has(part.toLowerCase()))) return false;
+  if (/^(?:\.env(?:\..*)?|.*(?:-lock\.json|\.(?:lock|map|min\.js|min\.css|pem|key|p12|pfx)))$/i.test(basename)) return false;
+  if (/(?:credential|secret|private[-_]?key)/i.test(basename)) return false;
+  if (/^(?:id_(?:rsa|dsa|ecdsa|ed25519)|\.npmrc|\.pypirc|\.netrc)$/i.test(basename)) return false;
+  if (/^(?:readme|license|changelog|contributing)(?:\.[^.]+)?$/i.test(basename)) return true;
+  const dot = basename.lastIndexOf('.');
+  return dot >= 0 && GITHUB_TEXT_EXTENSIONS.has(basename.slice(dot));
+}
+
+function githubPathPriority(filePath) {
+  const normalized = filePath.toLowerCase();
+  if (/^(readme|license|changelog|contributing)(\.|$)/.test(normalized)) return 0;
+  if (normalized.startsWith('docs/')) return 1;
+  if (/^(src|lib|app)\//.test(normalized)) return 2;
+  if (!normalized.includes('/')) return 3;
+  if (/^(test|tests|spec)\//.test(normalized)) return 5;
+  return 4;
+}
+
+async function mapWithConcurrency(items, concurrency, mapper) {
+  const results = new Array(items.length);
+  let nextIndex = 0;
+  async function worker() {
+    while (nextIndex < items.length) {
+      const index = nextIndex++;
+      results[index] = await mapper(items[index]);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, worker));
+  return results;
+}
+
+async function fetchGithubRepository({ repository, fetchUrl, signal, selection = { mode: 'repository', includePaths: [] } }) {
+  const headers = { Accept: 'application/vnd.github+json', 'User-Agent': 'LiveChat-Pro/1.0' };
+  const metadataResponse = await fetchUrl(repository.apiUrl, { signal, headers });
+  if (!metadataResponse.ok) throw new Error(`GitHub metadata HTTP ${metadataResponse.status}`);
+  const metadata = await metadataResponse.json();
+  const branch = String(metadata.default_branch || 'main');
+  const commitResponse = await fetchUrl(`${repository.apiUrl}/commits/${encodeURIComponent(branch)}`, { signal, headers });
+  if (!commitResponse.ok) throw new Error(`GitHub commit HTTP ${commitResponse.status}`);
+  const commit = await commitResponse.json();
+  const commitSha = String(commit.sha || '');
+  const treeSha = String(commit.commit?.tree?.sha || '');
+  if (!commitSha || !treeSha) throw new Error('GitHub no devolvió un snapshot válido del repositorio');
+  const treeUrl = `${repository.apiUrl}/git/trees/${encodeURIComponent(treeSha)}?recursive=1`;
+  const treeResponse = await fetchUrl(treeUrl, { signal, headers });
+  if (!treeResponse.ok) throw new Error(`GitHub tree HTTP ${treeResponse.status}`);
+  const tree = await treeResponse.json();
+  if (tree.truncated) throw new Error('El árbol del repositorio GitHub excede el límite de la API');
+  if (!Array.isArray(tree.tree) || tree.tree.length > GITHUB_REPOSITORY_LIMITS.maxTreeEntries) {
+    throw new Error('El repositorio GitHub excede el límite de entradas permitido');
+  }
+
+  const candidates = tree.tree
+    .filter(item => item.type === 'blob' && isUsefulGithubPath(item.path, item.size))
+    .filter(item => {
+      const lower = item.path.toLowerCase();
+      const basename = lower.split('/').at(-1);
+      if (selection.mode === 'readme' && !/^readme(?:\.|$)/.test(basename)) return false;
+      if (selection.mode === 'docs' && !lower.startsWith('docs/') && !/^readme(?:\.|$)/.test(basename)) return false;
+      return !selection.includePaths.length || selection.includePaths.some(prefix => item.path === prefix || item.path.startsWith(`${prefix}/`));
+    })
+    .sort((a, b) => githubPathPriority(a.path) - githubPathPriority(b.path) || a.path.localeCompare(b.path));
+  if (candidates.length > GITHUB_REPOSITORY_LIMITS.maxFiles) throw new Error('La selección excede el límite de archivos permitido');
+  const declaredTotal = candidates.reduce((total, file) => total + file.size, 0);
+  if (declaredTotal > GITHUB_REPOSITORY_LIMITS.maxTotalBytes) throw new Error('La selección excede el tamaño total permitido');
+  const selected = candidates;
+
+  const downloaded = await mapWithConcurrency(selected, GITHUB_REPOSITORY_LIMITS.concurrency, async (file) => {
+    const rawPath = file.path.split('/').map(encodeURIComponent).join('/');
+    const rawUrl = `https://raw.githubusercontent.com/${encodeURIComponent(repository.owner)}/${encodeURIComponent(repository.repository)}/${encodeURIComponent(commitSha)}/${rawPath}`;
+    const response = await fetchUrl(rawUrl, { signal, headers: { 'User-Agent': 'LiveChat-Pro/1.0' } });
+    if (!response.ok) throw new Error(`GitHub raw ${file.path} HTTP ${response.status}`);
+    const declaredSize = Number(response.headers.get('content-length'));
+    if (Number.isFinite(declaredSize) && declaredSize > GITHUB_REPOSITORY_LIMITS.maxFileBytes) {
+      throw new Error(`El archivo ${file.path} excede el tamaño permitido`);
+    }
+    const bytesBuffer = Buffer.from(await response.arrayBuffer());
+    if (bytesBuffer.length > GITHUB_REPOSITORY_LIMITS.maxFileBytes) throw new Error(`El archivo ${file.path} excede el tamaño permitido`);
+    if (bytesBuffer.includes(0)) throw new Error(`El archivo ${file.path} contiene datos binarios`);
+    let content;
+    try {
+      content = new TextDecoder('utf-8', { fatal: true }).decode(bytesBuffer);
+    } catch {
+      throw new Error(`El archivo ${file.path} no es UTF-8 válido`);
+    }
+    const bytes = Buffer.byteLength(content, 'utf8');
+    if (!content.trim()) throw new Error(`El archivo ${file.path} está vacío`);
+    return { path: file.path, content: content.trim(), bytes };
+  });
+
+  const sections = [];
+  let totalBytes = 0;
+  for (const file of downloaded) {
+    if (totalBytes + file.bytes > GITHUB_REPOSITORY_LIMITS.maxTotalBytes) {
+      throw new Error('El contenido descargado excede el tamaño total permitido');
+    }
+    sections.push(`--- FILE: ${file.path} ---\n${file.content}`);
+    totalBytes += file.bytes;
+  }
+
+  if (!sections.length) throw new Error('El repositorio GitHub no contiene archivos de texto admitidos');
+  const heading = [`Repository: ${metadata.full_name || `${repository.owner}/${repository.repository}`}`];
+  if (metadata.description) heading.push(`Description: ${metadata.description}`);
+  return `${heading.join('\n')}\n\n${sections.join('\n\n')}`;
+}
+
 // Admin routes expose the single-operator web panel and all privileged chat
 // mutations. Authentication and CSRF helpers are injected from server.js so tests
 // can exercise the router with the same policies as production.
@@ -54,6 +224,8 @@ function createAdminRouter(deps) {
   const masterPromptService = deps.masterPromptService || createMasterPromptService({ settingsService });
   const themesService = deps.themesService || createThemesService({ settingsService });
   const telegramBot = deps.telegramBot || require('../telegram/bot');
+  const fetchUrl = deps.fetch || globalThis.fetch;
+  const stageRagText = ragService.stageText?.bind(ragService) || ragService.ingestText?.bind(ragService);
 
   const {
     rootDir,
@@ -529,6 +701,8 @@ function createAdminRouter(deps) {
   const handlePutMasterPrompt = async (req, res) => {
     try {
       const { prompt } = req.body || {};
+      if (typeof prompt !== 'string') return res.status(400).json({ ok: false, error: 'prompt must be a string' });
+      if (prompt.length > 20000) return res.status(413).json({ ok: false, error: 'prompt exceeds the 20,000 character limit' });
       const savedPrompt = await masterPromptService.setPrompt(prompt);
       aiBot.configure({ masterPromptService });
       return res.json({ ok: true, prompt: savedPrompt });
@@ -736,6 +910,50 @@ function createAdminRouter(deps) {
   router.put('/api/admin/settings/theme', requireAdmin, requireCsrf, handlePutThemeSettings);
 
   // ── RAG Admin Routes ──────────────────────────────────────────────
+  let ragReadinessCache = null;
+  const RAG_READINESS_TTL_MS = 10000;
+  const RAG_READINESS_TIMEOUT_MS = 5000;
+
+  async function getRagIndexReadiness() {
+    const documents = await ragService.listDocuments();
+    const pendingCount = documents.filter(document => document.status === 'pending').length;
+    const persistedEnabled = await settingsService.getJSON('ai.enabled', null);
+    const enabled = persistedEnabled === null ? aiBot.isEnabled() : persistedEnabled === true;
+    if (!enabled) return { ready: false, reason: 'El modelo inteligente está deshabilitado', pendingCount };
+    const provider = String(await settingsService.get('llm.default_provider') || '').trim().toLowerCase();
+    if (!provider) return { ready: false, reason: 'No hay un proveedor predeterminado configurado', pendingCount };
+    const config = await settingsService.getJSON(`llm.provider.${provider}`, null);
+    if (!config?.model || (!config.encKey && !config.apiKey)) {
+      return { ready: false, reason: 'El proveedor predeterminado no está configurado completamente', pendingCount };
+    }
+    let apiKey = config.apiKey || '';
+    try {
+      if (config.encKey) apiKey = settingsService.decryptSecret(config.encKey);
+    } catch {
+      return { ready: false, reason: 'No se pudo leer la credencial del proveedor', pendingCount };
+    }
+    const cacheKey = `${provider}:${config.model}:${config.encKey || config.apiKey}`;
+    let verification;
+    if (ragReadinessCache?.key === cacheKey && ragReadinessCache.expiresAt > Date.now()) {
+      verification = ragReadinessCache.verification;
+    } else {
+      let timer;
+      try {
+        verification = await Promise.race([
+          llmService.verifyConnection(provider, apiKey, config.model),
+          new Promise(resolve => { timer = setTimeout(() => resolve({ ok: false, error: 'La verificación del proveedor excedió el tiempo límite' }), RAG_READINESS_TIMEOUT_MS); }),
+        ]);
+      } finally {
+        clearTimeout(timer);
+      }
+      ragReadinessCache = { key: cacheKey, verification, expiresAt: Date.now() + RAG_READINESS_TTL_MS };
+    }
+    if (!verification?.ok) {
+      return { ready: false, reason: verification?.error || 'El proveedor no está disponible', pendingCount };
+    }
+    return { ready: true, reason: null, pendingCount };
+  }
+
   router.get('/api/admin/rag/documents', requireAdmin, async (_req, res) => {
     try {
       const documents = await ragService.listDocuments();
@@ -743,6 +961,27 @@ function createAdminRouter(deps) {
     } catch (err) {
       logger.error?.({ err }, 'Error listing RAG documents');
       return res.status(500).json({ ok: false, error: 'Internal server error' });
+    }
+  });
+
+  router.get('/api/admin/rag/status', requireAdmin, async (_req, res) => {
+    try {
+      return res.json({ ok: true, ...(await getRagIndexReadiness()) });
+    } catch (err) {
+      logger.error?.({ err }, 'Error checking RAG indexing readiness');
+      return res.status(500).json({ ok: false, error: 'Internal server error' });
+    }
+  });
+
+  router.post('/api/admin/rag/index', requireAdmin, requireCsrf, async (_req, res) => {
+    try {
+      const readiness = await getRagIndexReadiness();
+      if (!readiness.ready) return res.status(409).json({ ok: false, ...readiness });
+      const result = await ragService.promotePending();
+      return res.json({ ok: true, ...result });
+    } catch (err) {
+      logger.error?.({ err }, 'Error promoting pending RAG documents');
+      return res.status(500).json({ ok: false, error: err.message || 'Internal server error' });
     }
   });
 
@@ -763,13 +1002,13 @@ function createAdminRouter(deps) {
       if (!text || typeof text !== 'string' || !text.trim()) {
         return res.status(400).json({ ok: false, error: 'El contenido de texto es requerido' });
       }
-      const result = await ragService.ingestText({
+      const result = await stageRagText({
         sourceType: 'text',
         source: title || 'Texto manual',
         title: title || 'Texto manual',
         text: text.trim(),
       });
-      return res.json({ ok: true, documentId: result.documentId, chunkCount: result.chunkCount });
+      return res.json({ ok: true, documentId: result.documentId, chunkCount: result.chunkCount, status: result.status });
     } catch (err) {
       logger.error?.({ err }, 'Error ingesting RAG text');
       return res.status(500).json({ ok: false, error: err.message || 'Internal server error' });
@@ -780,45 +1019,63 @@ function createAdminRouter(deps) {
 
   async function handleIngestUrl(req, res) {
     try {
-      const { url, title } = req.body || {};
+      const { url, title, mode, includePaths } = req.body || {};
       if (!url || typeof url !== 'string' || !/^https?:\/\//i.test(url.trim())) {
         return res.status(400).json({ ok: false, error: 'URL inválida o no proporcionada' });
       }
       const cleanUrl = url.trim();
+      const githubRepository = parseGithubRepositoryUrl(cleanUrl);
+      let selection;
+      if (githubRepository) {
+        try {
+          selection = normalizeGithubSelection(mode, includePaths);
+        } catch (selectionError) {
+          return res.status(400).json({ ok: false, error: selectionError.message });
+        }
+      }
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 10000);
+      const timeoutMs = githubRepository ? GITHUB_REPOSITORY_LIMITS.timeoutMs : 10000;
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
 
-      let response;
+      let textContent;
       try {
-        response = await fetch(cleanUrl, {
-          signal: controller.signal,
-          headers: { 'User-Agent': 'LiveChat-Pro/1.0' },
-        });
+        if (githubRepository) {
+          textContent = await fetchGithubRepository({
+            repository: githubRepository,
+            fetchUrl,
+            signal: controller.signal,
+            selection,
+          });
+        } else {
+          const response = await fetchUrl(cleanUrl, {
+            signal: controller.signal,
+            headers: { 'User-Agent': 'LiveChat-Pro/1.0' },
+          });
+          if (!response.ok) {
+            return res.status(400).json({ ok: false, error: `La URL respondió con código HTTP ${response.status}` });
+          }
+          const rawText = await response.text();
+          const contentType = response.headers.get('content-type') || '';
+          textContent = contentType.includes('html') ? stripHtml(rawText) : rawText.trim();
+        }
       } catch (fetchErr) {
-        clearTimeout(timer);
         return res.status(400).json({ ok: false, error: `Error de conexión al obtener la URL: ${fetchErr.message}` });
+      } finally {
+        clearTimeout(timer);
       }
-      clearTimeout(timer);
-
-      if (!response.ok) {
-        return res.status(400).json({ ok: false, error: `La URL respondió con código HTTP ${response.status}` });
-      }
-
-      const rawText = await response.text();
-      const contentType = response.headers.get('content-type') || '';
-      const textContent = contentType.includes('html') ? stripHtml(rawText) : rawText.trim();
 
       if (!textContent) {
         return res.status(400).json({ ok: false, error: 'No se obtuvo contenido de texto ejecutable de la URL' });
       }
 
-      const result = await ragService.ingestText({
+      const result = await stageRagText({
         sourceType: 'url',
-        source: cleanUrl,
+        source: githubRepository?.sourceKey || cleanUrl,
+        sourceKey: githubRepository?.sourceKey || cleanUrl,
         title: title || cleanUrl,
         text: textContent,
       });
-      return res.json({ ok: true, documentId: result.documentId, chunkCount: result.chunkCount });
+      return res.json({ ok: true, documentId: result.documentId, chunkCount: result.chunkCount, status: result.status });
     } catch (err) {
       logger.error?.({ err }, 'Error ingesting RAG URL');
       return res.status(500).json({ ok: false, error: err.message || 'Internal server error' });
@@ -876,13 +1133,13 @@ function createAdminRouter(deps) {
       }
 
       const originalName = req.file.originalname || 'documento.pdf';
-      const result = await ragService.ingestText({
+      const result = await stageRagText({
         sourceType: 'pdf',
         source: originalName,
         title: originalName,
         text: pdfText.trim(),
       });
-      return res.json({ ok: true, documentId: result.documentId, chunkCount: result.chunkCount });
+      return res.json({ ok: true, documentId: result.documentId, chunkCount: result.chunkCount, status: result.status });
     } catch (err) {
       logger.error?.({ err }, 'Error ingesting RAG PDF file');
       return res.status(500).json({ ok: false, error: err.message || 'Internal server error' });
@@ -898,4 +1155,9 @@ function createAdminRouter(deps) {
 
 module.exports = {
   createAdminRouter,
+  fetchGithubRepository,
+  githubReadmeApiUrl,
+  isUsefulGithubPath,
+  normalizeGithubSelection,
+  parseGithubRepositoryUrl,
 };

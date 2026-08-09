@@ -124,12 +124,121 @@ const DEFAULT_CONFIG = Object.freeze({
   enabled: false,
   provider: null,
   model: 'gpt-4o-mini',
-  maxTokens: 300,
+  maxTokens: 1200,
   systemPrompt: "You are a friendly support assistant. Be brief and reply in the user's language.",
   confidenceThreshold: 0.6,
   contextMessages: 6,
   notifyAdmin: false,
 });
+
+function uniqueRagDocuments(documents) {
+  const unique = new Map();
+  for (const document of Array.isArray(documents) ? documents : []) {
+    const source = String(document.source || '').trim();
+    const title = String(document.title || source || 'Untitled').trim();
+    const canonicalSource = source.toLowerCase().replace(/\.git\/?$/i, '').replace(/\/$/, '');
+    const key = canonicalSource || title.toLowerCase();
+    if (!unique.has(key)) unique.set(key, { title, source });
+  }
+  return [...unique.values()];
+}
+
+function parseGithubProjectDocument(document) {
+  if (document?.source_type !== 'url') return null;
+  try {
+    const parsed = new URL(String(document.source || ''));
+    if (parsed.protocol !== 'https:' || parsed.hostname.toLowerCase() !== 'github.com') return null;
+    const parts = parsed.pathname.split('/').filter(Boolean);
+    if (parts.length !== 2) return null;
+    const repository = parts[1].replace(/\.git$/i, '');
+    if (!parts[0] || !repository) return null;
+    const key = `${parts[0].toLowerCase()}/${repository.toLowerCase()}`;
+    return { key, title: String(document.title || repository).trim(), source: `https://github.com/${key}` };
+  } catch {
+    return null;
+  }
+}
+
+function uniqueGithubProjects(documents) {
+  const projects = new Map();
+  for (const document of Array.isArray(documents) ? documents : []) {
+    const project = parseGithubProjectDocument(document);
+    if (project && !projects.has(project.key)) projects.set(project.key, { title: project.title, source: project.source });
+  }
+  return [...projects.values()];
+}
+
+const PROJECT_INVENTORY_PATTERNS = [
+  /\b(cuantos|cuales|que|otros) proyectos\b/, /\b(lista|listar|enumera) (los )?proyectos\b/, /\bproyectos (tienes|conoces|manejas)\b/,
+  /\bhow many projects\b/, /\b(which|what|other) projects\b/, /\blist (the )?projects\b/,
+  /\b(quantos|quais|outros) projetos\b/, /\b(listar|lista de) projetos\b/,
+  /\bcombien de projets\b/, /\b(quels|autres) projets\b/, /\bliste des projets\b/,
+  /\bwie viele projekte\b/, /\bwelche projekte\b/, /\bandere projekte\b/, /\bprojekte auflisten\b/,
+  /\b(quanti|quali|altri) progetti\b/, /\b(elenco|lista) (dei )?progetti\b/,
+];
+
+const PROJECT_CATALOG_INTRO = {
+  es: count => `Tengo información de ${count} proyectos:`, en: count => `I have information about ${count} projects:`,
+  pt: count => `Tenho informações sobre ${count} projetos:`, fr: count => `Je dispose d'informations sur ${count} projets :`,
+  de: count => `Ich habe Informationen zu ${count} Projekten:`, it: count => `Ho informazioni su ${count} progetti:`,
+};
+
+const WEB_SUPPORT_STYLE_POLICY = [
+  'WEB RESPONSE STYLE POLICY (always follow):',
+  '- Use a professional, direct web-support tone with short paragraphs.',
+  '- Use lists only when they improve clarity. Do not write in chat-app or WhatsApp style.',
+  '- Do not repeat greetings, use decorative emoji, add filler farewells, or end with filler questions.',
+  '- Use only limited Markdown: bold, lists, http(s) links, inline code, and fenced code blocks.',
+  '- Preserve all facts and constraints from the supplied RAG context; style must never alter its content.',
+].join('\n');
+
+const EMPTY_OPENING_LINES = new Set([
+  'claro', 'por supuesto', 'buena pregunta', 'sure', 'of course', 'great question', 'boa pergunta',
+  'bien sur', 'bonne question', 'naturlich', 'gute frage', 'certo', 'ottima domanda',
+]);
+const GENERIC_CLOSING_PATTERNS = [
+  /^hay algo mas en lo que (?:pueda|te pueda) ayudar(?:te)?$/, /^te gustaria que (?:te |lo )?.+$/,
+  /^necesitas ayuda(?: con| para)?.*$/,
+  /^si necesitas (?:mas )?(?:detalles|ayuda|informacion).*(?:consultame|preguntame|dimelo)$/,
+  /^is there anything else i can help you with$/, /^would you like me to .+$/,
+  /^do you need help(?: with| to)?.*$/,
+  /^if you need (?:more )?(?:details|help|information).*(?:let me know|ask me)$/,
+  /^ha algo mais em que (?:eu )?posso ajudar$/, /^gostaria que eu .+$/,
+  /^(?:voce )?precisa de ajuda(?: com| para)?.*$/,
+  /^se precisar de (?:mais )?(?:detalhes|ajuda|informacoes).*(?:avise|pergunte)$/,
+  /^puis je vous aider (?:avec |pour )?autre chose$/, /^souhaitez vous que je .+$/,
+  /^avez vous besoin d aide(?: avec| pour)?.*$/,
+  /^si vous avez besoin de (?:plus de )?(?:details|aide|informations).*(?:dites le moi|demandez moi)$/,
+  /^kann ich (?:dir|ihnen) sonst noch helfen$/, /^mochtest du dass ich .+$/,
+  /^brauch(?:st du|en sie) hilfe(?: bei| mit)?.*$/,
+  /^wenn (?:du|sie) (?:weitere )?(?:details|hilfe|informationen).*(?:sag mir bescheid|lassen sie es mich wissen)$/,
+  /^(?:c e|ce) altro (?:in cui|con cui) posso aiutarti$/, /^vorresti che .+$/,
+  /^hai bisogno di aiuto(?: con| per)?.*$/,
+  /^se hai bisogno di (?:ulteriori )?(?:dettagli|aiuto|informazioni).*(?:fammi sapere|chiedimi)$/,
+];
+
+function postprocessWebReply(value) {
+  const lines = String(value || '').replace(/\r\n?/g, '\n').split('\n');
+  let inFence = false;
+  const protectedLine = lines.map(line => {
+    const isFence = /^\s*```/.test(line);
+    const isProtected = inFence || isFence;
+    if (isFence) inFence = !inFence;
+    return isProtected;
+  });
+  const normalizeLine = line => normalizeStr(line).replace(/\s+/g, ' ').trim();
+  let first = lines.findIndex((line, index) => !protectedLine[index] && line.trim());
+  if (first >= 0 && EMPTY_OPENING_LINES.has(normalizeLine(lines[first]))) lines.splice(first, 1), protectedLine.splice(first, 1);
+
+  inFence = false;
+  const cleaned = lines.map(line => {
+    const isFence = /^\s*```/.test(line);
+    if (isFence) { inFence = !inFence; return line; }
+    if (inFence) return line;
+    return line.replace(/^(\s*(?:#{1,6}\s*)?)[🤖👤✨💬👋]\uFE0F?\s*/u, '$1');
+  });
+  return cleaned.join('\n').trim();
+}
 
 // ── AiBot ────────────────────────────────────────────────────────────────────
 class AiBot {
@@ -200,6 +309,59 @@ class AiBot {
     try {
       if (!this.isEnabled()) return { reply: null, confidence: 0, escalate: true };
 
+      const catalogReply = await this.getProjectCatalogReply(session, text);
+      if (catalogReply) return catalogReply;
+
+      // Persisted provider settings are authoritative. The legacy mode remains
+      // available only when no provider credentials are configured.
+      const activeLlmService = this.config.llmService || defaultLlmService;
+      const provider = this.config.provider || this.config.defaultProvider;
+      const apiKey = this.config.apiKey || this.config.openaiKey;
+
+      if (provider && apiKey) {
+        const messages = this.buildLLMContext(session, text);
+        const ragContext = await this.getRAGContext(session, text);
+        const systemPrompt = await this.getSystemPrompt(session, text, { rag_context: ragContext || '' });
+
+        try {
+          const request = {
+            provider,
+            apiKey,
+            model: this.config.model || 'gpt-4o-mini',
+            messages,
+            systemPrompt,
+            maxTokens: this.config.maxTokens,
+            baseURL: this.config.baseURL,
+          };
+          let res = await activeLlmService.chat(request);
+          const stopReason = res?.finishReason || res?.stopReason;
+          if (res?.ok && res.text && ['length', 'max_tokens'].includes(stopReason)) {
+            this.logError(new Error(`LLM response truncated (${stopReason}); requesting one continuation`), 'LLM provider reply truncated');
+            const continuation = await activeLlmService.chat({
+              ...request,
+              messages: [
+                ...messages,
+                { role: 'assistant', content: res.text },
+                { role: 'user', content: 'Continue exactly where the previous response stopped. Do not repeat any prior text.' },
+              ],
+            });
+            const continuationReason = continuation?.finishReason || continuation?.stopReason;
+            if (!continuation?.ok || !continuation.text || ['length', 'max_tokens'].includes(continuationReason)) {
+              this.logError(new Error(`LLM continuation failed or remained truncated (${continuationReason || continuation?.error || 'empty'})`), 'LLM provider continuation failed');
+              return { reply: null, confidence: 0, escalate: true };
+            }
+            res = { ...continuation, text: `${res.text.trimEnd()}${continuation.text.trimStart()}` };
+          }
+          if (res?.ok && res.text) {
+            const reply = postprocessWebReply(res.text);
+            if (reply) return { reply, confidence: 0.9, escalate: false };
+          }
+        } catch (err) {
+          this.logError(err, 'LLM provider reply failed');
+        }
+        return { reply: null, confidence: 0, escalate: true };
+      }
+
       // ── Resolve pending disambiguation ──────────────────────────────────
       if (session?.botContext?.pendingIntent) {
         const ctx = session.botContext;
@@ -214,51 +376,13 @@ class AiBot {
         return this.matchKnowledge(text, session);
       }
 
-      // Active LLM provider resolution
-      const activeLlmService = this.config.llmService || defaultLlmService;
-      const provider = this.config.provider || this.config.defaultProvider;
-      const apiKey = this.config.apiKey || this.config.openaiKey;
-
-      if (provider && apiKey) {
-        const messages = this.buildLLMContext(session, text);
-        // RAG context is fetched FIRST and fed into the prompt template via the
-        // {rag_context} placeholder (ADR 7) — never appended after the prompt.
-        const ragContext = await this.getRAGContext(session, text);
-        const systemPrompt = await this.getSystemPrompt(session, text, { rag_context: ragContext || '' });
-
-        try {
-          const res = await activeLlmService.chat({
-            provider,
-            apiKey,
-            model: this.config.model || 'gpt-4o-mini',
-            messages,
-            systemPrompt,
-            maxTokens: this.config.maxTokens,
-            baseURL: this.config.baseURL,
-          });
-
-          if (res && res.ok && res.text) {
-            const reply = String(res.text).trim();
-            if (reply) {
-              return { reply, confidence: 0.9, escalate: false };
-            }
-          }
-        } catch (err) {
-          this.logError(err, 'LLM provider reply failed');
-        }
-
-        if (this.kb?.entries?.length) {
-          const fallback = this.matchKnowledge(text, session);
-          if (fallback?.reply && !fallback.escalate) return fallback;
-        }
-        return { reply: null, confidence: 0, escalate: true };
-      }
-
       if (this.config.mode === 'ai' && this.openai) {
         try {
+          const ragContext = await this.getRAGContext(session, text);
+          const systemPrompt = await this.getSystemPrompt(session, text, { rag_context: ragContext || '' });
           const completion = await this.openai.chat.completions.create({
             model: this.config.model,
-            messages: this.buildOpenAIContext(session, text),
+            messages: [{ role: 'system', content: systemPrompt }, ...this.buildOpenAIContext(session, text).filter(message => message.role !== 'system')],
             max_tokens: this.config.maxTokens,
           });
           const reply = completion?.choices?.[0]?.message?.content?.trim();
@@ -282,35 +406,82 @@ class AiBot {
   }
 
   async getSystemPrompt(session, text, extra = {}) {
+    let prompt;
     if (typeof this.config.masterPromptService?.getFormattedPrompt === 'function') {
-      return await this.config.masterPromptService.getFormattedPrompt({
+      prompt = await this.config.masterPromptService.getFormattedPrompt({
         visitor_name: session?.visitorName || session?.name,
         site_title: this.config.siteTitle,
         current_language: session?.lang || session?.browserLang || 'es',
         rag_context: extra.rag_context || '',
       });
+    } else if (typeof this.config.masterPromptService?.getPrompt === 'function') {
+      prompt = await this.config.masterPromptService.getPrompt(session, text);
+    } else {
+      prompt = this.config.systemPrompt || "You are a friendly support assistant. Be brief and reply in the user's language.";
     }
-    if (typeof this.config.masterPromptService?.getPrompt === 'function') {
-      return await this.config.masterPromptService.getPrompt(session, text);
+    return `${prompt}\n\n${WEB_SUPPORT_STYLE_POLICY}`;
+  }
+
+  async getProjectCatalogReply(session, text) {
+    const normalized = this.normalizeStr(text);
+    if (!PROJECT_INVENTORY_PATTERNS.some(pattern => pattern.test(normalized))) return null;
+    if (typeof this.config.ragService?.listDocuments !== 'function') return null;
+    try {
+      const documents = uniqueGithubProjects(await this.config.ragService.listDocuments());
+      if (!documents.length) return null;
+      const lang = SUPPORTED_LANGS.includes(session?.lang) ? session.lang
+        : SUPPORTED_LANGS.includes(session?.browserLang) ? session.browserLang
+          : this.detectLanguage(text);
+      const intro = (PROJECT_CATALOG_INTRO[lang] || PROJECT_CATALOG_INTRO.es)(documents.length);
+      return {
+        reply: `${intro}\n${documents.map(document => `- ${document.title}`).join('\n')}`,
+        confidence: 1,
+        escalate: false,
+        source: 'rag-catalog',
+      };
+    } catch (err) {
+      this.logError(err, 'RAG project catalog reply failed');
+      return null;
     }
-    return this.config.systemPrompt || "You are a friendly support assistant. Be brief and reply in the user's language.";
   }
 
   async getRAGContext(session, text) {
-    if (typeof this.config.ragService?.retrieve === 'function') {
+    const ragService = this.config.ragService;
+    const sections = [];
+    if (typeof ragService?.listDocuments === 'function') {
       try {
-        const chunks = await this.config.ragService.retrieve(text);
+        const documents = await ragService.listDocuments();
+        const catalog = uniqueGithubProjects(documents);
+        if (catalog.length) {
+          sections.push([
+            `AUTHORITATIVE KNOWLEDGE CATALOG (count=${catalog.length}):`,
+            'This catalog is authoritative. Ignore any conflicting project counts or inventory claims in the conversation history.',
+            ...catalog.map((document, index) => `${index + 1}. ${document.title}${document.source ? ` — ${document.source}` : ''}`),
+          ].join('\n'));
+        }
+        const additional = uniqueRagDocuments((Array.isArray(documents) ? documents : []).filter(document => !parseGithubProjectDocument(document)));
+        if (additional.length) {
+          sections.push([
+            'Additional knowledge documents:',
+            ...additional.map(document => `- ${document.title}${document.source ? ` — ${document.source}` : ''}`),
+          ].join('\n'));
+        }
+      } catch (err) {
+        this.logError(err, 'RAG document catalog failed');
+      }
+    }
+    if (typeof ragService?.retrieve === 'function') {
+      try {
+        const chunks = await ragService.retrieve(text);
         if (Array.isArray(chunks) && chunks.length > 0) {
           const formatted = chunks.map(c => (typeof c === 'string' ? c : c.content || c.text || '')).filter(Boolean).join('\n---\n');
-          if (formatted) {
-            return `Knowledge context:\n${formatted}`;
-          }
+          if (formatted) sections.push(`RELEVANT KNOWLEDGE CHUNKS:\n${formatted}`);
         }
       } catch (err) {
         this.logError(err, 'RAG retrieval failed');
       }
     }
-    return null;
+    return sections.length ? `Knowledge context:\n${sections.join('\n\n')}` : null;
   }
 
   // Attempt to resolve a pending disambiguation using the user's follow-up.
@@ -524,4 +695,4 @@ async function resolveLlmBootConfig(deps = {}) {
 
 module.exports = new AiBot();
 module.exports.resolveLlmBootConfig = resolveLlmBootConfig;
-
+module.exports.postprocessWebReply = postprocessWebReply;

@@ -8,9 +8,51 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
+const { hasRichMarkdown, renderSafeMarkdown, shouldTypewriterMessage } = require('../widget.js');
 
 const widgetSource = fs.readFileSync(path.join(__dirname, '..', 'widget.js'), 'utf8');
 const readmeSource = fs.readFileSync(path.join(__dirname, '..', 'README_ES.md'), 'utf8');
+
+test('widget renderiza Markdown limitado y seguro', () => {
+  const html = renderSafeMarkdown('**Resumen**\n\n- Uno\n- Dos\n\n1. Primero\n2. Segundo\n\n`npm test`\n\n```js\nconst ok = true;\n```\n\n[Docs](https://example.com/docs)');
+  assert.match(html, /<strong>Resumen<\/strong>/);
+  assert.match(html, /<ul><li>Uno<\/li><li>Dos<\/li><\/ul>/);
+  assert.match(html, /<ol><li>Primero<\/li><li>Segundo<\/li><\/ol>/);
+  assert.match(html, /<code>npm test<\/code>/);
+  assert.match(html, /<pre><code>const ok = true;<\/code><\/pre>/);
+  assert.match(html, /href="https:\/\/example\.com\/docs" target="_blank" rel="noopener noreferrer"/);
+});
+
+test('widget escapa HTML arbitrario y no enlaza protocolos inseguros', () => {
+  const html = renderSafeMarkdown('<img src=x onerror=alert(1)> [bad](javascript:alert(1)) <script>alert(2)</script>');
+  assert.doesNotMatch(html, /<img|<script|href="javascript:/i);
+  assert.match(html, /&lt;img src=x onerror=alert\(1\)&gt;/);
+  assert.match(html, /\[bad\]\(javascript:alert\(1\)\)/);
+});
+
+test('widget usa roles profesionales y estilos para contenido enriquecido', () => {
+  assert.match(widgetSource, /msg\.from === 'bot' \? 'Asistente' : 'Soporte'/);
+  assert.doesNotMatch(widgetSource, /🤖 Asistente|👤 Admin/);
+  assert.match(widgetSource, /\.lcp-rich-text ul, \.lcp-rich-text ol/);
+  assert.match(widgetSource, /\.lcp-rich-text pre code/);
+  assert.match(widgetSource, /const useTypewriter = shouldTypewriterMessage\(msg, opts\)/);
+});
+
+test('widget conserva typewriter para todas las respuestas frescas del agente', () => {
+  assert.equal(hasRichMarkdown('Respuesta breve y directa.'), false);
+  assert.equal(hasRichMarkdown('**Resumen**'), true);
+  assert.equal(hasRichMarkdown('- Uno\n- Dos'), true);
+  assert.equal(shouldTypewriterMessage({ from: 'bot', text: 'Respuesta breve.' }), true);
+  assert.equal(shouldTypewriterMessage({ from: 'admin', text: 'Respuesta breve.' }), true);
+  assert.equal(shouldTypewriterMessage({ from: 'bot', text: '**Respuesta**' }), true);
+  assert.equal(shouldTypewriterMessage({ from: 'bot', text: '- Uno\n- Dos' }), true);
+  assert.equal(shouldTypewriterMessage({ from: 'bot', text: 'Respuesta', attachments: [{}] }), false);
+  assert.equal(shouldTypewriterMessage({ from: 'user', text: 'Respuesta' }), false);
+  assert.equal(shouldTypewriterMessage({ from: 'bot', text: 'Respuesta' }, { history: true }), false);
+  assert.match(widgetSource, /typewriterReveal\(div, msg\.text, text, timeEl/);
+  assert.match(widgetSource, /textNode\.textContent = slice/);
+  assert.match(widgetSource, /textNode\.innerHTML = fullHtml/);
+});
 
 test('widget detecta modo movil y responde a cambios de viewport', () => {
   assert.match(widgetSource, /matchMedia\(`\(max-width: \$\{WIDGET_OPTIONS\.mobileBreakpoint\}px\)`\)/);
@@ -62,6 +104,27 @@ test('widget en modo auto hereda tono visual del sitio', () => {
   assert.match(widgetSource, /--lcp-header-bg/);
   assert.match(widgetSource, /--lcp-border-color/);
   assert.match(widgetSource, /--lcp-input-bg/);
+});
+
+test('session bootstrap preserves the fully applied public theme', () => {
+  const sessionHandler = widgetSource.match(
+    /socket\.on\('session',[\s\S]*?socket\.on\('message'/,
+  )?.[0];
+
+  assert.ok(sessionHandler, 'session socket handler was not found');
+  assert.match(sessionHandler, /if \(cfg\?\.primaryColor\) primaryColor = cfg\.primaryColor/);
+  assert.doesNotMatch(sessionHandler, /applyTheme\(cfg\.primaryColor/);
+});
+
+test('live theme updates apply preset variables and reset auto theme', () => {
+  const themeUpdateHandler = widgetSource.match(
+    /socket\.on\('theme:update',[\s\S]*?socket\.connect\(\)/,
+  )?.[0];
+
+  assert.ok(themeUpdateHandler, 'theme:update socket handler was not found');
+  assert.match(themeUpdateHandler, /data\.name === 'auto' \|\| !data\.vars/);
+  assert.match(themeUpdateHandler, /applyThemeVars\(readSiteTheme\(primaryColor\)\)/);
+  assert.match(themeUpdateHandler, /applyThemeVars\(data\.vars\)/);
 });
 
 test('widget limita la ventana abierta al viewport visible del movil', () => {
