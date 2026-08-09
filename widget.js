@@ -3,7 +3,76 @@
  * Insert this script into any HTML page:
  * <script src="https://your-server.com/widget.js" data-server="https://your-server.com"></script>
  */
-(() => {
+function escapeWidgetHtml(value) {
+  return String(value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function renderSafeMarkdown(value) {
+  const codeBlocks = [];
+  let text = escapeWidgetHtml(value).replace(/```(?:[a-z0-9_-]+)?\n([\s\S]*?)```/gi, (_match, code) => {
+    const token = `@@LCPBLOCK${codeBlocks.length}@@`;
+    codeBlocks.push(`<pre><code>${code.replace(/^\n|\n$/g, '')}</code></pre>`);
+    return `\n${token}\n`;
+  });
+  const inline = input => {
+    const codes = [];
+    let output = input.replace(/`([^`\n]+)`/g, (_match, code) => {
+      const token = `@@LCPCODE${codes.length}@@`;
+      codes.push(`<code>${code}</code>`);
+      return token;
+    });
+    output = output.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+    output = output.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+    return output.replace(/@@LCPCODE(\d+)@@/g, (_match, index) => codes[Number(index)] || '');
+  };
+  const blocks = [];
+  let paragraph = [];
+  let listType = null;
+  let listItems = [];
+  const flushParagraph = () => {
+    if (paragraph.length) blocks.push(`<p>${inline(paragraph.join('<br>'))}</p>`);
+    paragraph = [];
+  };
+  const flushList = () => {
+    if (listType) blocks.push(`<${listType}>${listItems.map(item => `<li>${inline(item)}</li>`).join('')}</${listType}>`);
+    listType = null;
+    listItems = [];
+  };
+  for (const line of text.split('\n')) {
+    const blockMatch = line.match(/^@@LCPBLOCK(\d+)@@$/);
+    const unordered = line.match(/^\s*[-*]\s+(.+)$/);
+    const ordered = line.match(/^\s*\d+\.\s+(.+)$/);
+    if (blockMatch) {
+      flushParagraph(); flushList(); blocks.push(codeBlocks[Number(blockMatch[1])] || '');
+    } else if (unordered || ordered) {
+      flushParagraph();
+      const nextType = unordered ? 'ul' : 'ol';
+      if (listType && listType !== nextType) flushList();
+      listType = nextType;
+      listItems.push((unordered || ordered)[1]);
+    } else if (!line.trim()) {
+      flushParagraph(); flushList();
+    } else {
+      flushList(); paragraph.push(line);
+    }
+  }
+  flushParagraph(); flushList();
+  return `<div class="lcp-rich-text">${blocks.join('')}</div>`;
+}
+
+function hasRichMarkdown(value) {
+  const text = String(value || '');
+  return /\n|```|`[^`\n]+`|\*\*[^*\n]+\*\*|\[[^\]]+\]\(https?:\/\/[^\s)]+\)|(^|\n)\s*(?:[-*]|\d+\.)\s+/i.test(text);
+}
+
+function shouldTypewriterMessage(message, options = {}) {
+  const isAgent = message?.from === 'bot' || message?.from === 'admin';
+  return Boolean(isAgent && message?.text && !options.history && !message?.attachments?.length);
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { hasRichMarkdown, renderSafeMarkdown, shouldTypewriterMessage };
+} else (() => {
   'use strict';
 
   const SCRIPT_TAG = document.currentScript || document.querySelector('script[data-server]');
@@ -272,6 +341,14 @@
       .lcp-msg.user { background: var(--lcp-color, #4F46E5); color: #fff; align-self: flex-end; border-bottom-right-radius: 4px; }
       .lcp-msg.bot, .lcp-msg.admin { background: var(--lcp-panel-bg); color: var(--lcp-text-color); align-self: flex-start; border-bottom-left-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,.07); }
       .lcp-msg-role { font-size: 11px; opacity: .6; margin-bottom: 2px; display: block; }
+      .lcp-rich-text p { margin: 0 0 8px; }
+      .lcp-rich-text p:last-child { margin-bottom: 0; }
+      .lcp-rich-text ul, .lcp-rich-text ol { margin: 6px 0 8px; padding-left: 20px; }
+      .lcp-rich-text li { margin: 3px 0; }
+      .lcp-rich-text a { color: var(--lcp-color, #4F46E5); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+      .lcp-rich-text code { padding: 1px 5px; border-radius: 5px; background: rgba(99,102,241,.1); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .92em; }
+      .lcp-rich-text pre { max-width: 100%; margin: 8px 0; padding: 10px; overflow-x: auto; border: 1px solid var(--lcp-border-color); border-radius: 8px; background: var(--lcp-surface-bg); white-space: pre; }
+      .lcp-rich-text pre code { padding: 0; background: transparent; }
       .lcp-typewriter-cursor { display: inline-block; width: 2px; height: 1em; background: currentColor; opacity: .7; margin-left: 1px; vertical-align: text-bottom; animation: lcp-blink .6s steps(1) infinite; }
       @keyframes lcp-blink { 0%, 100% { opacity: .7; } 50% { opacity: 0; } }
       .lcp-msg.deleted-attachment { opacity: .68; font-style: italic; }
@@ -652,8 +729,7 @@
     // Typewriter effect: reveals text character by character at ~60 chars/sec
     // (~16ms per char) to mimic a fast typist. Only applied to bot/admin
     // messages that have text; attachments and history messages are instant.
-    function typewriterReveal(div, fullHtml, timeEl, done) {
-      const plain = fullHtml; // already escaped HTML
+    function typewriterReveal(div, plain, fullHtml, timeEl, done) {
       let i = 0;
       const cursor = document.createElement('span');
       cursor.className = 'lcp-typewriter-cursor';
@@ -665,28 +741,22 @@
           div.innerHTML = '';
           if (roleEl) div.appendChild(roleEl);
           const textNode = document.createElement('span');
-          textNode.innerHTML = plain;
+          textNode.className = 'lcp-msg-content';
+          textNode.innerHTML = fullHtml;
           div.appendChild(textNode);
           div.appendChild(timeEl);
           scrollBottom();
           if (done) done();
           return;
         }
-        // Build visible slice — respect HTML entities (& ; sequences)
-        // but since content is already escapeHtml'd, entities use & sequences
         const slice = plain.slice(0, i + 1);
-        // Avoid cutting mid-entity: advance past full &...; if needed
-        const ampIdx = slice.lastIndexOf('&');
-        if (ampIdx !== -1 && !slice.slice(ampIdx).includes(';')) {
-          i++;
-          setTimeout(step, 14);
-          return;
-        }
         const roleEl = div.querySelector('.lcp-msg-role');
         div.innerHTML = '';
         if (roleEl) div.appendChild(roleEl);
         const textNode = document.createElement('span');
-        textNode.innerHTML = slice;
+        textNode.className = 'lcp-msg-content';
+        textNode.style.whiteSpace = 'pre-wrap';
+        textNode.textContent = slice;
         div.appendChild(textNode);
         div.appendChild(cursor);
         scrollBottom();
@@ -704,29 +774,30 @@
       const isAgent = msg.from === 'bot' || msg.from === 'admin';
       const isHistory = !!opts.history;
 
-      // Role emoji label for bot and admin messages
+      // Clear role labels distinguish automated and human support replies.
       if (isAgent) {
         const roleEl = document.createElement('span');
         roleEl.className = 'lcp-msg-role';
-        roleEl.textContent = msg.from === 'bot' ? '🤖 Asistente' : '👤 Admin';
+        roleEl.textContent = msg.from === 'bot' ? 'Asistente' : 'Soporte';
         div.appendChild(roleEl);
       }
 
-      const text = msg.text ? escapeHtml(msg.text) : '';
+      const text = msg.text ? renderSafeMarkdown(msg.text) : '';
+      const useTypewriter = shouldTypewriterMessage(msg, opts);
       const timeEl = document.createElement('div');
       timeEl.className = 'lcp-msg-time';
       timeEl.textContent = formatTime(msg.ts);
 
       const hasAttachments = msg.attachments && msg.attachments.length > 0;
 
-      // Apply typewriter only to bot/admin text messages, not history or attachments
-      if (isAgent && text && !isHistory && !hasAttachments) {
+      if (useTypewriter) {
         messagesEl.insertBefore(div, typingEl);
         scrollBottom();
-        typewriterReveal(div, text, timeEl, null);
+        typewriterReveal(div, msg.text, text, timeEl, null);
       } else {
         if (text) {
           const textSpan = document.createElement('span');
+          textSpan.className = 'lcp-msg-content';
           textSpan.innerHTML = text;
           div.appendChild(textSpan);
         }
@@ -776,7 +847,7 @@
     }
 
     function escapeHtml(s) {
-      return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+      return escapeWidgetHtml(s);
     }
 
     // ── Toggle ──────────────────────────────────────────────
@@ -872,7 +943,7 @@
       // The server can replace a stale local id with the canonical session id.
       localStorage.setItem('lchat_sid', sid);
       document.cookie = `lchat_sid=${sid};path=/;max-age=31536000`;
-      if (cfg?.primaryColor) applyTheme(cfg.primaryColor);
+      if (cfg?.primaryColor) primaryColor = cfg.primaryColor;
       if (name) { nameBanner.textContent = uiText.greeting(name); nameBanner.style.display = 'block'; }
       if (history && history.length) {
         history.forEach(m => {

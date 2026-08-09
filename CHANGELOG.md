@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.1.0] - 2026-08-09
+
+### Added
+- Admin-managed RAG knowledge base for manual text, PDFs, public URLs, and bounded GitHub repository snapshots (README, documentation, or selected source files).
+- Explicit pending-to-indexed publishing: new content remains invisible to retrieval until an administrator selects **Index new content** and the configured default model passes a live readiness check.
+- Global content-hash deduplication, safe URL revision promotion, and deterministic project inventory answers based on the indexed GitHub sources.
+- Configurable master prompt with protected RAG evidence and visitor-metadata boundaries.
+
+### Changed
+- Redesigned the Chats, Knowledge, AI, Prompt, Telegram, and Appearance admin modules with responsive cards, clearer status, and grouped actions.
+- Improved web replies with safe Markdown rendering, typewriter presentation, complete-response token handling, and one bounded continuation when a provider reports truncation.
+- GitHub ingestion now reads a commit-pinned, filtered repository snapshot instead of relying only on historical JSON training data.
+- Updated the widget embed guidance for HTTPS origins, reverse-proxy subpaths, WebSocket forwarding, and matching `data-server` URLs.
+
+### Security
+- Treats retrieved RAG content and visitor metadata as untrusted data rather than model instructions.
+- Validates master prompt payload types and length, and never exposes pending source text through the admin document API.
+
+---
+
 ## [1.0.3] - 2026-05-28
 
 ### Added

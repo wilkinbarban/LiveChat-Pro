@@ -11,7 +11,7 @@
  * @param {string} [params.systemPrompt] - Top-level system prompt
  * @param {number} [params.maxTokens] - Max tokens to generate (mandatory in Anthropic API)
  * @param {Function} [params.fetchImpl] - Optional custom fetch implementation
- * @returns {Promise<{ok: boolean, text?: string, error?: string}>}
+ * @returns {Promise<{ok: boolean, text?: string, stopReason?: string, finishReason?: string, error?: string}>}
  */
 async function callAnthropic({
   apiKey,
@@ -78,7 +78,7 @@ async function callAnthropic({
     const data = typeof res.json === 'function' ? await res.json() : {};
     const replyText = data.content?.[0]?.text?.trim();
 
-    return { ok: true, text: replyText || '' };
+    return { ok: true, text: replyText || '', stopReason: data.stop_reason || null, finishReason: data.stop_reason || null };
   } catch (err) {
     return { ok: false, error: err?.message || 'Anthropic request failed' };
   }

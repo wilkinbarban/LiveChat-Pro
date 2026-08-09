@@ -20,7 +20,7 @@ const DEFAULT_BASE_URLS = Object.freeze({
  * @param {number} [params.maxTokens] - Max tokens to generate
  * @param {string} [params.baseURL] - Custom base URL override
  * @param {Function} [params.fetchImpl] - Optional custom fetch implementation (for testing)
- * @returns {Promise<{ok: boolean, text?: string, error?: string}>}
+ * @returns {Promise<{ok: boolean, text?: string, finishReason?: string, error?: string}>}
  */
 async function callOpenAiCompatible({
   provider,
@@ -86,9 +86,10 @@ async function callOpenAiCompatible({
     }
 
     const data = typeof res.json === 'function' ? await res.json() : {};
-    const replyText = data.choices?.[0]?.message?.content?.trim();
+    const choice = data.choices?.[0];
+    const replyText = choice?.message?.content?.trim();
 
-    return { ok: true, text: replyText || '' };
+    return { ok: true, text: replyText || '', finishReason: choice?.finish_reason || null };
   } catch (err) {
     return { ok: false, error: err?.message || 'OpenAI-compatible request failed' };
   }

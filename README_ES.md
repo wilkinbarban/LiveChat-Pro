@@ -6,6 +6,22 @@
 
 Chat en vivo auto-hospedado con widget embebible, integración con Telegram, panel web de administración único, persistencia SQLite y despliegue recomendado con Docker.
 
+## Novedades de la versión 1.1.0
+
+- Administración responsive para chats, IA, conocimiento, prompts, Telegram y apariencia del widget.
+- RAG administrado desde texto, PDF, URLs públicas o snapshots limitados de GitHub. Las fuentes quedan **Pendientes** hasta verificar el modelo predeterminado y pulsar **Indexar contenido nuevo**.
+- Deduplicación global y publicación segura de revisiones URL: el snapshot GitHub anterior continúa activo hasta indexar su reemplazo.
+- Inventario exacto desde fuentes GitHub indexadas y respuestas web completas con Markdown seguro, efecto typewriter y recuperación de truncamientos.
+- Master Prompt configurable con evidencia RAG delimitada y metadatos del visitante aislados como datos no confiables.
+
+### Flujo rápido de RAG
+
+1. Configura y verifica el modelo predeterminado en **Admin → AI**.
+2. Añade texto, PDF, URL pública o repositorio GitHub en **Admin → Conocimiento**.
+3. Revisa las entradas **Pendientes** y pulsa **Indexar contenido nuevo**. Solo las entradas **Indexadas** responden consultas.
+
+> El entrenador JSON se conserva por compatibilidad y referencia. Con un proveedor configurado, v1.1.0 responde desde el índice RAG administrativo y no vuelve silenciosamente a entrenamientos JSON antiguos.
+
 ## Qué Hace
 
 - Inserta un chat en cualquier web con un solo `<script>`.
@@ -625,6 +641,8 @@ Incrusta el widget en tus páginas utilizando la URL con la subruta `/chat`:
 ```html
 <script src="https://mywebsite.com/chat/widget.js" data-server="https://mywebsite.com/chat"></script>
 ```
+
+> **Embed en producción:** sirve la página y el widget por HTTPS. Si LiveChat Pro está detrás de un subpath del proxy inverso, `src` y `data-server` deben usar el mismo subpath público. El proxy debe reenviar `/socket.io/` con los encabezados WebSocket `Upgrade`/`Connection`; nunca expongas la dirección privada del contenedor.
 
 #### 4. URLs de Administración y Estado (Health)
 Tras el despliegue, el panel de administración y el endpoint de estado estarán accesibles en:

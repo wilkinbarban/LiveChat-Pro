@@ -51,7 +51,7 @@ test('LLM Adapters — OpenAI-compatible provider requests', async (t) => {
         ok: true,
         status: 200,
         json: async () => ({
-          choices: [{ message: { content: 'OpenAI response' } }],
+          choices: [{ message: { content: 'OpenAI response' }, finish_reason: 'length' }],
         }),
       };
     };
@@ -66,6 +66,7 @@ test('LLM Adapters — OpenAI-compatible provider requests', async (t) => {
 
     assert.equal(res.ok, true);
     assert.equal(res.text, 'OpenAI response');
+    assert.equal(res.finishReason, 'length');
     assert.ok(capturedUrl.startsWith(DEFAULT_BASE_URLS.openai));
     assert.equal(capturedOptions.headers['Authorization'], 'Bearer sk-test-key');
   });
@@ -129,6 +130,7 @@ test('LLM Adapters — Anthropic provider requests', async (t) => {
         status: 200,
         json: async () => ({
           content: [{ text: 'Anthropic reply' }],
+          stop_reason: 'max_tokens',
         }),
       };
     };
@@ -145,6 +147,8 @@ test('LLM Adapters — Anthropic provider requests', async (t) => {
 
     assert.equal(res.ok, true);
     assert.equal(res.text, 'Anthropic reply');
+    assert.equal(res.stopReason, 'max_tokens');
+    assert.equal(res.finishReason, 'max_tokens');
     assert.equal(capturedUrl, 'https://api.anthropic.com/v1/messages');
     assert.equal(capturedOptions.headers['x-api-key'], 'anthropic-secret-key');
     assert.equal(capturedOptions.headers['anthropic-version'], '2023-06-01');

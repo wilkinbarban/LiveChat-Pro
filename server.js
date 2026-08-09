@@ -12,7 +12,7 @@ const helmet = require('helmet');
 const pino = require('pino');
 const crypto = require('crypto');
 const path = require('path');
-const { initDb, closeDb, stmts } = require('./db');
+const { db, initDb, closeDb, stmts } = require('./db');
 const { ClusterState } = require('./cluster-state');
 const { createConfig, validateConfig } = require('./src/config');
 const {
@@ -440,7 +440,7 @@ const themesService = createThemesService({ settingsService });
 // the aiBot rehydration at boot use the SAME instances (factory fallbacks inside
 // createAdminRouter stay for tests that do not pass them).
 const masterPromptService = createMasterPromptService({ settingsService });
-const ragService = createRagService({ stmts });
+const ragService = createRagService({ db, stmts });
 
 app.get('/config-public', publicApiLimiter, async (_req, res) => {
   const theme = await themesService.getActiveTheme();
@@ -530,6 +530,7 @@ async function start() {
   // the health endpoint or local development.
   logger.info('Iniciando base de datos SQLite...');
   await initDb();
+  aiBot.configure({ masterPromptService, ragService });
   // Boot rehydration (ADR 5): after the DB is ready, load persisted LLM settings
   // and apply them once. Decrypt failure or missing settings resolves to null and
   // the env-only init above stays untouched (no clobber). Never throws — boot

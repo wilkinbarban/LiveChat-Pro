@@ -6,6 +6,22 @@
 
 Chat ao vivo auto-hospedado com widget incorporável, integração com Telegram, painel web único de administração, persistência SQLite e implantação recomendada com Docker.
 
+## Novidades da versão 1.1.0
+
+- Administração responsiva para chats, IA, conhecimento, prompts, Telegram e aparência do widget.
+- RAG administrado a partir de texto, PDF, URLs públicas ou snapshots limitados do GitHub. As fontes ficam **Pendentes** até verificar o modelo padrão e selecionar **Indexar novo conteúdo**.
+- Deduplicação global e publicação segura de revisões URL: o snapshot GitHub anterior continua ativo até o substituto ser indexado.
+- Inventário exato a partir das fontes GitHub indexadas e respostas web completas com Markdown seguro, efeito typewriter e recuperação de truncamento.
+- Master Prompt configurável com evidência RAG delimitada e metadados do visitante isolados como dados não confiáveis.
+
+### Fluxo rápido do RAG
+
+1. Configure e verifique o modelo padrão em **Admin → IA**.
+2. Adicione texto, PDF, URL pública ou repositório GitHub em **Admin → Conhecimento**.
+3. Revise as entradas **Pendentes** e selecione **Indexar novo conteúdo**. Somente entradas **Indexadas** respondem às consultas.
+
+> O treinador JSON permanece para compatibilidade e referência. Com um provedor configurado, v1.1.0 responde pelo índice RAG administrativo e não retorna silenciosamente a treinamentos JSON antigos.
+
 ## O Que Faz
 
 - Insere um chat em qualquer site com um único `<script>`.
@@ -624,6 +640,8 @@ Incorpore o widget em suas páginas usando a URL com o subcaminho `/chat`:
 ```html
 <script src="https://mywebsite.com/chat/widget.js" data-server="https://mywebsite.com/chat"></script>
 ```
+
+> **Embed em produção:** sirva a página e o widget por HTTPS. Se o LiveChat Pro estiver em um subpath do proxy reverso, `src` e `data-server` devem usar o mesmo subpath público. O proxy deve encaminhar `/socket.io/` com os cabeçalhos WebSocket `Upgrade`/`Connection`; nunca exponha o endereço privado do contêiner.
 
 #### 4. URLs de Administração e Estado (Health)
 Após a implantação, o painel de administração e os endpoints de verificação de status estarão acessíveis em:

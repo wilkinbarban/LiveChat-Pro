@@ -125,7 +125,7 @@ function createConfig({ logger = console } = {}) {
       mode: stripEnvQuotes(process.env.BOT_MODE) || 'disabled',
       openaiKey: stripEnvQuotes(process.env.OPENAI_API_KEY),
       model: stripEnvQuotes(process.env.OPENAI_MODEL) || 'gpt-4o-mini',
-      maxTokens: parseInteger(process.env.OPENAI_MAX_TOKENS, 300),
+      maxTokens: parseInteger(process.env.OPENAI_MAX_TOKENS, 1200),
       systemPrompt:
         stripEnvQuotes(process.env.BOT_SYSTEM_PROMPT) ||
         "You are a friendly support assistant. Be brief and reply in the user's language.",
