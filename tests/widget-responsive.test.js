@@ -8,9 +8,10 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
-const { hasRichMarkdown, renderSafeMarkdown, shouldTypewriterMessage } = require('../widget.js');
+const { hasRichMarkdown, reconcileHistory, renderSafeMarkdown, shouldTypewriterMessage } = require('../widget.js');
 
 const widgetSource = fs.readFileSync(path.join(__dirname, '..', 'widget.js'), 'utf8');
+const socketSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'sockets', 'index.js'), 'utf8');
 const readmeSource = fs.readFileSync(path.join(__dirname, '..', 'README_ES.md'), 'utf8');
 
 test('widget renderiza Markdown limitado y seguro', () => {
@@ -52,6 +53,31 @@ test('widget conserva typewriter para todas las respuestas frescas del agente', 
   assert.match(widgetSource, /typewriterReveal\(div, msg\.text, text, timeEl/);
   assert.match(widgetSource, /textNode\.textContent = slice/);
   assert.match(widgetSource, /textNode\.innerHTML = fullHtml/);
+});
+
+test('same-session reconnect adds only history missed while disconnected', () => {
+  const rendered = new Set(['id:1', 'id:2']);
+  const history = [
+    { id: 1, from: 'bot', text: 'Welcome', ts: 1 },
+    { id: 2, from: 'user', text: 'Hello', ts: 2 },
+    { id: 3, from: 'admin', text: 'While disconnected', ts: 3 },
+  ];
+
+  assert.deepEqual(reconcileHistory(history, rendered), [history[2]]);
+  assert.deepEqual([...rendered], ['id:1', 'id:2', 'id:3']);
+  assert.deepEqual(reconcileHistory(history, rendered), []);
+});
+
+test('history reconciliation deduplicates legacy messages without database ids', () => {
+  const rendered = new Set();
+  const message = { from: 'bot', text: 'Legacy welcome', ts: 1 };
+  assert.deepEqual(reconcileHistory([message, message], rendered), [message]);
+});
+
+test('saludo inicial se persiste una sola vez', () => {
+  assert.match(socketSource, /insertInitialGreeting\.run/);
+  assert.match(socketSource, /session\.messages = history\.map/);
+  assert.doesNotMatch(socketSource, /if \(!session\.name\) \{[\s\S]{0,200}socket\.emit\('message'/);
 });
 
 test('widget detecta modo movil y responde a cambios de viewport', () => {

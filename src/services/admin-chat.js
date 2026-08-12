@@ -1,6 +1,6 @@
 'use strict';
 
-const { getLastInsertId } = require('../utils/sqlite-result');
+const { persistSessionMessage } = require('./sessions');
 
 // AdminChatService contains operations initiated by the web admin panel. It
 // updates memory, SQLite, Redis snapshots, visitor sockets and admin sockets as
@@ -116,23 +116,13 @@ function createAdminChatService(deps) {
         : replyText;
 
       const msgObj = { from: 'admin', text: translatedText, ts: Date.now(), lang: session.lang };
-      session.messages.push(msgObj);
-      session.lastActive = Date.now();
+      await persistSessionMessage(stmts, session, msgObj);
       session.connected = isOnline;
       session.socketCount = sockets.length;
-
       try {
-        const inserted = await stmts.insertMessage.run({
-          session_id: session.sessionId,
-          from_role: 'admin',
-          text: translatedText,
-          ts: msgObj.ts,
-          lang: session.lang,
-        });
-        msgObj.id = getLastInsertId(inserted);
         await stmts.updateLastActive.run(session.lastActive, session.sessionId);
       } catch (dbError) {
-        logger.error({ err: dbError, sessionId: session.sessionId }, 'Error BD en sendAdminReplyToSession');
+        logger.error({ err: dbError, sessionId: session.sessionId }, 'Error BD en updateLastActive (admin reply)');
       }
 
       await syncSharedSession(session, { connected: isOnline, socketCount: sockets.length });

@@ -1,5 +1,18 @@
 'use strict';
 
+const { getLastInsertId } = require('../utils/sqlite-result');
+
+async function persistSessionMessage(stmts, session, message) {
+  const inserted = await stmts.insertMessage.run({
+    session_id: session.sessionId, from_role: message.from, text: message.text,
+    ts: message.ts, lang: message.lang,
+  });
+  message.id = getLastInsertId(inserted);
+  session.messages.push(message);
+  session.lastActive = message.ts;
+  return message;
+}
+
 // SessionService owns the conversion between durable SQLite rows, live in-memory
 // sessions and admin-facing DTOs. It deliberately does not know about Express or
 // Socket.IO so routes and sockets can share the same behavior.
@@ -118,19 +131,27 @@ function createSessionService(deps) {
     const cutoff = Date.now() - 24 * 60 * 60 * 1000;
     const rows = await stmts.getRecentSessions.all(cutoff);
     const sharedSnapshots = await clusterState.getSessionSnapshots(rows.map(row => row.session_id));
+    if (!rows.length) {
+      logger.info({ sessions: 0 }, 'Sesiones restauradas desde la base de datos');
+      return;
+    }
+    const messageRows = await stmts.getMessagesBySessions.all(JSON.stringify(rows.map(row => row.session_id)));
+    const messages = messageRows.map(message => ({
+      id: message.id, sessionId: message.session_id, from: message.from_role,
+      text: message.text, ts: message.ts, lang: message.lang,
+    }));
+    const hydratedMessages = deps.attachmentService
+      ? await deps.attachmentService.attachFilesToMessages(messages)
+      : messages;
+    const messagesBySession = new Map();
+    for (const message of hydratedMessages) {
+      const list = messagesBySession.get(message.sessionId) || [];
+      list.push(message);
+      messagesBySession.set(message.sessionId, list);
+      delete message.sessionId;
+    }
     for (const row of rows) {
-      const messageRows = await stmts.getMessages.all(row.session_id);
-      const messages = messageRows.map(message => ({
-        id: message.id,
-        from: message.from_role,
-        text: message.text,
-        ts: message.ts,
-        lang: message.lang,
-      }));
-      const hydratedMessages = deps.attachmentService
-        ? await deps.attachmentService.attachFilesToMessages(messages)
-        : messages;
-      const session = dbRowToSession(row, hydratedMessages);
+      const session = dbRowToSession(row, messagesBySession.get(row.session_id) || []);
       applySharedSessionSnapshot(session, sharedSnapshots.get(row.session_id));
       sessions.set(row.session_id, session);
     }
@@ -341,4 +362,5 @@ function createSessionService(deps) {
 
 module.exports = {
   createSessionService,
+  persistSessionMessage,
 };

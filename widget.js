@@ -70,8 +70,23 @@ function shouldTypewriterMessage(message, options = {}) {
   return Boolean(isAgent && message?.text && !options.history && !message?.attachments?.length);
 }
 
+function messageIdentity(message) {
+  return message?.id != null
+    ? `id:${message.id}`
+    : `legacy:${message?.from || ''}:${message?.ts || ''}:${message?.text || ''}`;
+}
+
+function reconcileHistory(history, renderedMessageIds) {
+  return (history || []).filter(message => {
+    const identity = messageIdentity(message);
+    if (renderedMessageIds.has(identity)) return false;
+    renderedMessageIds.add(identity);
+    return true;
+  });
+}
+
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { hasRichMarkdown, renderSafeMarkdown, shouldTypewriterMessage };
+  module.exports = { hasRichMarkdown, reconcileHistory, renderSafeMarkdown, shouldTypewriterMessage };
 } else (() => {
   'use strict';
 
@@ -939,22 +954,28 @@ if (typeof module !== 'undefined' && module.exports) {
     });
 
     // ── Socket events ────────────────────────────────────────
+    let bootstrappedSessionId = null;
+    const renderedMessageIds = new Set();
     socket.on('session', ({ sessionId: sid, history, name, config: cfg }) => {
       // The server can replace a stale local id with the canonical session id.
       localStorage.setItem('lchat_sid', sid);
       document.cookie = `lchat_sid=${sid};path=/;max-age=31536000`;
       if (cfg?.primaryColor) primaryColor = cfg.primaryColor;
       if (name) { nameBanner.textContent = uiText.greeting(name); nameBanner.style.display = 'block'; }
-      if (history && history.length) {
-        history.forEach(m => {
+      if (sid !== bootstrappedSessionId) renderedMessageIds.clear();
+      const missingHistory = reconcileHistory(history, renderedMessageIds);
+      if (missingHistory.length) {
+        missingHistory.forEach(m => {
           addMessage(m, { history: true });
         });
-        const lastAgentMsg = [...history].reverse().find(m => m.from === 'admin' || m.from === 'bot');
+        const lastAgentMsg = [...missingHistory].reverse().find(m => m.from === 'admin' || m.from === 'bot');
         if (lastAgentMsg) emitRead(lastAgentMsg.ts);
       }
+      bootstrappedSessionId = sid;
     });
 
     socket.on('message', (msg) => {
+      renderedMessageIds.add(messageIdentity(msg));
       addMessage(msg);
       if (!isOpen && msg.from !== 'user') {
         unreadCount++;

@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const { getClientIpFromSocket, getGeoInfo, shouldRefreshGeo } = require('../services/geo');
 const { sanitizeLanguage, sanitizeUserAgent, sanitizePage, sanitizeText, sanitizeName, escapeTelegramHtml } = require('../utils/sanitizer');
-const { getLastInsertId } = require('../utils/sqlite-result');
+const { persistSessionMessage } = require('../services/sessions');
 
 // Socket setup handles two namespaces:
 // - default namespace: visitor widget connections
@@ -115,11 +115,19 @@ function setupSockets(io, adminIo, deps) {
         botSilenced: false,
         typingMsgId:  null,
       };
-      sessions.set(sessionId, session);
       try {
         await stmts.upsertSession.run(sessionToDBRow(session));
       } catch (dbError) {
         logger.error({ err: dbError, sessionId }, 'Error BD en upsertSession');
+        socket.emit('error', { code: 'SESSION_INIT_FAILED', message: 'Unable to initialize chat session.' });
+        socket.disconnect(true);
+        return;
+      }
+      const concurrentSession = sessions.get(sessionId);
+      if (concurrentSession) {
+        session = concurrentSession;
+      } else {
+        sessions.set(sessionId, session);
       }
       await syncSharedSession(session, { connected: true, socketCount: await clusterState.incrementPresence(sessionId) });
       broadcastAdminSessionUpdate(session, { reason: 'created' });
@@ -158,17 +166,41 @@ function setupSockets(io, adminIo, deps) {
       broadcastAdminSessionUpdate(session, { reason: 'connected' });
     }
 
+    // The initial greeting is durable conversation history, not a connection
+    // event. This also backfills older unnamed sessions whose greeting used to
+    // exist only in the browser and was therefore repeated after reconnecting.
+    if (!session.name && session.messages.length === 0) {
+      const welcome = {
+        from: 'bot',
+        text: widgetCfg.welcomeMessage || getWidgetMessage(session.lang, 'welcome'),
+        ts: Date.now(),
+        lang: browserLang,
+      };
+      try {
+        const history = await stmts.insertInitialGreeting.run({
+          session_id: sessionId,
+          from_role: welcome.from,
+          text: welcome.text,
+          ts: welcome.ts,
+          lang: welcome.lang,
+        });
+        session.messages = history.map(message => ({
+          id: message.id, from: message.from_role, text: message.text,
+          ts: message.ts, lang: message.lang,
+        }));
+      } catch (dbError) {
+        logger.error({ err: dbError, sessionId }, 'Error BD en insertMessage (initial welcome)');
+        return;
+      }
+      await syncSharedSession(session);
+    }
+
     socket.emit('session', {
       sessionId,
       history: session.messages,
       name:    session.name,
       config:  { primaryColor: widgetCfg.primaryColor },
     });
-
-    if (!session.name) {
-      const welcome = widgetCfg.welcomeMessage || getWidgetMessage(session.lang, 'welcome');
-      socket.emit('message', { from: 'bot', text: welcome, ts: Date.now() });
-    }
 
     socket.on('page', async (page) => {
       if (!session) return;
@@ -224,24 +256,24 @@ function setupSockets(io, adminIo, deps) {
 
       if (session.awaitingName) {
         const name = sanitizeName(text);
-        session.name = name;
-        session.awaitingName = false;
         try {
           await stmts.setName.run(name, session.lastActive, sessionId);
         } catch (dbError) {
           logger.error({ err: dbError, sessionId }, 'Error BD en setName');
+          return;
         }
+        session.name = name;
+        session.awaitingName = false;
         await syncSharedSession(session);
         socket.emit('name_set', { name });
         const botLang = session.browserLang || session.lang;
         const botMsg = { from: 'bot', text: getWidgetMessage(botLang, 'named', name), ts: Date.now(), lang: botLang };
         try {
-          const inserted = await stmts.insertMessage.run({ session_id: sessionId, from_role: 'bot', text: botMsg.text, ts: botMsg.ts, lang: botLang });
-          botMsg.id = getLastInsertId(inserted);
+          await persistSessionMessage(stmts, session, botMsg);
         } catch (dbError) {
           logger.error({ err: dbError, sessionId }, 'Error BD en insertMessage (bot welcome)');
+          return;
         }
-        session.messages.push(botMsg);
         socket.emit('message', botMsg);
         await clusterState.setPendingReply(ADMIN_ID, sessionId);
         await sendToAdmin(`🆕 <b>Nueva sesión iniciada</b>\n\n${sessionCard(session)}`, {}, sessionId);
@@ -293,13 +325,11 @@ function setupSockets(io, adminIo, deps) {
       }
 
       const msgObj = { from: 'user', text, ts: Date.now(), lang: session.lang };
-      session.messages.push(msgObj);
-      session.lastActive = msgObj.ts;
       try {
-        const inserted = await stmts.insertMessage.run({ session_id: sessionId, from_role: 'user', text, ts: msgObj.ts, lang: session.lang });
-        msgObj.id = getLastInsertId(inserted);
+        await persistSessionMessage(stmts, session, msgObj);
       } catch (dbError) {
         logger.error({ err: dbError, sessionId }, 'Error BD en insertMessage (user msg)');
+        return;
       }
       await syncSharedSession(session);
       socket.emit('message', { from: 'user', text, ts: msgObj.ts });
@@ -315,12 +345,11 @@ function setupSockets(io, adminIo, deps) {
           if (botResult?.reply && !botResult.escalate) {
             // Bot already responds in the detected visitor language — no translation needed.
             const botMsg = { from: 'bot', text: botResult.reply, ts: Date.now(), lang: botResult.language || session.lang };
-            session.messages.push(botMsg);
             try {
-              const inserted = await stmts.insertMessage.run({ session_id: sessionId, from_role: 'bot', text: botMsg.text, ts: botMsg.ts, lang: session.lang });
-              botMsg.id = getLastInsertId(inserted);
+              await persistSessionMessage(stmts, session, botMsg);
             } catch (dbError) {
               logger.error({ err: dbError, sessionId }, 'Error BD insertMessage (bot reply)');
+              return;
             }
             io.to(sessionRoom(sessionId)).emit('message', botMsg);
             await syncSharedSession(session);
@@ -346,12 +375,11 @@ ${escapeTelegramHtml(botResult.reply.slice(0, 100))}${botResult.reply.length > 1
             };
             const escalateText = ESCALATE_MESSAGES[detectedLang] || ESCALATE_MESSAGES['es'];
             const escalateMsg = { from: 'bot', text: escalateText, ts: Date.now(), lang: detectedLang };
-            session.messages.push(escalateMsg);
             try {
-              const inserted = await stmts.insertMessage.run({ session_id: sessionId, from_role: 'bot', text: escalateMsg.text, ts: escalateMsg.ts, lang: detectedLang });
-              escalateMsg.id = getLastInsertId(inserted);
+              await persistSessionMessage(stmts, session, escalateMsg);
             } catch (dbError) {
               logger.error({ err: dbError, sessionId }, 'Error BD insertMessage (escalate notify)');
+              return;
             }
             io.to(sessionRoom(sessionId)).emit('message', escalateMsg);
             await syncSharedSession(session);

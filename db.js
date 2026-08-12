@@ -419,6 +419,25 @@ const stmts = {
     'SELECT * FROM messages WHERE session_id = ? ORDER BY ts ASC'
   ),
 
+  getMessagesBySessions: createStatement(`
+    SELECT * FROM messages
+    WHERE session_id IN (SELECT value FROM json_each(?))
+    ORDER BY session_id, ts ASC
+  `),
+
+  insertInitialGreeting: {
+    async run(message) {
+      return db.runInTransaction(async connection => {
+        await connection.run(`
+          INSERT INTO messages (session_id, from_role, text, ts, lang)
+          SELECT @session_id, @from_role, @text, @ts, @lang
+          WHERE NOT EXISTS (SELECT 1 FROM messages WHERE session_id = @session_id)
+        `, normalizeParams([message])[0]);
+        return connection.all('SELECT * FROM messages WHERE session_id = ? ORDER BY ts ASC', message.session_id);
+      });
+    },
+  },
+
   clearMessagesBySession: createStatement(
     'DELETE FROM messages WHERE session_id = ?'
   ),
