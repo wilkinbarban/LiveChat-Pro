@@ -366,7 +366,7 @@ test('RAG Admin Routes — POST /api/admin/rag/documents/text', async () => {
 });
 
 test('RAG Admin Routes — POST /api/admin/rag/documents/url', async () => {
-  const { app } = setupTestApp();
+  const { app } = setupTestApp({ fetch: globalThis.fetch });
   const server = app.listen(0);
 
   // Setup local target HTTP server to mock URL response

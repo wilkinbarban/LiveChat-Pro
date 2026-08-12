@@ -10,6 +10,7 @@ const defaultAiBot = require('../services/ai-bot');
 const { createRagService } = require('../services/rag');
 const { extractPdfText } = require('../utils/pdf');
 const { createMasterPromptService } = require('../services/master-prompt');
+const { createSafeFetch } = require('../utils/fetch');
 const { createThemesService } = require('../services/themes');
 const { stripEnvQuotes } = require('../config/index');
 
@@ -140,18 +141,18 @@ async function mapWithConcurrency(items, concurrency, mapper) {
 
 async function fetchGithubRepository({ repository, fetchUrl, signal, selection = { mode: 'repository', includePaths: [] } }) {
   const headers = { Accept: 'application/vnd.github+json', 'User-Agent': 'LiveChat-Pro/1.0' };
-  const metadataResponse = await fetchUrl(repository.apiUrl, { signal, headers });
+  const metadataResponse = await fetchUrl(repository.apiUrl, { signal, headers, timeoutMs: GITHUB_REPOSITORY_LIMITS.timeoutMs });
   if (!metadataResponse.ok) throw new Error(`GitHub metadata HTTP ${metadataResponse.status}`);
   const metadata = await metadataResponse.json();
   const branch = String(metadata.default_branch || 'main');
-  const commitResponse = await fetchUrl(`${repository.apiUrl}/commits/${encodeURIComponent(branch)}`, { signal, headers });
+  const commitResponse = await fetchUrl(`${repository.apiUrl}/commits/${encodeURIComponent(branch)}`, { signal, headers, timeoutMs: GITHUB_REPOSITORY_LIMITS.timeoutMs });
   if (!commitResponse.ok) throw new Error(`GitHub commit HTTP ${commitResponse.status}`);
   const commit = await commitResponse.json();
   const commitSha = String(commit.sha || '');
   const treeSha = String(commit.commit?.tree?.sha || '');
   if (!commitSha || !treeSha) throw new Error('GitHub no devolvió un snapshot válido del repositorio');
   const treeUrl = `${repository.apiUrl}/git/trees/${encodeURIComponent(treeSha)}?recursive=1`;
-  const treeResponse = await fetchUrl(treeUrl, { signal, headers });
+  const treeResponse = await fetchUrl(treeUrl, { signal, headers, timeoutMs: GITHUB_REPOSITORY_LIMITS.timeoutMs });
   if (!treeResponse.ok) throw new Error(`GitHub tree HTTP ${treeResponse.status}`);
   const tree = await treeResponse.json();
   if (tree.truncated) throw new Error('El árbol del repositorio GitHub excede el límite de la API');
@@ -177,7 +178,7 @@ async function fetchGithubRepository({ repository, fetchUrl, signal, selection =
   const downloaded = await mapWithConcurrency(selected, GITHUB_REPOSITORY_LIMITS.concurrency, async (file) => {
     const rawPath = file.path.split('/').map(encodeURIComponent).join('/');
     const rawUrl = `https://raw.githubusercontent.com/${encodeURIComponent(repository.owner)}/${encodeURIComponent(repository.repository)}/${encodeURIComponent(commitSha)}/${rawPath}`;
-    const response = await fetchUrl(rawUrl, { signal, headers: { 'User-Agent': 'LiveChat-Pro/1.0' } });
+    const response = await fetchUrl(rawUrl, { signal, headers: { 'User-Agent': 'LiveChat-Pro/1.0' }, timeoutMs: GITHUB_REPOSITORY_LIMITS.timeoutMs, maxBytes: GITHUB_REPOSITORY_LIMITS.maxFileBytes });
     if (!response.ok) throw new Error(`GitHub raw ${file.path} HTTP ${response.status}`);
     const declaredSize = Number(response.headers.get('content-length'));
     if (Number.isFinite(declaredSize) && declaredSize > GITHUB_REPOSITORY_LIMITS.maxFileBytes) {
@@ -224,7 +225,7 @@ function createAdminRouter(deps) {
   const masterPromptService = deps.masterPromptService || createMasterPromptService({ settingsService });
   const themesService = deps.themesService || createThemesService({ settingsService });
   const telegramBot = deps.telegramBot || require('../telegram/bot');
-  const fetchUrl = deps.fetch || globalThis.fetch;
+  const fetchUrl = deps.fetch || createSafeFetch();
   const stageRagText = ragService.stageText?.bind(ragService) || ragService.ingestText?.bind(ragService);
 
   const {
