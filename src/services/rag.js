@@ -110,6 +110,7 @@ function createRagService(deps = {}) {
 
   async function stageText({ sourceType, source, sourceKey = source, title, text }) {
     if (!text || typeof text !== 'string') throw new Error('El contenido de texto es requerido para la ingestión RAG');
+    if (Buffer.byteLength(text, 'utf8') > 3 * 1024 * 1024) throw new Error('El contenido RAG supera el límite de 3 MiB');
     if (!sourceType || !sourceKey) throw new Error('sourceType y source son requeridos para la ingestión RAG');
     const contentHash = crypto.createHash('sha256').update(text).digest('hex');
     const now = Date.now();
@@ -127,25 +128,26 @@ function createRagService(deps = {}) {
 
   async function promotePending() {
     if (typeof db?.runInTransaction !== 'function') throw new Error('La indexación requiere soporte transaccional');
+    const pending = await db.all("SELECT * FROM rag_documents WHERE status = 'pending' ORDER BY created_at ASC LIMIT 10");
+    let indexed = 0;
     try {
-      return await db.runInTransaction(async connection => {
-      const pending = await connection.all("SELECT * FROM rag_documents WHERE status = 'pending' ORDER BY created_at ASC");
-      let indexed = 0;
       for (const document of pending) {
-        const chunks = chunkText(document.pending_text || '');
-        if (!chunks.length) throw new Error(`Documento pendiente ${document.id} sin contenido`);
-        for (let index = 0; index < chunks.length; index++) {
-          await connection.run('INSERT INTO rag_chunks (document_id, seq, text, created_at) VALUES (?, ?, ?, ?)', document.id, index + 1, chunks[index], Date.now());
-        }
-        await connection.run("UPDATE rag_documents SET status = 'indexed', pending_text = NULL, indexed_at = ?, error = NULL WHERE id = ? AND status = 'pending'", Date.now(), document.id);
-        if (document.source_type === 'url') {
-          const older = await connection.all("SELECT id FROM rag_documents WHERE source = ? AND source_type = 'url' AND status = 'indexed' AND id <> ? ORDER BY created_at DESC", document.source, document.id);
-          for (const old of older) await connection.run('DELETE FROM rag_documents WHERE id = ?', old.id);
-        }
+        await db.runInTransaction(async connection => {
+          const chunks = chunkText(document.pending_text || '');
+          if (!chunks.length) throw new Error(`Documento pendiente ${document.id} sin contenido`);
+          for (let index = 0; index < chunks.length; index++) {
+            await connection.run('INSERT INTO rag_chunks (document_id, seq, text, created_at) VALUES (?, ?, ?, ?)', document.id, index + 1, chunks[index], Date.now());
+          }
+          await connection.run("UPDATE rag_documents SET status = 'indexed', pending_text = NULL, indexed_at = ?, error = NULL WHERE id = ? AND status = 'pending'", Date.now(), document.id);
+          if (document.source_type === 'url') {
+            const older = await connection.all("SELECT id FROM rag_documents WHERE source = ? AND source_type = 'url' AND status = 'indexed' AND id <> ? ORDER BY created_at DESC", document.source, document.id);
+            for (const old of older) await connection.run('DELETE FROM rag_documents WHERE id = ?', old.id);
+          }
+        });
         indexed++;
       }
-      return { indexed, pending: 0 };
-      });
+      const remaining = await db.get?.("SELECT COUNT(*) AS count FROM rag_documents WHERE status = 'pending'");
+      return { indexed, pending: remaining?.count ?? Math.max(0, pending.length - indexed) };
     } catch (error) {
       if (db?.run) {
         await db.run("UPDATE rag_documents SET error = ? WHERE status = 'pending'", [String(error.message || error).slice(0, 500)]);

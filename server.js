@@ -12,6 +12,7 @@ const helmet = require('helmet');
 const pino = require('pino');
 const crypto = require('crypto');
 const path = require('path');
+const { createRequestLoggerMiddleware } = require('./src/utils/logger');
 const { db, initDb, closeDb, stmts } = require('./db');
 const { ClusterState } = require('./cluster-state');
 const { createConfig, validateConfig } = require('./src/config');
@@ -210,30 +211,7 @@ app.use(express.json({ limit: '16kb' }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.use((req, res, next) => {
-  // Sanitize incoming X-Request-Id to prevent HTTP response header injection.
-  // Only allow alphanumeric characters, hyphens and underscores (max 64 chars).
-  const rawRequestId = typeof req.headers['x-request-id'] === 'string' ? req.headers['x-request-id'] : '';
-  const sanitizedId = rawRequestId.replace(/[^a-zA-Z0-9\-_]/g, '').slice(0, 64);
-  const requestId = sanitizedId || crypto.randomUUID();
-  const startedAt = Date.now();
-
-  req.requestId = requestId;
-  res.setHeader('X-Request-Id', requestId);
-
-  res.on('finish', () => {
-    logger.info({
-      requestId,
-      method: req.method,
-      path: req.originalUrl,
-      statusCode: res.statusCode,
-      durationMs: Date.now() - startedAt,
-      ip: req.ip,
-    }, 'http_request');
-  });
-
-  next();
-});
+app.use(createRequestLoggerMiddleware({ logger, randomUUID: crypto.randomUUID }));
 
 const {
   createAdminToken,
