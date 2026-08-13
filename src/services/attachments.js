@@ -107,7 +107,7 @@ function normalizeUploadConfig(config = {}, rootDir = process.cwd()) {
 
 // AttachmentService owns file validation, disk writes, metadata persistence and
 // safe read paths. Routers decide who is allowed to call each operation.
-function createAttachmentService({ stmts, logger = console, config = {}, rootDir }) {
+function createAttachmentService({ stmts, logger = console, config = {}, rootDir, fileSystem = fs }) {
   const { uploadDir, maxBytes, allowedImageTypes } = normalizeUploadConfig(config, rootDir);
 
   // Validation checks type allowlist, binary signature and size before writing
@@ -224,11 +224,6 @@ function createAttachmentService({ stmts, logger = console, config = {}, rootDir
     return row;
   }
 
-  async function listMessageAttachments(messageId) {
-    const rows = await stmts.getAttachmentsByMessage.all(messageId);
-    return rows.map(serializeAttachment).filter(Boolean);
-  }
-
   async function attachFilesToMessages(messages = []) {
     // Batch lookup avoids one attachment query per message when hydrating chat
     // history for admin detail views or visitor reconnects.
@@ -293,6 +288,41 @@ function createAttachmentService({ stmts, logger = console, config = {}, rootDir
     return deletedFiles;
   }
 
+  async function cleanupOrphanFiles({ now = Date.now(), minimumAgeMs = 60 * 60 * 1000 } = {}) {
+    let referencedPaths;
+    try {
+      const rows = await stmts.getAllAttachmentPaths.all();
+      referencedPaths = new Set(rows.map(row => path.resolve(row.storage_path)));
+    } catch (error) {
+      logger.error?.({ err: error }, 'Attachment orphan snapshot failed');
+      throw error;
+    }
+
+    await ensureUploadDir();
+    const entries = await fs.readdir(uploadDir, { withFileTypes: true });
+    let scanned = 0;
+    const deletable = [];
+    for (const entry of entries) {
+      if (!entry.isFile()) continue;
+      scanned++;
+      const filePath = path.resolve(uploadDir, entry.name);
+      if (referencedPaths.has(filePath)) continue;
+      const stat = await fs.stat(filePath);
+      if (now - stat.mtimeMs <= minimumAgeMs) continue;
+      deletable.push(filePath);
+    }
+    let deleted = 0;
+    for (const filePath of deletable) {
+      try {
+        await fileSystem.unlink(filePath);
+        deleted++;
+      } catch (error) {
+        if (error.code !== 'ENOENT') throw error;
+      }
+    }
+    return { scanned, deleted };
+  }
+
   function getStoragePath(row) {
     // Resolve and verify the path stays under the configured upload directory to
     // avoid serving arbitrary files if the database row is tampered with.
@@ -311,10 +341,10 @@ function createAttachmentService({ stmts, logger = console, config = {}, rootDir
     saveAttachment,
     serializeAttachment,
     getAttachment,
-    listMessageAttachments,
     attachFilesToMessages,
     deleteAttachment,
     deleteSessionAttachmentFiles,
+    cleanupOrphanFiles,
     getStoragePath,
   };
 }

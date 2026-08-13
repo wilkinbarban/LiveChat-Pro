@@ -202,17 +202,6 @@ function createSessionService(deps) {
     };
   }
 
-  function serializeMessage(message) {
-    return {
-      id: message.id || null,
-      from: message.from,
-      text: message.text,
-      ts: message.ts,
-      lang: message.lang || null,
-      attachments: message.attachments || [],
-    };
-  }
-
   function serializeSession(session) {
     const lastMessage = session.messages[session.messages.length - 1] || null;
     return {
@@ -352,7 +341,6 @@ function createSessionService(deps) {
     ensureSessionLoaded,
     translateForAdmin,
     serializeMessageForAdmin,
-    serializeMessage,
     serializeSession,
     serializeSessionOverview,
     listSessionsForAdmin,

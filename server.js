@@ -277,6 +277,10 @@ const attachmentService = createAttachmentService({
   config: config.uploads,
   rootDir: __dirname,
 });
+const cleanupAttachments = () => attachmentService.cleanupOrphanFiles().catch(error => {
+  logger.error({ err: error }, 'Attachment orphan cleanup failed');
+});
+let attachmentCleanupTimer;
 
 // Services are created before routers/sockets so every transport shares the same
 // session serialization, persistence and broadcast behavior.
@@ -511,6 +515,9 @@ async function start() {
   adminAuth.initialize();
   logger.info('Iniciando base de datos SQLite...');
   await initDb();
+  await cleanupAttachments();
+  attachmentCleanupTimer = setInterval(cleanupAttachments, 24 * 60 * 60 * 1000);
+  attachmentCleanupTimer.unref();
   aiBot.configure({ masterPromptService, ragService });
   // Boot rehydration (ADR 5): after the DB is ready, load persisted LLM settings
   // and apply them once. Decrypt failure or missing settings resolves to null and
@@ -592,6 +599,7 @@ const shutdown = createShutdownCoordinator({
     return httpServer.close(error => error ? reject(error) : resolve());
   }),
   closeTransports: [
+    () => { if (attachmentCleanupTimer) clearInterval(attachmentCleanupTimer); },
     signal => { if (getTelegramStatus()?.status === 'running') getBot()?.stop(signal); },
     closeTranslationCache,
     () => clusterState.close(),

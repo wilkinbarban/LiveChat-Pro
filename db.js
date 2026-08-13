@@ -18,6 +18,47 @@ if (DB_FILE !== ':memory:' && !fs.existsSync(DATA_DIR)) {
 let dbPromise = null;
 let transactionTail = Promise.resolve();
 
+function isDuplicateColumn(error) {
+  return error?.code === 'SQLITE_ERROR' && /duplicate column name/i.test(error.message || '');
+}
+
+async function runMigrations(connection, migrations, logger = console) {
+  for (const migration of migrations) {
+    try {
+      await connection.exec(migration.statement);
+    } catch (cause) {
+      if (migration.allowDuplicateColumn && isDuplicateColumn(cause)) continue;
+      const error = new Error(`Migration ${migration.version} failed at ${migration.id}`, { cause });
+      error.migrationVersion = migration.version;
+      error.statementId = migration.id;
+      logger.error?.({
+        migrationVersion: migration.version,
+        statementId: migration.id,
+        cause,
+      }, 'SQLite migration failed');
+      throw error;
+    }
+  }
+}
+
+async function rebuildLegacyRagTable(connection, columns) {
+  const value = (name, fallback) => columns.has(name) ? name : fallback;
+  const version = 'legacy-rag-source-type-v1';
+  await runMigrations(connection, [
+    { version, id: 'create-expanded-rag-table', statement: `CREATE TABLE rag_documents_new (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, source TEXT NOT NULL,
+      source_type TEXT NOT NULL CHECK(source_type IN ('url','pdf','text','kb-migration')),
+      title TEXT, content_hash TEXT NOT NULL UNIQUE, status TEXT NOT NULL DEFAULT 'indexed',
+      pending_text TEXT, indexed_at INTEGER, error TEXT, created_at INTEGER NOT NULL)` },
+    { version, id: 'copy-legacy-rag-documents', statement: `INSERT INTO rag_documents_new
+      (id, source, source_type, title, content_hash, status, pending_text, indexed_at, error, created_at)
+      SELECT id, source, source_type, title, content_hash, ${value('status', "'indexed'")},
+      ${value('pending_text', 'NULL')}, ${value('indexed_at', 'created_at')}, ${value('error', 'NULL')}, created_at FROM rag_documents` },
+    { version, id: 'drop-legacy-rag-table', statement: 'DROP TABLE rag_documents' },
+    { version, id: 'activate-expanded-rag-table', statement: 'ALTER TABLE rag_documents_new RENAME TO rag_documents' },
+  ]);
+}
+
 // The sqlite package accepts named parameters with @/$/: prefixes. Most call
 // sites use plain object keys, so this adapter adds the expected @ prefix once.
 function normalizeParams(params) {
@@ -203,26 +244,10 @@ async function createDb() {
   const ragTable = await db.get("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'rag_documents'");
   if (ragTable?.sql && !ragTable.sql.includes("'text'")) {
     const columns = new Set((await db.all('PRAGMA table_info(rag_documents)')).map(column => column.name));
-    const value = (name, fallback) => columns.has(name) ? name : fallback;
     await db.exec('PRAGMA foreign_keys = OFF');
     try {
       await db.exec('BEGIN IMMEDIATE');
-      await db.exec(`
-        CREATE TABLE rag_documents_new (
-          id INTEGER PRIMARY KEY AUTOINCREMENT, source TEXT NOT NULL,
-          source_type TEXT NOT NULL CHECK(source_type IN ('url','pdf','text','kb-migration')),
-          title TEXT, content_hash TEXT NOT NULL UNIQUE,
-          status TEXT NOT NULL DEFAULT 'indexed', pending_text TEXT,
-          indexed_at INTEGER, error TEXT, created_at INTEGER NOT NULL
-        );
-        INSERT INTO rag_documents_new (id, source, source_type, title, content_hash, status, pending_text, indexed_at, error, created_at)
-        SELECT id, source, source_type, title, content_hash,
-          ${value('status', "'indexed'")}, ${value('pending_text', 'NULL')},
-          ${value('indexed_at', 'created_at')}, ${value('error', 'NULL')}, created_at
-        FROM rag_documents;
-        DROP TABLE rag_documents;
-        ALTER TABLE rag_documents_new RENAME TO rag_documents;
-      `);
+      await rebuildLegacyRagTable(db, columns);
       await db.exec('COMMIT');
     } catch (error) {
       await db.exec('ROLLBACK');
@@ -232,19 +257,26 @@ async function createDb() {
     }
   }
 
-  // Migrations for existing databases (idempotent). SQLite raises when a column
-  // already exists, so each ALTER is intentionally isolated and ignored.
-  try { await db.exec('ALTER TABLE sessions ADD COLUMN admin_last_seen_ts INTEGER NOT NULL DEFAULT 0'); } catch {}
-  try { await db.exec('ALTER TABLE sessions ADD COLUMN user_last_seen_ts INTEGER NOT NULL DEFAULT 0'); } catch {}
-  try { await db.exec('ALTER TABLE sessions ADD COLUMN bot_silenced INTEGER NOT NULL DEFAULT 0'); } catch {}
-  try { await db.exec('ALTER TABLE attachments ADD COLUMN access_token TEXT'); } catch {}
-  try { await db.exec('ALTER TABLE attachments ADD COLUMN width INTEGER'); } catch {}
-  try { await db.exec('ALTER TABLE attachments ADD COLUMN height INTEGER'); } catch {}
-  try { await db.exec("ALTER TABLE rag_documents ADD COLUMN status TEXT NOT NULL DEFAULT 'indexed'"); } catch {}
-  try { await db.exec('ALTER TABLE rag_documents ADD COLUMN pending_text TEXT'); } catch {}
-  try { await db.exec('ALTER TABLE rag_documents ADD COLUMN indexed_at INTEGER'); } catch {}
-  try { await db.exec('ALTER TABLE rag_documents ADD COLUMN error TEXT'); } catch {}
-  try { await db.exec("UPDATE rag_documents SET status = 'indexed', indexed_at = COALESCE(indexed_at, created_at) WHERE status IS NULL OR status = ''"); } catch {}
+  const columnMigrations = [
+    ['sessions-admin-last-seen', 'ALTER TABLE sessions ADD COLUMN admin_last_seen_ts INTEGER NOT NULL DEFAULT 0'],
+    ['sessions-user-last-seen', 'ALTER TABLE sessions ADD COLUMN user_last_seen_ts INTEGER NOT NULL DEFAULT 0'],
+    ['sessions-bot-silenced', 'ALTER TABLE sessions ADD COLUMN bot_silenced INTEGER NOT NULL DEFAULT 0'],
+    ['attachments-access-token', 'ALTER TABLE attachments ADD COLUMN access_token TEXT'],
+    ['attachments-width', 'ALTER TABLE attachments ADD COLUMN width INTEGER'],
+    ['attachments-height', 'ALTER TABLE attachments ADD COLUMN height INTEGER'],
+    ['rag-status', "ALTER TABLE rag_documents ADD COLUMN status TEXT NOT NULL DEFAULT 'indexed'"],
+    ['rag-pending-text', 'ALTER TABLE rag_documents ADD COLUMN pending_text TEXT'],
+    ['rag-indexed-at', 'ALTER TABLE rag_documents ADD COLUMN indexed_at INTEGER'],
+    ['rag-error', 'ALTER TABLE rag_documents ADD COLUMN error TEXT'],
+  ].map(([id, statement], index) => ({ version: index + 1, id, statement, allowDuplicateColumn: true }));
+  await runMigrations(db, [
+    ...columnMigrations,
+    {
+      version: 11,
+      id: 'rag-indexed-backfill',
+      statement: "UPDATE rag_documents SET status = 'indexed', indexed_at = COALESCE(indexed_at, created_at) WHERE status IS NULL OR status = ''",
+    },
+  ]);
 
   return db;
 }
@@ -479,6 +511,8 @@ const stmts = {
     'SELECT * FROM attachments WHERE session_id = ? ORDER BY created_at ASC'
   ),
 
+  getAllAttachmentPaths: createStatement('SELECT storage_path FROM attachments'),
+
   softDeleteAttachment: createStatement(
     'UPDATE attachments SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL'
   ),
@@ -525,4 +559,4 @@ const stmts = {
 
 };
 
-module.exports = { db, stmts, initDb, closeDb };
+module.exports = { db, stmts, initDb, closeDb, runMigrations, rebuildLegacyRagTable };
