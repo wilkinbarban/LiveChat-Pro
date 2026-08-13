@@ -3,11 +3,16 @@
 // ClusterState is the only module that knows whether the application is
 // running as a single process or with Redis-backed shared state.
 class ClusterState {
-  constructor({ redisUrl = '', keyPrefix = 'lcp', logger = console, enabled = true } = {}) {
+  constructor({ redisUrl = '', keyPrefix = 'lcp', logger = console, enabled = true,
+    nodeId = require('crypto').randomUUID(), setIntervalFn = setInterval, clearIntervalFn = clearInterval } = {}) {
     this.redisUrl = typeof redisUrl === 'string' ? redisUrl.replace(/^["']|["']$/g, '').trim() : '';
     this.keyPrefix = keyPrefix;
     this.logger = logger;
     this.enabled = enabled;
+    this.nodeId = nodeId;
+    this.setIntervalFn = setIntervalFn;
+    this.clearIntervalFn = clearIntervalFn;
+    this.presenceTimer = null;
     this.mode = 'memory';
 
     this.pubClient = null;
@@ -43,6 +48,28 @@ class ClusterState {
 
   presenceKey(sessionId) {
     return this.key(`presence:${sessionId}`);
+  }
+
+  nodePresenceKey() {
+    return this.key(`presence-node:${this.nodeId}`);
+  }
+
+  attachPresenceClient(client) {
+    this.stateClient = client;
+    if (!this.presenceTimer) {
+      this.presenceTimer = this.setIntervalFn(() => this.renewPresence().catch(error => {
+        this.logger.warn({ err: error }, 'Presence lease renewal failed');
+      }), 20_000);
+      this.presenceTimer.unref?.();
+    }
+  }
+
+  async renewPresence() {
+    if (!this.stateClient) return;
+    const values = Object.fromEntries(this.localPresence);
+    await this.stateClient.del(this.nodePresenceKey());
+    if (Object.keys(values).length) await this.stateClient.hSet(this.nodePresenceKey(), values);
+    if (Object.keys(values).length) await this.stateClient.expire(this.nodePresenceKey(), 60);
   }
 
   telegramMessageKey(adminId, messageId) {
@@ -134,6 +161,8 @@ class ClusterState {
       this.subClient = subClient;
       this.stateClient = stateClient;
       this.mode = 'redis';
+      this.attachPresenceClient(stateClient);
+      await this.renewPresence();
 
       this.logger.info({ mode: this.mode }, 'Redis habilitado para estado compartido y Socket.IO');
       return true;
@@ -153,6 +182,8 @@ class ClusterState {
   }
 
   async close() {
+    if (this.presenceTimer) this.clearIntervalFn(this.presenceTimer);
+    this.presenceTimer = null;
     await Promise.allSettled([
       this._safeDisconnect(this.pubClient),
       this._safeDisconnect(this.subClient),
@@ -226,15 +257,12 @@ class ClusterState {
   // Presence is a reference count rather than a boolean because one visitor can
   // open the widget in multiple tabs or reconnect while an old socket is closing.
   async incrementPresence(sessionId) {
-    if (!this.stateClient) {
-      const count = (this.localPresence.get(sessionId) || 0) + 1;
-      this.localPresence.set(sessionId, count);
-      return count;
-    }
-    const presenceKey = this.presenceKey(sessionId);
-    const count = await this.stateClient.incr(presenceKey);
-    await this.stateClient.expire(presenceKey, 48 * 60 * 60);
-    return count;
+    const localCount = (this.localPresence.get(sessionId) || 0) + 1;
+    this.localPresence.set(sessionId, localCount);
+    if (!this.stateClient) return localCount;
+    await this.stateClient.hIncrBy(this.nodePresenceKey(), sessionId, 1);
+    await this.stateClient.expire(this.nodePresenceKey(), 60);
+    return this.getPresence(sessionId);
   }
 
   async decrementPresence(sessionId) {
@@ -244,20 +272,22 @@ class ClusterState {
       else this.localPresence.delete(sessionId);
       return count;
     }
-    const presenceKey = this.presenceKey(sessionId);
-    const count = await this.stateClient.decr(presenceKey);
-    if (count <= 0) {
-      await this.stateClient.del(presenceKey);
-      return 0;
-    }
-    await this.stateClient.expire(presenceKey, 48 * 60 * 60);
-    return count;
+    const localCount = Math.max(0, (this.localPresence.get(sessionId) || 0) - 1);
+    if (localCount) this.localPresence.set(sessionId, localCount);
+    else this.localPresence.delete(sessionId);
+    if (localCount) await this.stateClient.hSet(this.nodePresenceKey(), { [sessionId]: localCount });
+    else await this.stateClient.hDel(this.nodePresenceKey(), sessionId);
+    await this.stateClient.expire(this.nodePresenceKey(), 60);
+    return this.getPresence(sessionId);
   }
 
   async getPresence(sessionId) {
     if (!this.stateClient) return this.localPresence.get(sessionId) || 0;
-    const value = await this.stateClient.get(this.presenceKey(sessionId));
-    return Math.max(0, Number.parseInt(value || '0', 10) || 0);
+    let total = 0;
+    for await (const key of this.stateClient.scanIterator({ MATCH: this.key('presence-node:*') })) {
+      total += Math.max(0, Number.parseInt(await this.stateClient.hGet(key, sessionId) || '0', 10) || 0);
+    }
+    return total;
   }
 
   // Persist the latest lightweight session view for admin lists and reconnects
@@ -277,6 +307,7 @@ class ClusterState {
   async deleteSession(sessionId) {
     this.localPresence.delete(sessionId);
     if (!this.stateClient) return;
+    await this.stateClient.hDel(this.nodePresenceKey(), sessionId);
     await this.stateClient.multi()
       .del(this.sessionKey(sessionId))
       .sRem(this.key('sessions'), sessionId)

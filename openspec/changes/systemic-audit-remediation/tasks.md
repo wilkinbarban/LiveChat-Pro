@@ -45,10 +45,10 @@ PR 2A starts from committed PR 1 (`b48f25f`) and ends with bounded RAG service w
 
 ## Phase 3: Infrastructure Lifecycle (Cluster 3)
 
-- [ ] 3.1 RED: Write `tests/shutdown.test.js`, `tests/auth-secret.test.js`, `tests/presence.test.js` asserting 3-stage shutdown, side-effect-free auth import, quoted `PORT` healthcheck, and Redis presence crash recovery. Verify: tests run RED. Scope: `tests/shutdown.test.js`, `tests/auth-secret.test.js`, `tests/presence.test.js`. Rollback: revert tests.
-- [ ] 3.2 GREEN: Create `src/services/shutdown.js` and wire `server.js` for idempotent 3-stage shutdown: (1) HTTP/sockets stop, (2) Redis/Socket.IO/timers close, (3) SQLite close. Verify: `node --test tests/shutdown.test.js`. Scope: `src/services/shutdown.js`, `server.js`. Rollback: remove `shutdown.js`, revert `server.js`.
-- [ ] 3.3 GREEN: Refactor `src/security/admin-auth.js` to eliminate disk I/O on module import, deferring secret creation to explicit initialization. Verify: `node --test tests/auth-secret.test.js`. Scope: `src/security/admin-auth.js`. Rollback: revert `src/security/admin-auth.js`.
-- [ ] 3.4 GREEN: Update `cluster-state.js` with 60s lease TTL / 20s renewal loop and crash reconciliation; update `docker-compose.yml` healthcheck regex for quoted `PORT="3000"` parity. Verify: `node --test tests/presence.test.js`. Scope: `cluster-state.js`, `docker-compose.yml`. Rollback: revert `cluster-state.js`, `docker-compose.yml`.
+- [x] 3.1 RED: Write behavior-first lifecycle tests covering three-stage shutdown, composition-root ownership, explicit auth initialization, quoted/invalid PORT, lease expiry, and transient Redis cleanup recovery. Verify: tests run RED. Scope: `tests/shutdown.test.js`, `tests/auth-secret.test.js`, `tests/presence.test.js`. Rollback: revert tests.
+- [x] 3.2 GREEN: Create `src/services/shutdown.js` and wire `server.js` for idempotent ordered shutdown whose independently failing transport cleanups are all attempted and reported. Verify: `node --test tests/shutdown.test.js`. Scope: `src/services/shutdown.js`, `server.js`. Rollback: remove `shutdown.js`, revert `server.js`.
+- [x] 3.3 GREEN: Refactor `src/security/admin-auth.js` so construction and pre-initialization token APIs cannot create the secret; explicitly initialize the composed auth instance during startup. Verify: `node --test tests/auth-secret.test.js tests/boot-without-token.test.js`. Scope: `src/security/admin-auth.js`, `server.js`, compatibility test. Rollback: revert these auth lifecycle changes.
+- [x] 3.4 GREEN: Update `cluster-state.js` with 60s/20s per-node leases and authoritative renewal snapshots that remove stale fields after transient deletion failure; normalize and reject invalid Compose PORT values. Verify: `node --test tests/presence.test.js`. Scope: `cluster-state.js`, `docker-compose.yml`. Rollback: revert those files.
 
 ## Phase 4: Tooling Hygiene & Routers (Cluster 4)
 

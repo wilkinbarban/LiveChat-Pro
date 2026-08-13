@@ -31,6 +31,7 @@ const {
 const { parseCookies } = require('./src/utils/cookies');
 const { createHttpRateLimiters, createMsgRateLimiter } = require('./src/utils/rate-limiters');
 const { createAdminAuth } = require('./src/security/admin-auth');
+const { createShutdownCoordinator } = require('./src/services/shutdown');
 const translator = require('./src/services/translator');
 const { createSettingsService } = require('./src/services/settings');
 const { createThemesService } = require('./src/services/themes');
@@ -213,6 +214,13 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.use(createRequestLoggerMiddleware({ logger, randomUUID: crypto.randomUUID }));
 
+const adminAuth = createAdminAuth({
+  adminPanelPassword: ADMIN_PANEL_PASSWORD,
+  adminSessionTtlMs: ADMIN_SESSION_TTL_MS,
+  adminCookieName: ADMIN_COOKIE_NAME,
+  csrfCookieName: ADMIN_CSRF_COOKIE_NAME,
+  cookieSameSite: COOKIE_SAME_SITE,
+});
 const {
   createAdminToken,
   ensureCsrfCookie,
@@ -221,13 +229,7 @@ const {
   requireCsrf,
   sameSiteForRequest,
   shouldUseSecureAdminCookie,
-} = createAdminAuth({
-  adminPanelPassword: ADMIN_PANEL_PASSWORD,
-  adminSessionTtlMs: ADMIN_SESSION_TTL_MS,
-  adminCookieName: ADMIN_COOKIE_NAME,
-  csrfCookieName: ADMIN_CSRF_COOKIE_NAME,
-  cookieSameSite: COOKIE_SAME_SITE,
-});
+} = adminAuth;
 
 // HTTP rate limiting is applied before routers. Authenticated admin calls are
 // exempted inside the limiter factory.
@@ -506,6 +508,7 @@ async function start() {
   // Startup order matters: database first, optional cluster state second, then
   // hydration. HTTP starts before Telegram so a slow bot launch does not block
   // the health endpoint or local development.
+  adminAuth.initialize();
   logger.info('Iniciando base de datos SQLite...');
   await initDb();
   aiBot.configure({ masterPromptService, ragService });
@@ -582,19 +585,20 @@ async function start() {
   })();
 }
 
-async function shutdown(signal) {
-  // Close external resources that can otherwise keep the process alive during
-  // tests, Docker stops or local Ctrl+C.
-  if (getTelegramStatus()?.status === 'running') {
-    try {
-      getBot()?.stop(signal);
-    } catch (error) {
-      logger.warn({ err: error }, 'No se pudo detener el bot de Telegram');
-    }
-  }
-  closeTranslationCache();
-  await clusterState.close();
-}
+const shutdown = createShutdownCoordinator({
+  logger,
+  stopAcceptance: () => new Promise((resolve, reject) => {
+    if (!httpServer.listening) return resolve();
+    return httpServer.close(error => error ? reject(error) : resolve());
+  }),
+  closeTransports: [
+    signal => { if (getTelegramStatus()?.status === 'running') getBot()?.stop(signal); },
+    closeTranslationCache,
+    () => clusterState.close(),
+    () => new Promise(resolve => io.close(resolve)),
+  ],
+  closeDatabase: closeDb,
+});
 
 process.once('SIGINT', () => {
   shutdown('SIGINT').catch(error => logger.error({ err: error }, 'Error durante SIGINT'));

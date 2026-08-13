@@ -85,11 +85,14 @@ describe('Boot without TELEGRAM_TOKEN & Admin Signing Secret Fallback', () => {
       });
 
     const adminAuthFirst = makeAuth();
+    adminAuthFirst.initialize();
     const token = adminAuthFirst.createAdminToken();
     assert.ok(adminAuthFirst.verifyAdminToken(token));
 
     // A second instance booted without a token verifies the same cookie.
-    assert.ok(makeAuth().verifyAdminToken(token));
+    const adminAuthWithoutToken = makeAuth();
+    adminAuthWithoutToken.initialize();
+    assert.ok(adminAuthWithoutToken.verifyAdminToken(token));
 
     // Adding a telegram token (as server.js used to pass) must NOT change the
     // signing secret — the token is no longer part of the HMAC key.
@@ -102,6 +105,7 @@ describe('Boot without TELEGRAM_TOKEN & Admin Signing Secret Fallback', () => {
       cookieSameSite: 'lax',
       secretFilePath,
     });
+    adminAuthWithToken.initialize();
     assert.ok(adminAuthWithToken.verifyAdminToken(token));
 
     // Rotating the token again keeps the same cookie valid.
@@ -114,6 +118,7 @@ describe('Boot without TELEGRAM_TOKEN & Admin Signing Secret Fallback', () => {
       cookieSameSite: 'lax',
       secretFilePath,
     });
+    adminAuthRotated.initialize();
     assert.ok(adminAuthRotated.verifyAdminToken(token));
   });
 });

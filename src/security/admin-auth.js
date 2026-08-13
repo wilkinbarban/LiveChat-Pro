@@ -47,7 +47,17 @@ function createAdminAuth({
   cookieSameSite,
   secretFilePath,
 }) {
-  const signingSecret = resolveAdminSigningSecret({ secretFilePath });
+  let signingSecret;
+
+  function initialize() {
+    signingSecret ||= resolveAdminSigningSecret({ secretFilePath });
+    return signingSecret;
+  }
+
+  function requireSigningSecret() {
+    if (!signingSecret) throw new Error('Admin authentication is not initialized');
+    return signingSecret;
+  }
 
   // Admin sessions are HMAC-signed with the persisted file secret
   // (data/.admin-secret) and the panel password. Rotating either invalidates
@@ -55,7 +65,7 @@ function createAdminAuth({
   // addition or rotation never logs the admin out.
   function createAdminSignature(payload) {
     return crypto
-      .createHmac('sha256', `${signingSecret}:${adminPanelPassword}`)
+      .createHmac('sha256', `${requireSigningSecret()}:${adminPanelPassword}`)
       .update(payload)
       .digest('hex');
   }
@@ -146,6 +156,7 @@ function createAdminAuth({
   }
 
   return {
+    initialize,
     createAdminToken,
     ensureCsrfCookie,
     verifyCsrf,
