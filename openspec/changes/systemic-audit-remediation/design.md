@@ -24,7 +24,7 @@ Keep SQLite authoritative, Redis ephemeral, and transports publication-only. Add
 | RAG service | `stageText`: 3 MiB UTF-8 maximum. `promotePending`: 10 oldest documents, one transaction each; unpromoted work survives failure. |
 | Presence | Random `nodeId`; 60 s leases renewed every 20 s. Redis scripts update/prune contributions and derive `connected/socketCount`; reconnect rewrites local counts. |
 | Orphans | Startup/daily DB snapshot versus regular upload files; delete only unreferenced files older than 1 hour. Scan failure deletes nothing. |
-| Aliases | Registry fields: `method`, `aliasPath`, `canonicalMethod`, `canonicalPath`, `compatibilityStatus`, `consumerAction`. Middleware logs them plus status/request ID. When deprecated, send `Deprecation`, successor `Link`, and `Warning: 299` naming replacement and action; send `Sunset` only once scheduled. Deprecate after 30 representative zero-use days; remove in a later change after one release or 30 days. |
+| Aliases | Registry fields: `method`, `aliasPath`, `canonicalMethod`, `canonicalPath`, `compatibilityStatus`, `consumerAction`. Newly introduced aliases remain telemetry-only: authenticated use is logged at response finish with the final status/request ID and no deprecation headers. After 30 representative zero-use days, a later change may mark them deprecated and send `Deprecation`, successor `Link`, and `Warning: 299`; send `Sunset` only once scheduled. Remove after one release or 30 days. |
 
 ```text
 request -> validate/resolve+pin -> fetch hop -> count stream -> stageText -> DB

@@ -13,6 +13,9 @@ const { createMasterPromptService } = require('../services/master-prompt');
 const { createSafeFetch } = require('../utils/fetch');
 const { createThemesService } = require('../services/themes');
 const { stripEnvQuotes } = require('../config/index');
+const { createAdminSessionsRouter } = require('./admin-sessions');
+const { createAdminSettingsRouter } = require('./admin-settings');
+const { createAdminRagRouter } = require('./admin-rag');
 
 // Env token used for the empty-save fallback (ADR-5): a cleared settings token
 // falls back to the env token or stops. deps.telegramEnvToken (server-wired)
@@ -330,15 +333,15 @@ function createAdminRouter(deps) {
     res.json({ ok: true });
   });
 
-  router.get('/api/admin/sessions', requireAdmin, async (_req, res) => {
+  const listSessions = async (_req, res) => {
     res.json({ sessions: await listSessionsForAdmin() });
-  });
+  };
 
-  router.get('/api/admin/metrics/general', requireAdmin, async (_req, res) => {
+  const getMetrics = async (_req, res) => {
     res.json({ ok: true, metrics: await getGeneralAdminMetrics() });
-  });
+  };
 
-  router.get('/api/admin/sessions/:sessionId', requireAdmin, async (req, res) => {
+  const getSession = async (req, res) => {
     const session = await ensureSessionLoaded(req.params.sessionId);
     if (!session) return res.status(404).json({ error: 'Sesión no encontrada' });
 
@@ -346,9 +349,8 @@ function createAdminRouter(deps) {
       session: serializeSession(session),
       messages: await Promise.all(session.messages.map(serializeMessageForAdmin)),
     });
-  });
-
-  router.post('/api/admin/sessions/:sessionId/message', requireAdmin, requireCsrf, async (req, res) => {
+  };
+  const sendMessage = async (req, res) => {
     const session = await ensureSessionLoaded(req.params.sessionId);
     if (!session) return res.status(404).json({ error: 'Sesión no encontrada' });
 
@@ -377,9 +379,9 @@ function createAdminRouter(deps) {
       message: await serializeMessageForAdmin(result.message),
       session: serializeSession(session),
     });
-  });
+  };
 
-  router.post('/api/admin/sessions/:sessionId/read', requireAdmin, requireCsrf, async (req, res) => {
+  const markRead = async (req, res) => {
     const session = await ensureSessionLoaded(req.params.sessionId);
     if (!session) return res.status(404).json({ error: 'Sesión no encontrada' });
 
@@ -406,10 +408,10 @@ function createAdminRouter(deps) {
     await syncSharedSession(session);
     broadcastAdminSessionUpdate(session, { reason: `${reader}_read` });
     return res.json({ ok: true, session: serializeSession(session) });
-  });
+  };
 
 
-  router.post('/api/admin/sessions/:sessionId/bot', requireAdmin, requireCsrf, async (req, res) => {
+  const toggleBot = async (req, res) => {
     try {
       const { sessionId } = req.params;
       const enabled = req.body?.enabled === true || req.body?.enabled === 'true';
@@ -424,9 +426,9 @@ function createAdminRouter(deps) {
       logger.error({ err }, 'Error toggling bot for session');
       res.status(500).json({ error: 'Internal error' });
     }
-  });
+  };
 
-  router.post('/api/admin/sessions/:sessionId/typing', requireAdmin, requireCsrf, async (req, res) => {
+  const sendTyping = async (req, res) => {
     const session = await ensureSessionLoaded(req.params.sessionId);
     if (!session) return res.status(404).json({ error: 'Sesión no encontrada' });
 
@@ -436,39 +438,39 @@ function createAdminRouter(deps) {
     }
 
     return res.json({ ok: true, active });
-  });
+  };
 
-  router.post('/api/admin/sessions/:sessionId/clear', requireAdmin, requireCsrf, async (req, res) => {
+  const clearChat = async (req, res) => {
     const session = await ensureSessionLoaded(req.params.sessionId);
     if (!session) return res.status(404).json({ error: 'Sesión no encontrada' });
 
     await clearSessionChat(session);
     return res.json({ ok: true, session: serializeSession(session), messages: [] });
-  });
+  };
 
-  router.delete('/api/admin/sessions/:sessionId', requireAdmin, requireCsrf, async (req, res) => {
+  const removeSession = async (req, res) => {
     const session = await ensureSessionLoaded(req.params.sessionId);
     if (!session) return res.status(404).json({ error: 'Sesión no encontrada' });
 
     await deleteAdminSession(session);
     return res.json({ ok: true });
-  });
+  };
 
-  router.post('/api/admin/sessions/:sessionId/ban', requireAdmin, requireCsrf, async (req, res) => {
+  const handleBanSession = async (req, res) => {
     const session = await ensureSessionLoaded(req.params.sessionId);
     if (!session) return res.status(404).json({ error: 'Sesión no encontrada' });
 
     await banSession(session, 'banned');
     return res.json({ ok: true, session: serializeSession(session) });
-  });
+  };
 
-  router.post('/api/admin/sessions/:sessionId/block', requireAdmin, requireCsrf, async (req, res) => {
+  const blockSession = async (req, res) => {
     const session = await ensureSessionLoaded(req.params.sessionId);
     if (!session) return res.status(404).json({ error: 'Sesión no encontrada' });
 
     await banSession(session, 'blocked');
     return res.json({ ok: true, session: serializeSession(session) });
-  });
+  };
 
   // ── LLM Settings Routes ───────────────────────────────────────────
   async function handleGetLlmSettings(_req, res) {
@@ -521,10 +523,7 @@ function createAdminRouter(deps) {
     }
   }
 
-  router.get('/api/admin/llm', requireAdmin, handleGetLlmSettings);
-  router.get('/api/admin/settings/llm', requireAdmin, handleGetLlmSettings);
-
-  router.post('/api/admin/settings/llm/verify-key', requireAdmin, requireCsrf, async (req, res) => {
+  const verifyLlmKey = async (req, res) => {
     try {
       const { provider, apiKey, model } = req.body || {};
       const normProvider = String(provider || '').toLowerCase().trim();
@@ -556,7 +555,7 @@ function createAdminRouter(deps) {
       logger.error?.({ err }, 'Error verifying LLM key');
       return res.status(500).json({ ok: false, error: 'Internal server error' });
     }
-  });
+  };
 
   async function handlePutLlmProvider(req, res) {
     try {
@@ -622,9 +621,6 @@ function createAdminRouter(deps) {
     }
   }
 
-  router.put('/api/admin/llm/providers/:name', requireAdmin, requireCsrf, handlePutLlmProvider);
-  router.put('/api/admin/settings/llm/providers/:name', requireAdmin, requireCsrf, handlePutLlmProvider);
-
   async function handlePutLlmSettings(req, res) {
     try {
       if (req.body?.enabled !== undefined) {
@@ -645,9 +641,7 @@ function createAdminRouter(deps) {
     }
   }
 
-  router.put('/api/admin/settings/llm', requireAdmin, requireCsrf, handlePutLlmSettings);
-
-  router.put('/api/admin/llm/default', requireAdmin, requireCsrf, async (req, res) => {
+  const putLlmDefault = async (req, res) => {
     try {
       const provider = String(req.body?.provider || '').toLowerCase().trim();
       const supported = llmService.getSupportedProviders();
@@ -674,9 +668,9 @@ function createAdminRouter(deps) {
       logger.error?.({ err }, 'Error updating default LLM provider');
       return res.status(500).json({ ok: false, error: 'Internal server error' });
     }
-  });
+  };
 
-  router.put('/api/admin/llm/enabled', requireAdmin, requireCsrf, async (req, res) => {
+  const putLlmEnabled = async (req, res) => {
     try {
       const enabled = Boolean(req.body?.enabled);
       await settingsService.setJSON('ai.enabled', enabled);
@@ -686,7 +680,7 @@ function createAdminRouter(deps) {
       logger.error?.({ err }, 'Error updating global AI enabled state');
       return res.status(500).json({ ok: false, error: 'Internal server error' });
     }
-  });
+  };
 
   // ── Master Prompt Admin Routes ────────────────────────────────────
   const handleGetMasterPrompt = async (_req, res) => {
@@ -712,11 +706,6 @@ function createAdminRouter(deps) {
       return res.status(500).json({ ok: false, error: 'Internal server error' });
     }
   };
-
-  router.get('/api/admin/master-prompt', requireAdmin, handleGetMasterPrompt);
-  router.get('/api/admin/settings/prompt', requireAdmin, handleGetMasterPrompt);
-  router.put('/api/admin/master-prompt', requireAdmin, requireCsrf, handlePutMasterPrompt);
-  router.put('/api/admin/settings/prompt', requireAdmin, requireCsrf, handlePutMasterPrompt);
 
   // ── Telegram Admin Routes ─────────────────────────────────────────
   async function handleGetTelegramStatus(_req, res) {
@@ -750,10 +739,7 @@ function createAdminRouter(deps) {
     }
   }
 
-  router.get('/api/admin/telegram/status', requireAdmin, handleGetTelegramStatus);
-  router.get('/api/admin/settings/telegram', requireAdmin, handleGetTelegramStatus);
-
-  router.post('/api/admin/telegram/start', requireAdmin, requireCsrf, async (_req, res) => {
+  const startTelegram = async (_req, res) => {
     try {
       const result = await telegramBot.startTelegramBot?.();
       return res.json({ ok: true, status: result?.status || 'running' });
@@ -761,9 +747,9 @@ function createAdminRouter(deps) {
       logger.error?.({ err }, 'Error starting Telegram bot');
       return res.status(400).json({ ok: false, error: err.message || 'Could not start Telegram bot', status: 'not-configured' });
     }
-  });
+  };
 
-  router.post('/api/admin/telegram/stop', requireAdmin, requireCsrf, async (_req, res) => {
+  const stopTelegram = async (_req, res) => {
     try {
       const result = await telegramBot.stopTelegramBot?.();
       return res.json({ ok: true, status: result?.status || 'stopped' });
@@ -771,7 +757,7 @@ function createAdminRouter(deps) {
       logger.error?.({ err }, 'Error stopping Telegram bot');
       return res.status(500).json({ ok: false, error: 'Internal server error' });
     }
-  });
+  };
 
   // Current admin ID for reconfigure calls: persisted settings win, the live
   // singleton falls back.
@@ -872,9 +858,6 @@ function createAdminRouter(deps) {
     }
   }
 
-  router.put('/api/admin/telegram/admin-id', requireAdmin, requireCsrf, handlePutTelegram);
-  router.put('/api/admin/settings/telegram', requireAdmin, requireCsrf, handlePutTelegram);
-
   // ── Themes Settings Routes ─────────────────────────────────────────
   async function handleGetThemeSettings(_req, res) {
     try {
@@ -886,9 +869,6 @@ function createAdminRouter(deps) {
       return res.status(500).json({ error: 'Internal server error' });
     }
   }
-
-  router.get('/api/admin/themes', requireAdmin, handleGetThemeSettings);
-  router.get('/api/admin/settings/theme', requireAdmin, handleGetThemeSettings);
 
   async function handlePutThemeSettings(req, res) {
     try {
@@ -906,9 +886,6 @@ function createAdminRouter(deps) {
       return res.status(500).json({ ok: false, error: 'Internal server error' });
     }
   }
-
-  router.put('/api/admin/themes/active', requireAdmin, requireCsrf, handlePutThemeSettings);
-  router.put('/api/admin/settings/theme', requireAdmin, requireCsrf, handlePutThemeSettings);
 
   // ── RAG Admin Routes ──────────────────────────────────────────────
   let ragReadinessCache = null;
@@ -955,7 +932,7 @@ function createAdminRouter(deps) {
     return { ready: true, reason: null, pendingCount };
   }
 
-  router.get('/api/admin/rag/documents', requireAdmin, async (_req, res) => {
+  const listRagDocuments = async (_req, res) => {
     try {
       const documents = await ragService.listDocuments();
       return res.json({ ok: true, documents });
@@ -963,18 +940,18 @@ function createAdminRouter(deps) {
       logger.error?.({ err }, 'Error listing RAG documents');
       return res.status(500).json({ ok: false, error: 'Internal server error' });
     }
-  });
+  };
 
-  router.get('/api/admin/rag/status', requireAdmin, async (_req, res) => {
+  const getRagStatus = async (_req, res) => {
     try {
       return res.json({ ok: true, ...(await getRagIndexReadiness()) });
     } catch (err) {
       logger.error?.({ err }, 'Error checking RAG indexing readiness');
       return res.status(500).json({ ok: false, error: 'Internal server error' });
     }
-  });
+  };
 
-  router.post('/api/admin/rag/index', requireAdmin, requireCsrf, async (_req, res) => {
+  const indexRagDocuments = async (_req, res) => {
     try {
       const readiness = await getRagIndexReadiness();
       if (!readiness.ready) return res.status(409).json({ ok: false, ...readiness });
@@ -984,9 +961,9 @@ function createAdminRouter(deps) {
       logger.error?.({ err }, 'Error promoting pending RAG documents');
       return res.status(500).json({ ok: false, error: err.message || 'Internal server error' });
     }
-  });
+  };
 
-  router.delete('/api/admin/rag/documents/:id', requireAdmin, requireCsrf, async (req, res) => {
+  const removeRagDocument = async (req, res) => {
     try {
       const id = req.params.id;
       await ragService.deleteDocument(id);
@@ -995,7 +972,7 @@ function createAdminRouter(deps) {
       logger.error?.({ err }, 'Error deleting RAG document');
       return res.status(500).json({ ok: false, error: 'Internal server error' });
     }
-  });
+  };
 
   async function handleIngestText(req, res) {
     try {
@@ -1015,9 +992,6 @@ function createAdminRouter(deps) {
       return res.status(500).json({ ok: false, error: err.message || 'Internal server error' });
     }
   }
-  router.post('/api/admin/rag/documents/text', requireAdmin, requireCsrf, handleIngestText);
-  router.post('/api/admin/rag/ingest-text', requireAdmin, requireCsrf, handleIngestText);
-
   async function handleIngestUrl(req, res) {
     try {
       const { url, title, mode, includePaths } = req.body || {};
@@ -1082,9 +1056,6 @@ function createAdminRouter(deps) {
       return res.status(500).json({ ok: false, error: err.message || 'Internal server error' });
     }
   }
-  router.post('/api/admin/rag/documents/url', requireAdmin, requireCsrf, handleIngestUrl);
-  router.post('/api/admin/rag/ingest-url', requireAdmin, requireCsrf, handleIngestUrl);
-
   const uploadPdfMiddleware = multer({
     storage: multer.memoryStorage(),
     limits: {
@@ -1148,8 +1119,28 @@ function createAdminRouter(deps) {
   }
 
   const uploadPdf = runPdfUpload(uploadPdfMiddleware);
-  router.post('/api/admin/rag/documents/file', requireAdmin, requireCsrf, uploadPdf, handleIngestPdf);
-  router.post('/api/admin/rag/ingest-pdf', requireAdmin, requireCsrf, uploadPdf, handleIngestPdf);
+  const sessionsRouter = createAdminSessionsRouter({
+    requireAdmin, requireCsrf, logger,
+    handlers: { listSessions, getMetrics, getSession, sendMessage, markRead, toggleBot, sendTyping, clearChat, deleteSession: removeSession, banSession: handleBanSession, blockSession },
+  });
+  const settingsRouter = createAdminSettingsRouter({
+    requireAdmin, requireCsrf,
+    handlers: {
+      getLlm: handleGetLlmSettings, verifyLlmKey, putLlmProvider: handlePutLlmProvider,
+      putLlm: handlePutLlmSettings, putLlmDefault, putLlmEnabled,
+      getPrompt: handleGetMasterPrompt, putPrompt: handlePutMasterPrompt,
+      getTelegram: handleGetTelegramStatus, startTelegram, stopTelegram, putTelegram: handlePutTelegram,
+      getTheme: handleGetThemeSettings, putTheme: handlePutThemeSettings,
+    },
+  });
+  const ragRouter = createAdminRagRouter({
+    requireAdmin, requireCsrf, uploadPdf,
+    handlers: { listDocuments: listRagDocuments, getStatus: getRagStatus, indexDocuments: indexRagDocuments, deleteDocument: removeRagDocument, ingestText: handleIngestText, ingestUrl: handleIngestUrl, ingestPdf: handleIngestPdf },
+  });
+
+  router.use(sessionsRouter);
+  router.use(settingsRouter);
+  router.use(ragRouter);
 
   return router;
 }
