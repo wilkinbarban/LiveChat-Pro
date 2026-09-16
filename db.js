@@ -19,7 +19,7 @@ let dbPromise = null;
 let transactionTail = Promise.resolve();
 
 function isDuplicateColumn(error) {
-  return error?.code === 'SQLITE_ERROR' && /duplicate column name/i.test(error.message || '');
+  return (error?.code === 'SQLITE_ERROR' || error?.code === 'ERR_SQLITE_ERROR') && /duplicate column name/i.test(error.message || '');
 }
 
 async function runMigrations(connection, migrations, logger = console) {
